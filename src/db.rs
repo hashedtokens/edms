@@ -158,8 +158,8 @@ pub fn create_collection_from_active(core: &EdmsCore, collection: &str) -> EdmsR
     let mut inserted = 0usize;
 
     for eid in endpoint_ids {
-        // ignore duplicates: bookmarks has no unique constraint in schema, so we just insert
-        // if you want de-dupe: add UNIQUE(endpoint_id, folder) in schema and use INSERT OR IGNORE
+       
+        
         inserted += core.proc(
             "INSERT INTO bookmarks (endpoint_id, folder, notes) VALUES (?, ?, NULL)",
             &[&eid, &collection],
@@ -175,7 +175,7 @@ pub fn load_collection_into_active(core: &EdmsCore, collection: &str) -> EdmsRes
     let moved_to_backup = active_count > 0;
 
     if moved_to_backup {
-        // copy active into backup (append)
+        // copy active into backup
         let endpoint_ids = list_bookmarked_endpoints_active(core)?;
         for eid in endpoint_ids {
             let _ = core.proc(
@@ -197,7 +197,7 @@ pub fn load_collection_into_active(core: &EdmsCore, collection: &str) -> EdmsRes
     Ok((moved_to_backup, loaded))
 }
 
-/* ---------------- helpers ---------------- */
+
 
 pub fn endpoints_for_ids(core: &EdmsCore, queries: &QueryMap, ids: &[String]) -> EdmsResult<Vec<EndpointDto>> {
     // Not super efficient but fine for “make it work”
