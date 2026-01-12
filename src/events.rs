@@ -11,7 +11,7 @@ pub enum ServerEvent {
     BookmarksUpdated { count: usize },
     FolderBecameActive { folder: String },
 
-(useful for Test View)
+
     TestStarted { endpoint_id: String, request_number: i32 },
     TestFinished {
         endpoint_id: String,
