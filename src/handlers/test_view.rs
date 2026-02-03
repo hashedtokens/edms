@@ -87,9 +87,14 @@ pub async fn save_history(
 
             (StatusCode::OK, Json(json!({ "ok": true, "history_count": count })))
         }
-        Ok(Err(e)) | Err(e) => (
+        // FIX #4: Separate error handling for different error types
+        Ok(Err(db_err)) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "ok": false, "error": format!("{e:?}") })),
+            Json(json!({ "ok": false, "error": format!("database error: {db_err:?}") })),
+        ),
+        Err(join_err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": format!("task error: {join_err:?}") })),
         ),
     }
 }
@@ -128,9 +133,13 @@ pub async fn save_bookmark(
 
             (StatusCode::OK, Json(json!({ "ok": true, "bookmark_count": count })))
         }
-        Ok(Err(e)) | Err(e) => (
+        Ok(Err(db_err)) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "ok": false, "error": format!("{e:?}") })),
+            Json(json!({ "ok": false, "error": format!("database error: {db_err:?}") })),
+        ),
+        Err(join_err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": format!("task error: {join_err:?}") })),
         ),
     }
 }
@@ -170,9 +179,13 @@ pub async fn clear_history(State(state): State<AppState>) -> (StatusCode, Json<s
             state.emit(ServerEvent::HistoryUpdated { count: 0 }).await;
             (StatusCode::OK, Json(json!({ "ok": true })))
         }
-        Ok(Err(e)) | Err(e) => (
+        Ok(Err(db_err)) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "ok": false, "error": format!("{e:?}") })),
+            Json(json!({ "ok": false, "error": format!("database error: {db_err:?}") })),
+        ),
+        Err(join_err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": format!("task error: {join_err:?}") })),
         ),
     }
 }
@@ -190,9 +203,13 @@ pub async fn clear_bookmarks(State(state): State<AppState>) -> (StatusCode, Json
             state.emit(ServerEvent::BookmarksUpdated { count: 0 }).await;
             (StatusCode::OK, Json(json!({ "ok": true })))
         }
-        Ok(Err(e)) | Err(e) => (
+        Ok(Err(db_err)) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "ok": false, "error": format!("{e:?}") })),
+            Json(json!({ "ok": false, "error": format!("database error: {db_err:?}") })),
+        ),
+        Err(join_err) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": format!("task error: {join_err:?}") })),
         ),
     }
 }
@@ -306,23 +323,21 @@ async fn handle_ws_run(mut socket: WebSocket, state: AppState) {
             match parsed {
                 Ok(ClientMsg::Run { endpoint_id, method, request_json, timeout_ms, notify_only }) => {
                     let timeout_ms = timeout_ms.unwrap_or(60_000);
-                    let notify_only = notify_only.unwrap_or(false);
+                    let _notify_only = notify_only.unwrap_or(false); // FIX #14: Prefix with _ to silence warning
 
-                    // Spawn the test so socket stays responsive.
-                    // If notify_only=false we also send a direct run_result.
-                    let st2 = state.clone();
-                    let mut socket_clone = socket.clone(); // axum ws socket isn't Clone; so we can't.
-                    // We'll instead always ACK immediately and rely on events for result.
-                    // (This matches "notification delivery" pattern cleanly.)
-
-                    let ack = json!({"type":"ack","ok":true,"queued":true,"endpoint_id": endpoint_id});
+                    // FIX #1 & #2: Properly clone state and remove dead socket_clone code
+                    let ack = json!({"type":"ack","ok":true,"queued":true,"endpoint_id": &endpoint_id});
                     let _ = socket.send(Message::Text(ack.to_string())).await;
 
-                    tokio::spawn(async move {
-                        if let Err(e) = run_test_impl(st2, endpoint_id, method, request_json, timeout_ms).await {
-                            let _ = st2.events_tx.send(ServerEvent::Error { message: format!("{e:?}") });
+                    // Spawn the test with properly cloned state
+                    tokio::spawn({
+                        let st = state.clone();
+                        let endpoint_id = endpoint_id.clone();
+                        async move {
+                            if let Err(e) = run_test_impl(&st, &endpoint_id, &method, request_json, timeout_ms).await {
+                                let _ = st.events_tx.send(ServerEvent::Error { message: format!("{e:?}") });
+                            }
                         }
-                        let _ = notify_only; // (kept for future: choose REST/WS delivery)
                     });
                 }
                 Err(e) => {
@@ -334,17 +349,19 @@ async fn handle_ws_run(mut socket: WebSocket, state: AppState) {
     }
 }
 
+// FIX #7: Changed signature to take references to avoid unnecessary cloning
+// and wrapped file I/O in spawn_blocking
 async fn run_test_impl(
-    state: AppState,
-    endpoint_id: String,
-    method: String,
+    state: &AppState,
+    endpoint_id: &str,
+    method: &str,
     request_json: Value,
     timeout_ms: u64,
 ) -> Result<(), EdmsError> {
     // 1) load endpoint url from DB
     let endpoint = tokio::task::spawn_blocking({
         let st = state.clone();
-        let id = endpoint_id.clone();
+        let id = endpoint_id.to_string();
         move || db::get_endpoint(&st.core, &st.queries, &id)
     })
     .await
@@ -355,39 +372,52 @@ async fn run_test_impl(
     // 2) next request number
     let request_number = tokio::task::spawn_blocking({
         let st = state.clone();
-        let id = endpoint_id.clone();
+        let id = endpoint_id.to_string();
         move || db::get_next_request_number(&st.core, &st.queries, &id)
     })
     .await
     .map_err(|_| EdmsError::UnknownError)?
     .map_err(|_| EdmsError::UnknownError)?;
 
-    // 3) write request json + insert request metadata
-    let request_file =
-        file_io::write_request_json(&endpoint_id, request_number, &request_json)
-            .map_err(|_| EdmsError::UnknownError)?;
-
-    let method_upper = method.to_uppercase();
-
-    tokio::task::spawn_blocking({
-        let st = state.clone();
-        let endpoint_id2 = endpoint_id.clone();
-        let request_file2 = request_file.clone();
-        let method2 = method_upper.clone();
-        move || db::insert_request_metadata(&st.core, &st.queries, &endpoint_id2, request_number, &request_file2, &method2)
+    // FIX #7: Wrap file I/O in spawn_blocking
+    let request_file = tokio::task::spawn_blocking({
+        let endpoint_id = endpoint_id.to_string();
+        let request_json = request_json.clone();
+        move || file_io::write_request_json(&endpoint_id, request_number, &request_json)
     })
     .await
     .map_err(|_| EdmsError::UnknownError)?
     .map_err(|_| EdmsError::UnknownError)?;
 
-    let _ = state.events_tx.send(ServerEvent::TestStarted { endpoint_id: endpoint_id.clone(), request_number });
+    let method_upper = method.to_uppercase();
+
+    tokio::task::spawn_blocking({
+        let st = state.clone();
+        let endpoint_id = endpoint_id.to_string();
+        let request_file = request_file.clone();
+        let method = method_upper.clone();
+        move || db::insert_request_metadata(&st.core, &st.queries, &endpoint_id, request_number, &request_file, &method)
+    })
+    .await
+    .map_err(|_| EdmsError::UnknownError)?
+    .map_err(|_| EdmsError::UnknownError)?;
+
+    let _ = state.events_tx.send(ServerEvent::TestStarted { 
+        endpoint_id: endpoint_id.to_string(), 
+        request_number 
+    });
 
     // 4) do HTTP call with timeout
     let url = endpoint.endpoint_str.clone();
     let method_parsed = method_upper.parse::<axum::http::Method>().unwrap_or(axum::http::Method::POST);
 
+    // FIX #12: Use shared HTTP client from AppState for connection pooling
+    let client = state.http_client.clone();
+    
+    let events_tx = state.events_tx.clone();
+    let endpoint_id_owned = endpoint_id.to_string();
+    
     let future = async {
-        let client = reqwest::Client::new();
         let start = Instant::now();
 
         let resp = match method_parsed {
@@ -398,7 +428,8 @@ async fn run_test_impl(
             _ => client.request(method_parsed.clone(), &url).json(&request_json).send().await,
         };
 
-        let elapsed_ms = start.elapsed().as_millis() as i32;
+        // FIX #13: Use saturating conversion to avoid overflow
+        let elapsed_ms = start.elapsed().as_millis().min(i32::MAX as u128) as i32;
 
         let (status_code, response_value) = match resp {
             Ok(r) => {
@@ -408,7 +439,7 @@ async fn run_test_impl(
                 (status, v)
             }
             Err(e) => {
-                let _ = state.events_tx.send(ServerEvent::Error { message: e.to_string() });
+                let _ = events_tx.send(ServerEvent::Error { message: e.to_string() });
                 (599, json!({ "error": e.to_string() }))
             }
         };
@@ -420,15 +451,20 @@ async fn run_test_impl(
 
     match timed {
         Ok(Ok((status, elapsed_ms, response_value))) => {
-            let response_file =
-                file_io::write_response_json(&endpoint_id, request_number, &response_value)
-                    .map_err(|_| EdmsError::UnknownError)?;
+            // FIX #7: Wrap file I/O in spawn_blocking
+            let response_file = tokio::task::spawn_blocking({
+                let endpoint_id = endpoint_id.to_string();
+                move || file_io::write_response_json(&endpoint_id, request_number, &response_value)
+            })
+            .await
+            .map_err(|_| EdmsError::UnknownError)?
+            .map_err(|_| EdmsError::UnknownError)?;
 
             tokio::task::spawn_blocking({
                 let st = state.clone();
-                let endpoint_id2 = endpoint_id.clone();
-                let response_file2 = response_file.clone();
-                move || db::insert_response_metadata(&st.core, &st.queries, &endpoint_id2, request_number, &response_file2, status, Some(elapsed_ms))
+                let endpoint_id = endpoint_id.to_string();
+                let response_file = response_file.clone();
+                move || db::insert_response_metadata(&st.core, &st.queries, &endpoint_id, request_number, &response_file, status, Some(elapsed_ms))
             })
             .await
             .map_err(|_| EdmsError::UnknownError)?
@@ -446,13 +482,13 @@ async fn run_test_impl(
 
             let _ = tokio::task::spawn_blocking({
                 let st = state.clone();
-                let endpoint_id2 = endpoint_id.clone();
-                move || db::insert_history(&st.core, &endpoint_id2, "test_finished", Some(&details))
+                let endpoint_id = endpoint_id.to_string();
+                move || db::insert_history(&st.core, &endpoint_id, "test_finished", Some(&details))
             }).await;
 
             // notify
             let _ = state.events_tx.send(ServerEvent::TestFinished {
-                endpoint_id: endpoint_id.clone(),
+                endpoint_id: endpoint_id_owned,
                 request_number,
                 status_code: status,
                 response_time_ms: elapsed_ms,
@@ -474,19 +510,25 @@ async fn run_test_impl(
             Ok(())
         }
         Err(_) => {
-            let _ = state.events_tx.send(ServerEvent::TestTimeout { endpoint_id: endpoint_id.clone(), request_number });
+            let _ = state.events_tx.send(ServerEvent::TestTimeout { 
+                endpoint_id: endpoint_id_owned, 
+                request_number 
+            });
             Ok(())
         }
     }
 }
 
+// FIX #6: Changed from indices to endpoint_ids to avoid race condition
 #[derive(Debug, Deserialize)]
 struct AddFromHistoryCmd {
-    indices: Vec<usize>,
+    // Changed: Now accepts endpoint_ids directly instead of indices
+    endpoint_ids: Vec<String>,
 }
 
-async fn handle_ws_add_from_history(mut socket: WebSocket, state: AppState, bookmark: String) {
-    let hello = json!({"type":"info","message": format!("connected: add to bookmark '{bookmark}'")});
+async fn handle_ws_add_from_history(mut socket: WebSocket, state: AppState, _bookmark: String) {
+    // FIX #15: Acknowledged that bookmark param exists but we're using __active__
+    let hello = json!({"type":"info","message": "connected: add to active bookmarks"});
     let _ = socket.send(Message::Text(hello.to_string())).await;
 
     while let Some(Ok(msg)) = socket.recv().await {
@@ -494,16 +536,15 @@ async fn handle_ws_add_from_history(mut socket: WebSocket, state: AppState, book
             let parsed: Result<AddFromHistoryCmd, _> = serde_json::from_str(&txt);
             match parsed {
                 Ok(cmd) => {
-                    // take history endpoint_ids by indices and add to active bookmarks
+                    // FIX #6: Use endpoint_ids directly instead of indices
                     let res = tokio::task::spawn_blocking({
                         let st = state.clone();
+                        let endpoint_ids = cmd.endpoint_ids;
                         move || {
-                            let ids = db::list_history_endpoint_ids(&st.core)?;
                             let mut added = 0usize;
-                            for &i in &cmd.indices {
-                                if let Some(eid) = ids.get(i) {
-                                    added += db::insert_bookmark_active(&st.core, eid, None)?;
-                                }
+                            for eid in &endpoint_ids {
+                                // This now uses the fixed insert_bookmark_active with IGNORE
+                                added += db::insert_bookmark_active(&st.core, eid, None)?;
                             }
                             Ok::<usize, EdmsError>(added)
                         }
@@ -545,8 +586,8 @@ struct DeleteFromBookmarkCmd {
     endpoint_ids: Vec<String>,
 }
 
-async fn handle_ws_delete_from_bookmark(mut socket: WebSocket, state: AppState, bookmark: String) {
-    let hello = json!({"type":"info","message": format!("connected: delete from bookmark '{bookmark}'")});
+async fn handle_ws_delete_from_bookmark(mut socket: WebSocket, state: AppState, _bookmark: String) {
+    let hello = json!({"type":"info","message": "connected: delete from active bookmarks"});
     let _ = socket.send(Message::Text(hello.to_string())).await;
 
     while let Some(Ok(msg)) = socket.recv().await {
@@ -595,3 +636,4 @@ async fn handle_ws_delete_from_bookmark(mut socket: WebSocket, state: AppState, 
         }
     }
 }
+
