@@ -2,6 +2,7 @@ mod db;
 mod events;
 mod handlers;
 mod state;
+mod timer;
 
 use axum::{
     routing::{get, post},
@@ -25,7 +26,7 @@ use handlers::{
         ws_add_from_history_to_bookmark, ws_delete_from_bookmark, ws_load_bookmarks,
         ws_load_endpoints, ws_run,
     },
-    views::{home, list_view, test_view},
+    view::{home, list_view, test_view},
 };
 
 #[tokio::main]

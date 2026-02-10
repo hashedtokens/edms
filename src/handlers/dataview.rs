@@ -25,7 +25,11 @@ pub async fn delete_folder(
 
     match res {
         Ok(Ok(())) => (StatusCode::OK, Json(json!({ "ok": true, "deleted_folder": folder }))),
-        Ok(Err(e)) | Err(e) => (
+        Ok(Err(e)) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": format!("{e:?}") })),
+        ),
+        Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({ "ok": false, "error": format!("{e:?}") })),
         ),

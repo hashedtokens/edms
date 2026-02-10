@@ -5,7 +5,6 @@ use axum::{
     Json,
 };
 use serde_json::json;
-
 use crate::{db, events::ServerEvent, state::AppState};
 
 pub async fn create_collection(
@@ -24,7 +23,11 @@ pub async fn create_collection(
             StatusCode::OK,
             Json(json!({ "ok": true, "collection": collection, "inserted": inserted })),
         ),
-        Ok(Err(e)) | Err(e) => (
+        Ok(Err(e)) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": format!("{e:?}") })),
+        ),
+        Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({ "ok": false, "error": format!("{e:?}") })),
         ),
@@ -57,7 +60,6 @@ async fn handle_ws_load_collection(mut socket: WebSocket, state: AppState, colle
                     moved_to_backup,
                 })
                 .await;
-
             // also emit bookmark count updated
             let count = tokio::task::spawn_blocking({
                 let st = state.clone();
@@ -67,9 +69,7 @@ async fn handle_ws_load_collection(mut socket: WebSocket, state: AppState, colle
             .ok()
             .and_then(|x| x.ok())
             .unwrap_or(0);
-
             state.emit(ServerEvent::BookmarksUpdated { count }).await;
-
             let resp = json!({
                 "type": "collection_loaded",
                 "collection": collection,
@@ -78,7 +78,7 @@ async fn handle_ws_load_collection(mut socket: WebSocket, state: AppState, colle
             });
             let _ = socket.send(Message::Text(resp.to_string())).await;
         }
-        _ => {
+        Ok(Err(_)) | Err(_) => {
             let resp = json!({"type":"error","message":"failed to load collection"});
             let _ = socket.send(Message::Text(resp.to_string())).await;
             return;
