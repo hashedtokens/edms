@@ -36,7 +36,7 @@ Consider a simple endpoint `/my/test/`
   y: Q
 }
 ```
-Based on the example above, one can infer that, there's nothing really sacred about the requests and response, however when the data flows through multiple microservices where logic acts on these pairs per endpoint, it causes strain the developer workflows. 
+Based on the example above, one can infer that, there's nothing really sacred about the requests and response, however when the data flows through multiple microservices where logic acts on these pairs per endpoint, it induces strain in the developer workflows. 
 
 This is where EDMS comes to the rescue. 
 
