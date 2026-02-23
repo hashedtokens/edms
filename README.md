@@ -13,6 +13,8 @@ Endpoints during the development phases keep changing continuously, and when sev
 
 ### Issue with Request/Response Pairs 
 Be it `( dev, prod, test )`, developers write logic where, the key from the payload if different leads to a different response. 
+
+Consider a simple endpoint `/my/test/`
 ```json
 # request-1
 { k1: A,
