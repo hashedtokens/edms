@@ -1,5 +1,5 @@
 # Endpoint Data Management System (EDMS)
-Standalone endpoint data storage enabling versioning for accelerating developer collaboration on a day to day basis
+Standalone service enabling versioning for accelerating developer collaboration on a day to day basis
 
 ## Features
 * **Web View** - Users can create a static website view for all the filtered set of endpoin
@@ -14,6 +14,7 @@ Endpoints during the development phases keep changing continuously, and when sev
 Designing endpoints well in advance is generally not possible, and prevents continuous iterations, as systems keep evolving over time. Accumulating complexity can be refactored, but not necessarily completely eliminated. 
 
 An often overlooked piece of information is `endpoints` often have multiple pairs of requests and responses associated with it. This implies, all the allowed pairs per endpoint be stored, and documented, which often is not the case. 
+
 
 ### Issue with Request/Response Pairs 
 Be it `( dev, prod, test )`, developers write logic where, the key from the payload if different leads to a different response. 
