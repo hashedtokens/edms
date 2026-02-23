@@ -29,7 +29,7 @@ Be it `( dev, prod, test )`, developers write logic where, the key from the payl
   k2: v2
 }
 
-# response-1
+# response-2
 {
   y: Q
 }
