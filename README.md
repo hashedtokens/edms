@@ -1,5 +1,5 @@
 # Endpoint Data Management System (EDMS)
-Standalone service enabling versioning for accelerating developer collaboration on a day to day basis
+_Standalone server enabling versioning for accelerating day to day developer collaboration_
 
 ## Features
 * **Web View** - Users can create a static website view for all the filtered set of endpoin
