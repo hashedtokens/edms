@@ -1,5 +1,5 @@
 # Endpoint Data Management System (EDMS)
-_Standalone server for building microservices efficiently_
+_Standalone system for building microservices efficiently_
 
 ## Features
 * **Web View** - Users can create a static website view for all the filtered set of endpoin
