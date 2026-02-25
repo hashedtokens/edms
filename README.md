@@ -11,7 +11,7 @@ _Standalone server for building microservices efficiently_
 ## Core Idea 
 Endpoints during the development phases keep changing continuously, and when several team members are working together, it gets tough to keep track of changes. This naturally introduces team coordination issues because changing a single key can break all the dependent microservices. 
 
-Designing endpoints well in advance is generally not possible, and prevents continuous iterations, as systems keep evolving over time. Accumulating complexity can be refactored, but not necessarily completely eliminated. 
+Designing endpoints well in advance is generally not possible, and prevents continuous iterations, as systems keep evolving over time. Accumulating complexity can be refactored, but not necessarily completely eliminated with a strict design in place. Flexibility to modify endpoint data accelerates the overall development process. 
 
 An often overlooked piece of information is `endpoints` often have multiple pairs of requests and responses associated with it. This implies, all the allowed pairs per endpoint be stored, and documented, which often is not the case. 
 
