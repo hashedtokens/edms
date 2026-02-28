@@ -41,14 +41,15 @@ Consider a simple endpoint `/my/test/`
   y: Q
 }
 ```
-Based on the example above, one can infer that, there's nothing really sacred about the requests and response, however when the data flows through multiple microservices where logic acts on these pairs per endpoint, it induces strain in the developer workflows. Look at how multiple devs are modifying the requests / responses for the same endpoints consumed by different servers. 
+Based on the example above, one can infer that, there's nothing really sacred about the requests and response, however when the data flows through multiple microservices where logic acts on these pairs per endpoint, it induces strain in the developer workflows. 
 
 **Individual Developer Logic in a Team**
+Look at how multiple devs are modifying the requests / responses for the same endpoints consumed by different servers. The devs decide to modify them as they deem fit, which clearly implies endpoints must have pairs of requests / responses bound to them
 ```
-dev-A:server-1(dev): logic(/my/test) 
-dev-B:server-3(prod): logic(/my/test)
-dev-C:server-2(dev): logic(/my/test)
-dev-D:server-1(test): logic(/my/test)
+dev-A:server-1(dev): logic(/my/test) - request-1, response-1 
+dev-B:server-3(prod): logic(/my/test) - request-2, response-2 
+dev-C:server-2(dev): logic(/my/test) - request-3, response-3
+dev-D:server-1(test): logic(/my/test) - request-1, response-1
 ```
 
 This is where EDMS comes to the rescue. It's designed to streamline the following
