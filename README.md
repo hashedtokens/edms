@@ -44,6 +44,7 @@ Consider a simple endpoint `/my/test/`
 Based on the example above, one can infer that, there's nothing really sacred about the requests and response, however when the data flows through multiple microservices where logic acts on these pairs per endpoint, it induces strain in the developer workflows. 
 
 **Individual Developer Logic in a Team**
+
 Look at how multiple devs are modifying the requests / responses for the same endpoints consumed by different servers. The devs decide to modify them as they deem fit, which clearly implies endpoints must have pairs of requests / responses bound to them
 ```
 dev-A:server-1(dev): logic(/my/test) - request-1, response-1 
