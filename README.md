@@ -43,7 +43,7 @@ Consider a simple endpoint `/my/test/`
 ```
 Based on the example above, one can infer that, there's nothing really sacred about the requests and response, however when the data flows through multiple microservices where logic acts on these pairs per endpoint, it induces strain in the developer workflows. Look at how multiple devs are modifying the requests / responses for the same endpoints consumed by different servers. 
 
-Individual Developer Logic in a Team
+**Individual Developer Logic in a Team**
 ```
 dev-A:server-1(dev): logic(/my/test) 
 dev-B:server-3(prod): logic(/my/test)
