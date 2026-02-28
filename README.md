@@ -1,8 +1,8 @@
 # Endpoint Data Management System (EDMS)
-_Standalone system for building microservices efficiently_
+_Standalone system for a team building microservices efficiently_
 
 ## Features
-* **Web View** - Users can create a static website view for all the filtered set of endpoin
+* **Web View** - Users can create a static website view for all the filtered set of endpoints
 * **Repo Ready** - Data can be generated in a way that's easy to push to a repo enabling versioning
 * **Test View** - Endpoints can be tested in real time with time out options
 * **Filter / Merge Data** - Endpoints from multiple sources can be easily filtered into independent collections or merged into one collection
@@ -41,11 +41,20 @@ Consider a simple endpoint `/my/test/`
   y: Q
 }
 ```
-Based on the example above, one can infer that, there's nothing really sacred about the requests and response, however when the data flows through multiple microservices where logic acts on these pairs per endpoint, it induces strain in the developer workflows. 
+Based on the example above, one can infer that, there's nothing really sacred about the requests and response, however when the data flows through multiple microservices where logic acts on these pairs per endpoint, it induces strain in the developer workflows. Look at how multiple devs are modifying the requests / responses for the same endpoints consumed by different servers. 
 
-This is where EDMS comes to the rescue. It's designed to streamline both
-* _team coordination_ where endpoints keep rapidly evolving
-* _request / response sets_ bound to a specific endpoint
+Individual Developer Logic in a Team
+```
+dev-A:server-1(dev): logic(/my/test) 
+dev-B:server-3(prod): logic(/my/test)
+dev-C:server-2(dev): logic(/my/test)
+dev-D:server-1(test): logic(/my/test)
+```
+
+This is where EDMS comes to the rescue. It's designed to streamline the following
+* _team coordination_ where endpoints keep rapidly evolving, but devs stays upto date
+* _request / response sets_ bound to a specific endpoint, whenever a new variant shows up
+* _versioning endpoint data_, where data is stored in a repo and devs can quickly cross check or make changes with the benefits of version control
 
 
 ## Solution
