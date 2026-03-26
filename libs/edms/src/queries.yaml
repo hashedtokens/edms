@@ -1,0 +1,114 @@
+# EDMS Query Configuration
+# All SQL queries organized by domain
+
+endpoints:
+  E1:
+    help: "Insert a new endpoint"
+    query: "INSERT INTO endpoints (endpoint_id, endpoint_str, annotation) VALUES (?, ?, ?)"
+  
+  E2:
+    help: "Get endpoint by ID"
+    query: "SELECT * FROM endpoints WHERE endpoint_id = ?"
+  
+  E3:
+    help: "Get all endpoints"
+    query: "SELECT * FROM endpoints"
+  
+  E4:
+    help: "Update endpoint annotation"
+    query: "UPDATE endpoints SET annotation = ? WHERE endpoint_id = ?"
+  
+  E5:
+    help: "Delete endpoint by ID"
+    query: "DELETE FROM endpoints WHERE endpoint_id = ?"
+  
+  E6:
+    help: "Count total endpoints"
+    query: "SELECT COUNT(*) FROM endpoints"
+  
+  E7:
+    help: "Get recent endpoints (ID and path only)"
+    query: "SELECT endpoint_id, endpoint_str FROM endpoints ORDER BY updated_at DESC"
+
+requests:
+  R1:
+    help: "Insert request metadata"
+    query: "INSERT INTO request_metadata (endpoint_id, request_number, file_path, method) VALUES (?, ?, ?, ?)"
+  
+  R2:
+    help: "Get all requests for an endpoint"
+    query: "SELECT * FROM request_metadata WHERE endpoint_id = ?"
+  
+  R3:
+    help: "Get requests for an endpoint ordered by number"
+    query: "SELECT * FROM request_metadata WHERE endpoint_id = ? ORDER BY request_number"
+  
+  R4:
+    help: "Get requests by HTTP method"
+    query: "SELECT * FROM request_metadata WHERE method = ?"
+  
+  R5:
+    help: "Count requests for an endpoint"
+    query: "SELECT COUNT(*) FROM request_metadata WHERE endpoint_id = ?"
+  
+  R6:
+    help: "Get next request number for an endpoint"
+    query: "SELECT MAX(request_number) FROM request_metadata WHERE endpoint_id = ?"
+
+responses:
+  RES1:
+    help: "Insert response metadata"
+    query: "INSERT INTO response_metadata (endpoint_id, request_number, file_path, status_code, response_time_ms) VALUES (?, ?, ?, ?, ?)"
+  
+  RES2:
+    help: "Get all responses for an endpoint"
+    query: "SELECT * FROM response_metadata WHERE endpoint_id = ?"
+  
+  RES3:
+    help: "Get all error responses (4xx and 5xx)"
+    query: "SELECT * FROM response_metadata WHERE status_code >= 400"
+  
+  RES4:
+    help: "Calculate average response time for an endpoint"
+    query: "SELECT AVG(response_time_ms) FROM response_metadata WHERE endpoint_id = ?"
+  
+  RES5:
+    help: "Count responses for an endpoint"
+    query: "SELECT COUNT(*) FROM response_metadata WHERE endpoint_id = ?"
+  
+  RES6:
+    help: "Count errors grouped by endpoint"
+    query: "SELECT endpoint_id, COUNT(*) FROM response_metadata WHERE status_code >= 400 GROUP BY endpoint_id"
+  
+  RES7:
+    help: "Get responses by specific status code"
+    query: "SELECT * FROM response_metadata WHERE status_code = ?"
+
+tags:
+  T1:
+    help: "Insert a tag for an endpoint"
+    query: "INSERT INTO tags (endpoint_id, tag) VALUES (?, ?)"
+  
+  T2:
+    help: "Get all tags for an endpoint"
+    query: "SELECT tag FROM tags WHERE endpoint_id = ?"
+  
+  T3:
+    help: "Get all endpoints with a specific tag"
+    query: "SELECT endpoint_id FROM tags WHERE tag = ?"
+  
+  T4:
+    help: "Remove a specific tag from an endpoint"
+    query: "DELETE FROM tags WHERE endpoint_id = ? AND tag = ?"
+  
+  T5:
+    help: "Remove all tags for an endpoint"
+    query: "DELETE FROM tags WHERE endpoint_id = ?"
+  
+  T6:
+    help: "Count tags for an endpoint"
+    query: "SELECT COUNT(*) FROM tags WHERE endpoint_id = ?"
+  
+  T7:
+    help: "Get popular tags sorted by usage count"
+    query: "SELECT tag, COUNT(*) as count FROM tags GROUP BY tag ORDER BY count DESC"
