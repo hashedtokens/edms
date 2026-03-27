@@ -4,7 +4,7 @@ _Standalone system for a team building microservices_
 ## Core Idea
 During development stages `endpoints` may not change, but the associated QS pairs keep changing. The change is not just linked to the QS schemas which might be static or in rare cases well defined, but also related to the data in the keys contained in the QS. 
 
-So, in EDMS, endpoints are linked to QS pairs ensuring the development progresses without hassle, regardless of the team size. 
+So, in EDMS, endpoints are linked to QS pairs ensuring the development progresses without hassle, regardless of the team size, ensuring the team can work efficiently.  
 
 ## Features
 * **Web View** - Users can create a static website view for all the filtered set of endpoints
