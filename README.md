@@ -1,7 +1,7 @@
 # Endpoint Data Management System (EDMS)
 _Standalone system for a team building microservices_
 
-## Caveat
+## Core Idea
 During development stages endpoints may not change, but the associated linked QS pairs keep changing. The change is not just linked to the QS schemas, but also related to the data in the keys contained in the QS. 
 
 So, in EDMS, endpoints are linked to QS pairs ensuring the development progresses without hassle, regardless of the team size. 
