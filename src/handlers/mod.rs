@@ -1,9 +1,0 @@
-pub mod health;
-pub mod hello;
-pub mod echo;
-pub mod bookmarks;
-pub mod callback;
-pub mod dataview;
-pub mod repo;
-pub mod test_view;
-pub mod view;
