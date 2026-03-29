@@ -4,7 +4,7 @@ _Standalone system for a team building microservices_
 ## Core Idea
 During development stages `endpoints` may not change, but the associated QS pairs keep changing. The change is not just linked to the QS schemas which might be static or in rare cases well defined, but also related to the data bound to the keys contained in the QS. 
 
-## Eliminate `Endpoint Chaos`
+## Eliminate `EQS Chaos`
 * Multiple servers talking to each other through QS pairs per E
 * Simple change in either of `E, Q or S` can lead to a systemic mess
 * Team members involved in managing microservices experience coordination delays
