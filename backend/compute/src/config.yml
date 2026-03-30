@@ -1,0 +1,3 @@
+repo_path: "./edms_root/endpoints/reports"
+per_md_file: 20
+zip_output: "./edms_root/exports"
