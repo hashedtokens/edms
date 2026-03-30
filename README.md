@@ -11,6 +11,7 @@ During development stages `endpoints` may not change, but the associated QP pair
   - endpoints not versioned
   - endpoints not mapped against all the linked QP pairs per E
   - no summary of endpoint inventory
+  - no inbuilt tool for doc generation of EQP pairs
 
 So, EDMS helps to reduce the chaos so that development progresses without hassle regardless of the team size, without having to compromise speed or efficiency.  
 
