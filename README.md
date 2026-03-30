@@ -7,7 +7,7 @@ During development stages `endpoints` may not change, but the associated QP pair
 ## Eliminate `EQP Chaos`
 * _Communication breaks_ when multiple servers talking to each other with evolving QP pairs per E
 * _Systemic mess_ when a simple change in either of `E, Q or P` happens
-* _Coordination delays & technical debt_ happens when several team members are modifying microservice data
+* _Coordination delays` accuring technical debt when several team members are modifying microservice data 
   - endpoints not versioned
   - endpoints not mapped against all the linked QP pairs per E
   - no summary of endpoint inventory
