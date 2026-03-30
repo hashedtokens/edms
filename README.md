@@ -5,9 +5,9 @@ _Standalone system for a team building microservices_
 During development stages `endpoints` may not change, but the associated QP pairs keep changing. The change is not just linked to the QP schemas which might be static or in rare cases well defined, but also related to the data bound to the keys contained in the QP. 
 
 ## Eliminate `EQP Chaos`
-* Multiple servers talking to each other through QP pairs per E
-* Simple change in either of `E, Q or P` can lead to a systemic mess
-* Team members involved in managing microservices experience coordination delays
+* _Communication breaks_ when multiple servers talking to each other with evolving QP pairs per E
+* _Systemic mess_ when a simple change in either of `E, Q or P` happens
+* _Coordination delays & technical debt_ happens when several team members are modifying microservice data
   - endpoints not versioned
   - endpoints not mapped against all the linked QP pairs per E
   - no summary of endpoint inventory
