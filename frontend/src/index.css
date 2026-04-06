@@ -1,0 +1,117 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Custom animations */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes tagAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Method badge styles */
+.method-badge {
+  color: #000000 !important;
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.3);
+}
+
+/* Custom component classes */
+@layer components {
+  .btn-primary {
+    @apply px-5 py-2 bg-[#99BC85] text-white border-none rounded-full font-semibold cursor-pointer transition-all duration-300 hover:bg-[#84A942] hover:-translate-y-0.5 hover:shadow-lg;
+  }
+  
+  .stat-card {
+    @apply bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-white/20 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl h-48 flex flex-col justify-center items-center text-center;
+  }
+  
+  .method-card {
+    @apply bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-white/20 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl h-48 flex flex-col justify-center;
+  }
+  
+  .view-all-card {
+    @apply bg-gradient-to-br from-[#99BC85] to-[#84A942] text-white rounded-2xl p-8 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-xl h-48 flex flex-col justify-center items-center text-center;
+  }
+  
+  .navbar {
+    @apply fixed w-full z-50 py-2 transition-all duration-300;
+  }
+  
+  .navbar.scrolled {
+    @apply bg-[rgba(250,241,230,0.95)] backdrop-blur-lg shadow-md border-b border-[#E4EFE7];
+  }
+}
+
+/* Custom scrollbar for all containers */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #c1c1c1 #f1f1f1;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Table container specific */
+.table-container {
+  max-height: calc(100vh - 300px);
+  overflow-y: auto;
+}
+
+/* Fix for sticky headers */
+.sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: white;
+}
