@@ -1,0 +1,20 @@
+version: "3.9"
+
+services:
+  webserver:
+    build:
+      context: .                        # root — so Dockerfile can see both folders
+      dockerfile: webserver/Dockerfile  # explicit path since context is root
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./webserver/edms.db:/app/edms.db
+      - webserver-data:/app/edms_data
+      - edms-root:/app/edms_root
+    environment:
+      - RUST_LOG=info
+      - EDMS_DB_PATH=/app/edms.db
+
+volumes:
+  webserver-data:
+  edms-root:

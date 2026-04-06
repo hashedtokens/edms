@@ -22,28 +22,24 @@ use edms::error::EdmsError;
 
 // ── WS handlers ──────────────────────────────────────────────────────
 
-/// WS: /test-view/endpoints/load
 pub async fn ws_load_endpoints(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl IntoResponse {
     ws.on_upgrade(move |socket| async move {
         handle_ws_subscribe_endpoints(socket, state).await;
     })
 }
 
-/// WS: /test-view/bookmarks/load
 pub async fn ws_load_bookmarks(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl IntoResponse {
     ws.on_upgrade(move |socket| async move {
         handle_ws_subscribe_bookmarks(socket, state).await;
     })
 }
 
-/// WS: /test-view/run
 pub async fn ws_run(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl IntoResponse {
     ws.on_upgrade(move |socket| async move {
         handle_ws_run(socket, state).await;
     })
 }
 
-/// REST: /test-view/stop
 pub async fn stop() -> (StatusCode, Json<serde_json::Value>) {
     (
         StatusCode::OK,
@@ -51,12 +47,10 @@ pub async fn stop() -> (StatusCode, Json<serde_json::Value>) {
     )
 }
 
-/// REST: /test-view/save/history
 pub async fn save_history(
     State(state): State<AppState>,
     Json(payload): Json<Value>,
 ) -> (StatusCode, Json<serde_json::Value>) {
-    // Extract fields from the JSON payload
     let endpoint_id = payload["endpoint_id"].as_str().unwrap_or("").to_string();
     let action = payload["action"].as_str().unwrap_or("test").to_string();
     let details = payload.get("details").and_then(|v| v.as_str()).map(|s| s.to_string());
@@ -69,7 +63,6 @@ pub async fn save_history(
 
     match res {
         Ok(Ok(_)) => {
-            // Get updated count
             let count = tokio::task::spawn_blocking({
                 let st = state.clone();
                 move || db::history_count(&st.core)
@@ -92,7 +85,6 @@ pub async fn save_history(
     }
 }
 
-/// REST: /test-view/save/bookmark
 pub async fn save_bookmark(
     State(state): State<AppState>,
     Json(payload): Json<Value>,
@@ -130,7 +122,6 @@ pub async fn save_bookmark(
     }
 }
 
-/// WS: /test-view/:bookmark/add
 pub async fn ws_add_from_history_to_bookmark(
     ws: WebSocketUpgrade,
     State(state): State<AppState>,
@@ -141,7 +132,6 @@ pub async fn ws_add_from_history_to_bookmark(
     })
 }
 
-/// WS: /test-view/:bookmark/delete
 pub async fn ws_delete_from_bookmark(
     ws: WebSocketUpgrade,
     State(state): State<AppState>,
@@ -152,7 +142,6 @@ pub async fn ws_delete_from_bookmark(
     })
 }
 
-/// REST: /test-view/history/clearall
 pub async fn clear_history(State(state): State<AppState>) -> (StatusCode, Json<serde_json::Value>) {
     let res = tokio::task::spawn_blocking({
         let st = state.clone();
@@ -176,7 +165,6 @@ pub async fn clear_history(State(state): State<AppState>) -> (StatusCode, Json<s
     }
 }
 
-/// REST: /test-view/bookmark/clearall
 pub async fn clear_bookmarks(State(state): State<AppState>) -> (StatusCode, Json<serde_json::Value>) {
     let res = tokio::task::spawn_blocking({
         let st = state.clone();
@@ -200,7 +188,7 @@ pub async fn clear_bookmarks(State(state): State<AppState>) -> (StatusCode, Json
     }
 }
 
-// ── Internal WS implementations ─────────────────────────────────────
+// ── Internal WS implementations ──────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
 struct RunWrapper {
@@ -225,11 +213,7 @@ impl RunMessage {
     fn timer_config(&self) -> TimerConfig {
         TimerConfig {
             limit_ms: if self.timeout_ms > 0 { self.timeout_ms } else { 30_000 },
-            tick_interval_ms: if self.tick_interval_ms > 0 {
-                self.tick_interval_ms
-            } else {
-                500
-            },
+            tick_interval_ms: if self.tick_interval_ms > 0 { self.tick_interval_ms } else { 500 },
         }
     }
 }
@@ -283,7 +267,7 @@ async fn handle_ws_run(mut socket: WebSocket, state: AppState) {
 }
 
 // ═════════════════════════════════════════════════════════════════════
-//  run_test_impl — IPC PASSTHROUGH
+//  run_test_impl
 // ═════════════════════════════════════════════════════════════════════
 
 async fn run_test_impl(
@@ -293,7 +277,7 @@ async fn run_test_impl(
     request_json: Value,
     timer_cfg: TimerConfig,
 ) -> Result<(), EdmsError> {
-    // 1) Look up endpoint (lightweight DB read)
+    // 1) Look up endpoint
     let endpoint = tokio::task::spawn_blocking({
         let st = state.clone();
         let id = endpoint_id.to_string();
@@ -304,7 +288,7 @@ async fn run_test_impl(
     .map_err(|_| EdmsError::UnknownError)?
     .ok_or(EdmsError::UnknownError)?;
 
-    // 2) Allocate request number (lightweight DB write)
+    // 2) Allocate request number
     let request_number = tokio::task::spawn_blocking({
         let st = state.clone();
         let id = endpoint_id.to_string();
@@ -314,7 +298,7 @@ async fn run_test_impl(
     .map_err(|_| EdmsError::UnknownError)?
     .map_err(|_| EdmsError::UnknownError)?;
 
-    // 3) Insert request metadata
+    // 3) Insert request metadata into DB
     let method_upper = method.to_uppercase();
     let request_file = format!("edms_data/{}/request-{:03}.json", endpoint_id, request_number);
 
@@ -329,36 +313,52 @@ async fn run_test_impl(
     .map_err(|_| EdmsError::UnknownError)?
     .map_err(|_| EdmsError::UnknownError)?;
 
-    // 4) Emit TestStarted
+    // 4) Spawn edms-child to write the request file to disk
+    //    Result comes back via /internal/callback
+    ipc::spawn_child(
+        "write_request",
+        json!({
+            "repo_path":  format!("edms_data/{}", endpoint_id),
+            "eid":        endpoint_id,
+            "req_index":  request_number,
+            "content":    serde_json::to_string(&request_json).unwrap_or_default(),
+        }),
+        3000,
+    );
+
+    // 5) Emit TestStarted
     let _ = state.events_tx.send(ServerEvent::TestStarted {
         endpoint_id: endpoint_id.to_string(),
         request_number,
     });
 
-    // 5) Start timer task
-   let _timer_handle = timer::spawn_timer(
+    // 6) Start timer
+    let _timer_handle = timer::spawn_timer(
         endpoint_id.to_string(),
         request_number,
         timer_cfg.clone(),
         state.events_tx.clone(),
     );
 
-    // 6) FIRE AND FORGET — spawn child process for the HTTP call
-    let child_payload = json!({
-        "endpoint_id": endpoint_id,
-        "url": endpoint.endpoint_str,
-        "method": method_upper,
-        "body": request_json,
-        "request_number": request_number,
-        "timeout_ms": timer_cfg.limit_ms,
-    });
-
-    ipc::spawn_child("run_test", child_payload, 3000);
+    // 7) Spawn edms-child for the actual HTTP test call
+    //    This is the original run_test task — unchanged
+    ipc::spawn_child(
+        "run_test",
+        json!({
+            "endpoint_id":    endpoint_id,
+            "url":            endpoint.endpoint_str,
+            "method":         method_upper,
+            "body":           request_json,
+            "request_number": request_number,
+            "timeout_ms":     timer_cfg.limit_ms,
+        }),
+        3000,
+    );
 
     Ok(())
 }
 
-// ── Subscription handlers ────────────────────────────────────────────
+// ── Subscription handlers ─────────────────────────────────────────────
 
 async fn handle_ws_subscribe_endpoints(mut socket: WebSocket, state: AppState) {
     let endpoints = tokio::task::spawn_blocking({
@@ -370,7 +370,6 @@ async fn handle_ws_subscribe_endpoints(mut socket: WebSocket, state: AppState) {
     if let Ok(Ok(eps)) = endpoints {
         let resp = json!({ "type": "snapshot", "endpoints": eps });
         let _ = socket.send(Message::Text(resp.to_string())).await;
-
         let _ = state.events_tx.send(ServerEvent::ActiveWorkspaceEndpointsLoaded {
             count: eps.len(),
         });
@@ -386,8 +385,6 @@ async fn handle_ws_subscribe_endpoints(mut socket: WebSocket, state: AppState) {
 }
 
 async fn handle_ws_subscribe_bookmarks(mut socket: WebSocket, state: AppState) {
-    // Use list_bookmarked_endpoints_active to get endpoint IDs,
-    // then resolve them to full EndpointDto objects for the frontend
     let bookmarks = tokio::task::spawn_blocking({
         let st = state.clone();
         move || {
@@ -400,7 +397,6 @@ async fn handle_ws_subscribe_bookmarks(mut socket: WebSocket, state: AppState) {
     if let Ok(Ok(bks)) = bookmarks {
         let resp = json!({ "type": "snapshot", "bookmarks": bks });
         let _ = socket.send(Message::Text(resp.to_string())).await;
-
         let _ = state.events_tx.send(ServerEvent::ActiveWorkspaceBookmarksLoaded {
             count: bks.len(),
         });
@@ -422,7 +418,6 @@ async fn handle_ws_add_from_history(mut socket: WebSocket, state: AppState, _boo
             _ => continue,
         };
 
-        // Parse the endpoint_id from the incoming message
         let endpoint_id = match serde_json::from_str::<Value>(&text) {
             Ok(v) => v["endpoint_id"].as_str().unwrap_or("").to_string(),
             Err(_) => text.trim().to_string(),

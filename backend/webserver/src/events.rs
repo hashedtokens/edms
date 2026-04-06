@@ -21,7 +21,7 @@ pub enum ServerEvent {
     TestTimeout { endpoint_id: String, request_number: i32 },
     Error { message: String },
 
-   
+    ExportReady { message: String },
     TimerTick {
         endpoint_id: String,
         request_number: i32,

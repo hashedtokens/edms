@@ -1,0 +1,42 @@
+[package]
+name = "compute"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "compute"
+path = "src/lib.rs"
+
+[[bin]]
+name = "edms-child"
+path = "src/bin/child.rs"
+
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9.33"
+zip = "8.0.0"
+walkdir = "2.5.0"
+tempfile = "3.25.0"
+thiserror = "2.0.18"
+axum = "0.7"
+tokio = {version = "1", features = ["full"]}
+tower = {version = "0.4", features = ["limit"] }
+tower-http = { version = "0.5", features = ["cors","trace","limit"] }
+rusqlite = "0.38.0"
+chrono = "0.4.44"
+uuid = {version = "1.21.0", features = ["v4"]}
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
+serde_json = "1.0.149"
+reqwest = { version = "0.12", features = ["json"] }
+tokio-tungstenite = "0.29.0"
+url = "2.5.8"
+futures-util = "0.3.32"
+
+[dev-dependencies]
+tempfile = "3.0"
+serde_json = "1.0"
+warp = "0.3"
+anyhow = "1.0"
+portpicker = "0.1"

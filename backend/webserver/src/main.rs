@@ -32,11 +32,18 @@ use handlers::{
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    //Folder structure
+    let root = compute::folder_manager::default_root_path();
+    println!("Initializing EDMS root at: {:?}", root);
+    
+    compute::folder_manager::verify_and_init(&root)
+        .expect("Failed to initialize system folders");
+     
     tracing_subscriber::fmt().with_target(false).init();
 
     let db_path = std::env::var("EDMS_DB_PATH").unwrap_or_else(|_| "edms.db".to_string());
 
-    // Core + schema init
+
     let core = Arc::new(EdmsCore::new(&db_path));
     core.connect().map_err(|e| anyhow::anyhow!("{e:?}"))?;
     initialize_schema_from_core(&core).map_err(|e| anyhow::anyhow!("{e:?}"))?;
@@ -45,11 +52,9 @@ async fn main() -> anyhow::Result<()> {
     let state = state::AppState::new(core, queries);
 
     let app = Router::new()
-        // Views (REST)
         .route("/home", get(home))
         .route("/test-view", get(test_view))
         .route("/list-view", get(list_view))
-        // Test-view (WS + REST)
         .route("/test-view/endpoints/load", get(ws_load_endpoints))
         .route("/test-view/bookmarks/load", get(ws_load_bookmarks))
         .route("/test-view/run", get(ws_run))
@@ -60,19 +65,14 @@ async fn main() -> anyhow::Result<()> {
         .route("/test-view/:bookmark/delete", get(ws_delete_from_bookmark))
         .route("/test-view/history/clearall", post(clear_history))
         .route("/test-view/bookmark/clearall", post(clear_bookmarks))
-        // Bookmarks collection
         .route("/bookmarks/:collection/create", post(create_collection))
         .route("/bookmarks/:collection/load", get(ws_load_collection))
-        // Dataview
         .route("/dataview/:folder/delete", post(delete_folder))
         .route("/dataview/:folder/merge", post(merge_folder))
         .route("/dataview/:folder/active", get(ws_make_folder_active))
         .route("/dataview/dashboard", get(dashboard))
-        // Repo export
         .route("/repo/:collection/:filename/export", get(export_collection))
-        // Internal: IPC callback (child processes report back here)
         .route("/internal/callback", post(ipc_callback))
-        // Middleware
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
         .with_state(state);
