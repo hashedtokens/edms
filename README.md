@@ -2,7 +2,7 @@
 _Standalone system for a team building microservices_
 
 ## Core Idea
-During development stages `endpoints` may not change, but the associated QP pairs keep changing. The change is not just linked to the QP schemas which might be static or in rare cases well defined, but also related to the data bound to the keys contained in the QP. 
+During development stages `endpoints` may not change, but the associated QP pairs keep changing. The change is not just linked to the QP schemas which might be static or in rare cases well defined, but also related to the data bound to the keys contained in the QP. So, it leads to a problem we define as `EQP Chaos`. 
 
 ## Eliminate `EQP Chaos`
 * _Communication breaks_ when multiple servers talking to each other with evolving QP pairs per E
