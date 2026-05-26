@@ -1,0 +1,49 @@
+name: Sync Docs To Wiki
+
+on:
+  push:
+    branches:
+      - master
+      - main
+      - feat/docs-and-wiki-sync
+    paths:
+      - "docs/**"
+
+permissions:
+  contents: write
+
+jobs:
+  sync-wiki:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main repository
+        uses: actions/checkout@v4
+
+      - name: Clone GitHub Wiki
+        run: |
+          git clone "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git" wiki
+
+      - name: Copy documentation files
+        run: |
+          cp docs/*.md wiki/
+
+      - name: Ensure Home.md exists
+        run: |
+          if [ ! -f wiki/Home.md ]; then
+            cp docs/Home.md wiki/Home.md
+          fi
+
+      - name: Commit and push wiki updates
+        run: |
+          cd wiki
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add .
+
+          git diff --cached --quiet && echo "No documentation changes detected." && exit 0
+
+          git commit -m "docs(wiki): automated sync from docs/"
+          git push

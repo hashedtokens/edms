@@ -21,6 +21,25 @@ So, EDMS helps to reduce the chaos so that development progresses without hassle
 * :white_check_mark: **Test View** - Endpoints can be tested in real time with advanced options 
 * :white_check_mark: **Filter / Merge Data** - Endpoints from multiple sources / team members can be easily filtered into independent collections or merged into one collection
 
+## Quick Start
+
+Dockerized full stack from the repository root:
+
+```bash
+touch backend/webserver/edms.db
+docker compose up --build
+```
+
+Services:
+
+```txt
+Backend:  http://localhost:3000
+Compute:  http://localhost:3001
+Frontend: http://localhost:5173
+```
+
+Local development setup is documented in [docs/Home.md](docs/Home.md).
+
 ### Symbols 
 * `E` : **Endpoint** 
 * `Q` : **Request**

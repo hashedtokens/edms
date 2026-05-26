@@ -1,5 +1,5 @@
 # ── Stage 1: Builder ────────────────────────────────────────────────
-FROM rust:1.85 AS builder
+FROM rust:1.88 AS builder
 
 RUN apt-get update && apt-get install -y \
     pkg-config \

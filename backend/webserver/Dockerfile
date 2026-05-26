@@ -1,5 +1,5 @@
 # ── Stage 1: Build edms-child from compute/ ─────────────────────────
-FROM rust:1.85 AS compute-builder
+FROM rust:1.88 AS compute-builder
 
 RUN apt-get update && apt-get install -y \
     pkg-config \
@@ -13,7 +13,7 @@ COPY compute/src ./src
 RUN cargo build --release
 
 # ── Stage 2: Build rust-webserver from webserver/ ───────────────────
-FROM rust:1.85 AS webserver-builder
+FROM rust:1.88 AS webserver-builder
 
 RUN apt-get update && apt-get install -y \
     pkg-config \
@@ -21,6 +21,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /webserver
+COPY compute /compute
 COPY webserver/Cargo.toml webserver/Cargo.lock ./
 COPY webserver/libs ./libs
 COPY webserver/src ./src
@@ -42,8 +43,6 @@ COPY --from=webserver-builder /webserver/target/release/rust-webserver .
 
 # edms-child — placed where ipc.rs looks for it
 COPY --from=compute-builder /compute/target/release/edms-child ./target/release/edms-child
-
-RUN cp webserver/src/config.yml ./src/config.yml 2>/dev/null || true
 
 RUN mkdir -p edms_root/endpoints/reports \
              edms_root/exports \

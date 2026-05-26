@@ -191,10 +191,25 @@ pub fn verify_and_init(root_path: &Path) -> Result<SystemInitReport, Box<dyn std
 }
 
 pub fn default_root_path() -> PathBuf {
-    // This finds the "edms_sys" parent directory regardless of which crate calls it
-    let mut path = std::env::current_dir().unwrap();
-    while !path.join("compute").exists() && path.parent().is_some() {
-        path = path.parent().unwrap().to_path_buf();
+    if let Ok(root_path) = std::env::var("EDMS_ROOT_PATH") {
+        let root_path = root_path.trim();
+        if !root_path.is_empty() {
+            return PathBuf::from(root_path);
+        }
     }
-    path.join("edms_root")
+
+    // This finds the backend parent directory regardless of which crate calls it.
+    let start = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let mut path = start.clone();
+
+    loop {
+        if path.join("compute").exists() {
+            return path.join("edms_root");
+        }
+
+        match path.parent() {
+            Some(parent) if parent != path => path = parent.to_path_buf(),
+            _ => return start.join("edms_root"),
+        }
+    }
 }

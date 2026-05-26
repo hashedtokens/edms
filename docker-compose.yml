@@ -1,0 +1,49 @@
+version: "3.9"
+
+services:
+  webserver:
+    build:
+      context: ./backend
+      dockerfile: webserver/Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend/webserver/edms.db:/app/edms.db
+      - webserver-data:/app/edms_data
+      - edms-root:/app/edms_root
+    environment:
+      - RUST_LOG=info
+      - EDMS_DB_PATH=/app/edms.db
+      - EDMS_ROOT_PATH=/app/edms_root
+
+  compute:
+    build:
+      context: ./backend/compute
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3000"
+    volumes:
+      - edms-root:/app/edms_root
+    environment:
+      - RUST_LOG=info
+      - EDMS_ROOT_PATH=/app/edms_root
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - webserver
+      - compute
+
+volumes:
+  webserver-data:
+  edms-root:
+  frontend-node-modules:
