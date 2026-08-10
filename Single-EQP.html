@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0"
+		/>
+		<title>Document</title>
+		<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+		<style>
+			.rqno.active {
+				background-color: #ecfeff !important;
+				border: 2px solid #0f766e !important;
+				box-shadow: 0 12px 28px rgba(15, 118, 110, 0.18) !important;
+				transform: translateY(-1px);
+			}
+		</style>
+	</head>
+	<body class="min-h-screen flex flex-col">
+		<div class="navbar py-0 flex-shrink-0 border-b-2 border-black/40">
+			<nav class="w-full z-50 py-2 transition-all duration-300">
+				<div class="w-full px-2 flex items-center justify-between">
+					<div class="flex items-center gap-3">
+						<div class="w-10 h-10">
+							<img
+								src="assets/ht-logo.png"
+								alt="HashedTokens Logo"
+								class="w-full h-full object-contain"
+							/>
+						</div>
+						<h1 class="text-2xl font-bold text-[#2d5016] whitespace-nowrap">
+							HashedTokens
+						</h1>
+					</div>
+
+					<div class="flex items-center gap-4 justify-around">
+						<a
+							href="/"
+							class="px-5 py-2 font-semibold transition-all duration-300 text-black/80 border-b-2 border-transparent hover:border-black/40"
+						>
+							Home
+						</a>
+						<a
+							href="/testview"
+							class="px-5 py-2 font-semibold transition-all duration-300 text-black/80 border-b-2 border-transparent hover:border-black/40"
+						>
+							Test view
+						</a>
+						<a
+							href="/list"
+							class="px-5 py-2 font-semibold transition-all duration-300 text-black/80 border-b-2 border-transparent hover:border-black/40"
+						>
+							List view
+						</a>
+						<a
+							href="/webview"
+							class="px-5 py-2 font-semibold transition-all duration-300 text-black border-b-2 border-black hover:border-black/40"
+						>
+							Web view
+						</a>
+					</div>
+				</div>
+			</nav>
+		</div>
+		<main class="flex-1 flex overflow-hidden bg-[#f5f7fb]">
+			<!-- Left tags column -->
+			<aside class="w-64 p-6 border-r bg-white flex-shrink-0">
+				<div class="text-sm font-semibold text-gray-600 mb-4">
+					SEGMENTS / TAGS
+				</div>
+				<div
+					class="space-y-3 space-x-3"
+					id="endpoint-tags"
+				>
+					<span class="inline-block px-3 py-2 bg-gray-100 rounded-lg text-sm"
+						>v1-core</span
+					>
+					<span class="inline-block px-3 py-2 bg-gray-100 rounded-lg text-sm"
+						>user-management</span
+					>
+					<span class="inline-block px-3 py-2 bg-gray-100 rounded-lg text-sm"
+						>read-only</span
+					>
+					<span class="inline-block px-3 py-2 bg-gray-100 rounded-lg text-sm"
+						>high-priority</span
+					>
+					<span class="inline-block px-3 py-2 bg-gray-100 rounded-lg text-sm"
+						>secure-layer</span
+					>
+				</div>
+			</aside>
+
+			<!-- Center segments / timeline -->
+			<section class="flex-1 p-6 overflow-auto">
+				<div class="max-w-4xl mx-auto">
+					<div class="mb-6">
+						<div
+							class="text-2xl text-zinc-800 font-bold border border-gray-200 bg-white inline-block px-3 py-1 rounded-lg"
+							id="endpoint-id"
+						>
+							#492
+						</div>
+						<div class="flex justify-between">
+							<h2
+								class="text-2xl font-bold text-gray-700"
+								id="endpoint-path"
+							>
+								/api/v1/users/profile
+							</h2>
+							<h3
+								class="px-2 py-1 border border-red-600 bg-red-300 rounded-lg font-bold"
+								id="endpoint-method"
+							>
+								DELETE
+							</h3>
+						</div>
+					</div>
+
+					<div class="bg-white rounded-lg p-4 border">
+						<!-- timeline / segments list
+						<div class="space-y-4 QP-list">
+							<div class="flex items-start gap-4">
+								<div
+									class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-semibold"
+								>
+									QP1
+								</div>
+								<div class="flex-1">
+									<div class="font-semibold">GET</div>
+									<div class="text-sm text-gray-500">
+										TAGS: auth, session-token
+									</div>
+								</div>
+							</div>
+						</div> -->
+					</div>
+					<div
+						id="detail-panel"
+						class="w-full h-full p-4 shadow-md border-2 border-gray-200 bg-gray-50 rounded-lg flex flex-col gap-4 overflow-y-auto"
+					>
+						<div
+							id="detail-placeholder"
+							class="p-8 text-center text-gray-600 text-lg hidden"
+						>
+							Selected endpoint will appear here
+						</div>
+					</div>
+				</div>
+			</section>
+
+			<!-- Right panels: Request / Response -->
+			<aside
+				class="w-2/5 min-w-[360px] p-6 bg-[#0f1724] text-white overflow-auto"
+			>
+				<div class="grid grid-cols-1 gap-6">
+					<div class="bg-[#0b1220] rounded-lg p-4 shadow-lg">
+						<div class="text-sm text-green-300 font-semibold mb-2">REQUEST</div>
+						<pre
+							class="language-json text-sm overflow-auto font-mono text-[#9AE6B4] request-panel"
+						>
+select the QP to view the request</pre
+						>
+					</div>
+					<div class="bg-[#0b1220] rounded-lg p-4 shadow-lg">
+						<div class="text-sm text-green-300 font-semibold mb-2">
+							RESPONSE <span class="text-xs text-slate-300 ml-2">200 OK</span>
+						</div>
+						<pre
+							class="language-json text-sm overflow-auto font-mono text-slate-200 response-panel"
+						>
+responsead</pre
+						>
+					</div>
+				</div>
+			</aside>
+		</main>
+
+		<script>
+			const params = new URLSearchParams(window.location.search);
+			const eid = params.get("eid");
+			// document.write(`Endpoint ID: ${eid}`);
+			let CurrentEndpoint = null;
+			const fetchEndpoint = async (eid) => {
+				CurrentEndpoint = await fetch(`./data/endpoints/${eid}.json`).then(
+					(res) => res.json(),
+				);
+				// console.log("Fetched endpoint data:", CurrentEndpoint);
+				let endpointStr_grpData = await fetch(
+					"./data/endpointsGrouped.json",
+				).then((res) => res.json());
+				// console.log("Fetched endpointsGrouped data:", endpointStr_grpData);
+				let currentEndpoinSTRData = endpointStr_grpData[CurrentEndpoint.path];
+
+				console.log(currentEndpoinSTRData);
+				renderEndpoint();
+				renderEndpointStrData(currentEndpoinSTRData);
+			};
+			const getMethodBadgeClasses = (method) => {
+				switch (method) {
+					case "GET":
+						return "bg-emerald-100 text-emerald-700 border border-emerald-200";
+					case "POST":
+						return "bg-amber-100 text-amber-700 border border-amber-200";
+					case "PUT":
+						return "bg-sky-100 text-sky-700 border border-sky-200";
+					case "DELETE":
+						return "bg-rose-100 text-rose-700 border border-rose-200";
+					default:
+						return "bg-gray-100 text-gray-700 border border-gray-200";
+				}
+			};
+
+			const renderEndpointStrData = (data) => {
+				if (!data) return;
+				const detailPanel = document.querySelector("#detail-panel");
+				detailPanel.innerHTML = "";
+				for (let method in data) {
+					const detailDiv = document.createElement("div");
+					detailDiv.id = "detail-content";
+					detailDiv.className =
+						"w-full p-1 shadow-md border-2 border-gray-200  rounded-lg";
+
+					detailDiv.innerHTML = `
+					<div class="flex justify-between items-center gap-1">
+								<div class="rounded-lg p-1 text-center text-xl font-bold">
+									<span id="eid-box"></span>
+								</div>
+								<div class="flex gap-2 items-center">
+									<div
+										id="path-box"
+										class="rounded-lg p-1 text-center text-xl font-semibold text-gray-500"
+									>
+										Endpoint String
+									</div>
+									<div
+										id="crud-box"
+										class="rounded-lg p-1 text-center text-xl font-bold"
+									>
+										CRUD TYPE
+									</div>
+								</div>
+							</div>
+							<div
+								id="annotation-box"
+								class="rounded-lg p-1 text-left text-lg font-light max-h-25 overflow-x-auto"
+							>
+								Annotation (word wrapped)
+							</div>
+							<div
+								id="tags-box"
+								class="rounded-lg p-1 overflow-x-auto whitespace-nowrap"
+							>
+								<div class="font-bold text-lg inline-block mr-2">Tags:</div>
+								<div
+									id="tags-list"
+									class="inline-block"
+								></div>
+							</div>`;
+					detailPanel.appendChild(detailDiv);
+					loadAnnotations(data[method], method, detailDiv);
+					loadTags(data[method], detailDiv);
+					loadRQno(data[method], detailDiv);
+				}
+			};
+			const renderEndpoint = () => {
+				if (!CurrentEndpoint) return;
+				document.querySelector("#endpoint-id").textContent =
+					`#${CurrentEndpoint.eid}`;
+				document.querySelector("#endpoint-tags").innerHTML = "";
+				CurrentEndpoint.tags.forEach((element) => {
+					const tagElement = document.createElement("span");
+					tagElement.textContent = element;
+					tagElement.className =
+						"inline-block px-3 py-2 bg-gray-100 rounded-lg text-md";
+					document.querySelector("#endpoint-tags").appendChild(tagElement);
+				});
+
+				document.querySelector("#endpoint-path").textContent =
+					CurrentEndpoint.path;
+
+				// loadRQno(CurrentEndpoint);
+
+				// document.querySelector("#endpoint-method").textContent =
+				// 	CurrentEndpoint.method;
+				// document.querySelector("#endpoint-method").className =
+				// 	`px-2 py-1 border ${color_map[CurrentEndpoint.method] ?? "border-gray-600 bg-gray-100 text-gray-600"} rounded-lg font-bold`;
+			};
+
+			fetchEndpoint(eid);
+			const loadRQno = async (endpoint, detailDiv) => {
+				const QPListDiv = document.createElement("div");
+				QPListDiv.className = "space-y-4 QP-list";
+				for(let i =0 ; i< endpoint.qpPairs;i++){
+					const innerDiv = document.createElement("div");
+					innerDiv.className = "flex items-start gap-4 px-2 cursor-pointer rounded-md hover:bg-gray-100";
+					QPListDiv.appendChild(innerDiv);
+					innerDiv.innerHTML = `
+								<div
+									class="p-2 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-semibold rqno"
+								>
+									QP ${i+1}
+								</div>
+								<div class="flex-1">
+									<div class="font-semibold">GET</div>
+									<div class="text-sm text-gray-500">
+										TAGS: auth, session-token
+									</div>
+								</div>
+							`
+					innerDiv.querySelector(".rqno").addEventListener("click", () => {{
+						// remove active class from all rqno elements
+						document.querySelectorAll(".rqno").forEach((el) => {
+							el.classList.remove("active");
+						});
+						// add active class to clicked element
+						innerDiv.querySelector(".rqno").classList.add("active");
+						loadreqPanel(endpoint.eid, i);
+					}});		
+				}
+				detailDiv.appendChild(QPListDiv);
+			};
+
+			const loadAnnotations = async (endpoint, method, detailDiv) => {
+				// const method = endpoint.method.toUpperCase();
+				const methodBadgeClasses = getMethodBadgeClasses(method);
+
+				const eidBox = detailDiv.querySelector("#eid-box");
+				const crudBox = detailDiv.querySelector("#crud-box");
+				const pathBox = detailDiv.querySelector("#path-box");
+				const annotationBox = detailDiv.querySelector("#annotation-box");
+
+				// showDetailPlaceholder(false);
+				if (eidBox) eidBox.innerText = endpoint.eid || "";
+				if (crudBox)
+					crudBox.innerHTML = `<span class="inline-block ${methodBadgeClasses} px-3 py-1 rounded uppercase font-bold">${method}</span>`;
+				if (pathBox) pathBox.innerText = endpoint.path || "";
+				if (annotationBox) annotationBox.innerText = endpoint.annotation || "";
+			};
+
+			const loadTags = async (endpoint, detailDiv) => {
+				const tagsList = detailDiv.querySelector("#tags-list");
+				if (!tagsList) return;
+				tagsList.innerHTML = "";
+
+				(endpoint.tags || []).forEach((tag) => {
+					const tagElement = document.createElement("span");
+					tagElement.className =
+						"inline-block bg-blue-200 text-blue-800 text-sm px-2 py-1 rounded-lg mr-2";
+					tagElement.innerText = tag;
+					tagsList.appendChild(tagElement);
+				});
+			};
+
+			const loadreqPanel = async (eid, rqIndex) => {
+				console.log(
+					"Loading request panel for EID:",
+					eid,
+					"RQ Index:",
+					rqIndex + 1,
+				);
+				let responseD;
+				try {
+					responseD = await fetch(
+						`./data/requests/${eid}-request${rqIndex + 1}.json`,
+					).then((res) => res.json());
+					console.log("Received request data:", responseD);
+				} catch (error) {
+					responseD = await fetch(
+						`./data/requests/E0006-GL-request1.json`,
+					).then((res) => res.json());
+					console.log("loaded default request data due to error:", error);
+				}
+
+				const requestPanel = document.querySelector(".request-panel");
+				if (!requestPanel) {
+					console.error("Request panel element not found");
+					return;
+				}
+
+				requestPanel.innerHTML = `
+	 <pre class="text-sm whitespace-pre-wrap break-words">${JSON.stringify(responseD.body, null, 2)}</pre>
+	`;
+
+				// document.getElementById("size").innerText =
+				// 	`${responseD.meta_data.request_size}`;
+				loadresPanel(eid, rqIndex);
+			};
+			const loadresPanel = async (eid, rqIndex) => {
+				console.log(
+					"Loading response panel for EID:",
+					eid,
+					"RQ Index:",
+					rqIndex + 1,
+				);
+				let responseD;
+				try {
+					responseD = await fetch(
+						`./data/responses/${eid}-response${rqIndex + 1}.json`,
+					).then((res) => res.json());
+					console.log("Received response data:", responseD);
+				} catch (error) {
+					responseD = await fetch(
+						`./data/responses/E0006-GL-response1.json`,
+					).then((res) => res.json());
+					console.log("loaded default response data due to error:", error);
+				}
+
+				const responsePanel = document.querySelector(".response-panel");
+				if (!responsePanel) {
+					console.error("Response panel element not found");
+					return;
+				}
+
+				responsePanel.innerHTML = `
+	 <pre class="text-sm whitespace-pre-wrap break-words">${JSON.stringify(responseD.body, null, 2)}</pre>
+	`;
+
+				// document.getElementById("size").innerText =
+				// 	`${responseD.meta_data.request_size}`;
+			};
+		</script>
+	</body>
+</html>

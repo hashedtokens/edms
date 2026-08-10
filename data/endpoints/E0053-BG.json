@@ -1,0 +1,1 @@
+{"eid":"E0053-BG","count":4,"qpPairs":2,"annotation":"support list endpoint handling request operations","method":"GET","path":"/api/v1/support/list","tags":["inventory","orders"],"status":"active"}

@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0"
+		/>
+		<title>HASHEDTOKEN - dashboard</title>
+		<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+		<style></style>
+		<link
+			rel="stylesheet"
+			href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"
+			integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw=="
+			crossorigin="anonymous"
+			referrerpolicy="no-referrer"
+		/>
+	</head>
+	<body>
+		<main class="h-screen w-full max-w-screen mx-auto overflow-hidden">
+			<div class="navbar py-0 flex-shrink-0 border-b-2 border-black/40">
+				<nav class="w-full z-50 py-2 transition-all duration-300">
+					<div class="w-full px-2 flex items-center justify-between">
+						<div class="flex items-center gap-3">
+							<div class="w-10 h-10">
+								<img
+									src="assets/ht-logo.png"
+									alt="HashedTokens Logo"
+									class="w-full h-full object-contain"
+								/>
+							</div>
+							<h1 class="text-2xl font-bold text-[#2d5016] whitespace-nowrap">
+								HashedTokens
+							</h1>
+						</div>
+
+						<div class="flex items-center gap-4 justify-around">
+							<a
+								href="/dashboard.html"
+								class="px-5 py-2 font-semibold transition-all duration-300 text-black/80 border-b-2 border-transparent hover:border-black/40"
+							>
+								Home
+							</a>
+							<a
+								href="/dashboard.html"
+								class="px-5 py-2 font-semibold transition-all duration-300 text-black border-b-2 border-black hover:border-black/40"
+							>
+								Dashboard view
+							</a>
+							<a
+								href="/listview.html"
+								class="px-5 py-2 font-semibold transition-all duration-300 text-black/80 border-b-2 border-transparent hover:border-black/40"
+							>
+								List view
+							</a>
+							<a
+								href="/webview.html"
+								class="px-5 py-2 font-semibold transition-all duration-300 text-black/80 border-b-2 border-transparent hover:border-black/40"
+							>
+								Web view
+							</a>
+						</div>
+					</div>
+				</nav>
+			</div>
+			<div class="w-full mx-2 px-7 py-6 flex justify-between">
+				<div>
+					<h1 class="text-5xl font-bold text-[#202020] capitalize">
+						analytic Dashboard
+					</h1>
+					<p class="text-lg text-[#666] mt-2">
+						Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+					</p>
+				</div>
+			</div>
+			<section class="w-full p-6 flex gap-6">
+				<div class="left w-[55%] rounded-2xl bg-white shadow-md h-full p-8">
+					<table class="w-full h-full border-collapse border-black/40">
+						<thead>
+							<tr class="th1">
+								<th colspan="4"></th>
+								<th
+									colspan="2"
+									class="py-3 px-4"
+								>
+									GET
+								</th>
+								<th
+									colspan="2"
+									class="py-3 px-4"
+								>
+									POST
+								</th>
+								<th
+									colspan="2"
+									class="py-3 px-4"
+								>
+									DELETE
+								</th>
+								<th
+									colspan="2"
+									class="py-3 px-4"
+								>
+									PUT
+								</th>
+							</tr>
+							<tr class="th2 border-t-2 border-black/40">
+								<th
+									class="py-3 px-4"
+									colspan="2"
+								>
+									Entity
+								</th>
+								<th
+									class="py-3 px-4 text-center"
+									colspan="2"
+								>
+									Total
+								</th>
+								<th
+									class="py-3 px-4 text-center border-l border-outline-variant/10"
+								>
+									%
+								</th>
+								<th class="py-3 px-4 text-center">Count</th>
+								<th
+									class="py-3 px-4 text-center border-l border-outline-variant/10"
+								>
+									%
+								</th>
+								<th class="py-3 px-4 text-center">Count</th>
+								<th
+									class="py-3 px-4 text-center border-l border-outline-variant/10"
+								>
+									%
+								</th>
+								<th class="py-3 px-4 text-center">Count</th>
+								<th
+									class="py-3 px-4 text-center border-l border-outline-variant/10"
+								>
+									%
+								</th>
+								<th class="py-3 px-4 text-center">Count</th>
+							</tr>
+						</thead>
+						<tbody>
+							<!-- <tr class="hover:bg-surface-container-low/50 transition-colors border-t border-black/40">
+								<td class="py-3 px-4 font-bold text-on-surface" colspan="2">Endpoints</td>
+								<td
+									class="py-3 px-4 font-mono font-bold text-right text-primary"
+                                    colspan="2"
+								>
+									1,248
+								</td>
+								<td
+									class="py-3 px-4 font-mono text-on-surface-variant text-right border-l border-outline-variant/10"
+								>
+									54
+								</td>
+								<td
+									class="py-3 px-4 font-mono text-on-surface-variant text-right"
+								>
+									673
+								</td>
+								<td
+									class="py-3 px-4 font-mono text-on-surface-variant text-right border-l border-outline-variant/10"
+								>
+									18
+								</td>
+								<td
+									class="py-3 px-4 font-mono text-on-surface-variant text-right"
+								>
+									224
+								</td>
+								<td
+									class="py-3 px-4 font-mono text-on-surface-variant text-right border-l border-outline-variant/10"
+								>
+									6
+								</td>
+								<td
+									class="py-3 px-4 font-mono text-on-surface-variant text-right"
+								>
+									74
+								</td>
+								<td
+									class="py-3 px-4 font-mono text-on-surface-variant text-right border-l border-outline-variant/10"
+								>
+									22
+								</td>
+								<td
+									class="py-3 px-4 font-mono text-on-surface-variant text-right"
+								>
+									277
+								</td>
+							</tr> -->
+						</tbody>
+					</table>
+
+					<h1 class="text-xl text-center underline text-[#202020] mt-4">
+						click on the table row to view details in Chart
+					</h1>
+				</div>
+				<div class="left w-[45%] h-full">
+					<canvas
+						id="myChart"
+						width="100"
+						height="150"
+					></canvas>
+				</div>
+			</section>
+		</main>
+		<script src="Scripts/dashboard.js"></script>
+	</body>
+</html>

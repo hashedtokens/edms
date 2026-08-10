@@ -1,0 +1,1 @@
+{"eid":"E0096-SX","count":4,"qpPairs":0,"annotation":"users summary endpoint handling request operations","method":"GET","path":"/api/v1/users/summary","tags":["users","auth","system","admin"],"status":"active"}

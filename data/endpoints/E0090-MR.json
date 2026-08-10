@@ -1,0 +1,1 @@
+{"eid":"E0090-MR","count":2,"qpPairs":2,"annotation":"orders details endpoint handling request operations","method":"POST","path":"/api/v2/orders/details","tags":["reports","orders"],"status":"active"}

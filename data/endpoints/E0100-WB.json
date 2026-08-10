@@ -1,0 +1,1 @@
+{"eid":"E0100-WB","count":3,"qpPairs":6,"annotation":"products logout endpoint handling request operations","method":"GET","path":"/api/v1/products/logout","tags":["analytics","orders","auth","system"],"status":"active"}

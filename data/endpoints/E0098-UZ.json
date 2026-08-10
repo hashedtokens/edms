@@ -1,0 +1,1 @@
+{"eid":"E0098-UZ","count":5,"qpPairs":8,"annotation":"inventory stats endpoint handling request operations","method":"DELETE","path":"/api/v1/inventory/stats","tags":["reports","analytics"],"status":"active"}

@@ -1,0 +1,1 @@
+{"eid":"E0073-VA","count":3,"qpPairs":4,"annotation":"products history endpoint handling request operations","method":"POST","path":"/api/v2/products/history","tags":["reports","notifications","users","system"],"status":"active"}

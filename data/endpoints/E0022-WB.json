@@ -1,0 +1,1 @@
+{"eid":"E0022-WB","count":5,"qpPairs":5,"annotation":"admin logout endpoint handling request operations","method":"POST","path":"/api/v2/admin/logout","tags":["users","analytics"],"status":"active"}

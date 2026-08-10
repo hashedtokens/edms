@@ -1,0 +1,1 @@
+{"response_id":"E0006-GL-response4","endpoint_id":"E0006-GL","meta_data":{"status_code":401,"content_type":"application/json","response_size":"5 KB","response_time":"491 ms"},"body":{"status":"error","code":404,"message":"Resource not found","error":{"type":"NOT_FOUND","resource":"user"}}}

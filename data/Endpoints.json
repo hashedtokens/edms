@@ -1,0 +1,1002 @@
+[
+	{
+		"eid": "E0001-BG",
+		"count": 4,
+		"qpPairs": 2,
+		"annotation": "analytics logout endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v2/analytics/logout",
+		"tags": ["orders", "auth", "support"],
+		"status": "active"
+	},
+	{
+		"eid": "E0002-CH",
+		"count": 3,
+		"qpPairs": 8,
+		"annotation": "billing create endpoint handling request operations",
+		"method": "DELETE",
+		"path": "/api/v2/billing/create",
+		"tags": ["admin", "notifications", "reports", "auth"],
+		"status": "beta"
+	},
+	{
+		"eid": "E0003-DI",
+		"count": 2,
+		"qpPairs": 0,
+		"annotation": "auth profile endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v1/auth/profile",
+		"tags": ["reports", "notifications", "admin"],
+		"status": "active"
+	},
+	{
+		"eid": "E0004-EJ",
+		"count": 5,
+		"qpPairs": 5,
+		"annotation": "users details endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v1/users/details",
+		"tags": ["auth", "users", "notifications"],
+		"status": "active"
+	},
+	{
+		"eid": "E0005-FK",
+		"count": 5,
+		"qpPairs": 4,
+		"annotation": "notifications list endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v1/notifications/list",
+		"tags": ["orders", "reports", "users"],
+		"status": "active"
+	},
+	{
+		"eid": "E0006-GL",
+		"count": 1,
+		"qpPairs": 5,
+		"annotation": "billing status endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v2/billing/status",
+		"tags": ["users", "support", "admin", "notifications"],
+		"status": "active"
+	},
+	{
+		"eid": "E0007-HM",
+		"count": 3,
+		"qpPairs": 0,
+		"annotation": "auth profile endpoint handling request operations",
+		"method": "PUT",
+		"path": "/api/v1/auth/profile",
+		"tags": ["orders", "users", "billing", "admin"],
+		"status": "beta"
+	},
+	{
+		"eid": "E0008-IN",
+		"count": 2,
+		"qpPairs": 1,
+		"annotation": "products history endpoint handling request operations",
+		"method": "PUT",
+		"path": "/api/v1/products/history",
+		"tags": ["products", "billing", "orders", "reports"],
+		"status": "active"
+	},
+	{
+		"eid": "E0009-JO",
+		"count": 1,
+		"qpPairs": 3,
+		"annotation": "auth update endpoint handling request operations",
+		"method": "POST",
+		"path": "/api/v2/auth/update",
+		"tags": ["inventory", "products"],
+		"status": "active"
+	},
+	{
+		"eid": "E0010-KP",
+		"count": 3,
+		"qpPairs": 6,
+		"annotation": "products summary endpoint handling request operations",
+		"method": "POST",
+		"path": "/api/v1/products/summary",
+		"tags": ["orders", "auth"],
+		"status": "active"
+	},
+	{
+		"eid": "E0011-LQ",
+		"count": 1,
+		"qpPairs": 2,
+		"annotation": "admin stats endpoint handling request operations",
+		"method": "PUT",
+		"path": "/api/v1/admin/stats",
+		"tags": ["support", "orders"],
+		"status": "active"
+	},
+	{
+		"eid": "E0012-MR",
+		"count": 2,
+		"qpPairs": 8,
+		"annotation": "billing status endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v1/billing/status",
+		"tags": ["auth", "reports", "users", "analytics"],
+		"status": "active"
+	},
+	{
+		"eid": "E0013-NS",
+		"count": 2,
+		"qpPairs": 6,
+		"annotation": "reports login endpoint handling request operations",
+		"method": "PUT",
+		"path": "/api/v1/reports/login",
+		"tags": ["users", "system"],
+		"status": "active"
+	},
+	{
+		"eid": "E0014-OT",
+		"count": 1,
+		"qpPairs": 4,
+		"annotation": "orders details endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v2/orders/details",
+		"tags": ["inventory", "analytics", "orders"],
+		"status": "active"
+	},
+	{
+		"eid": "E0015-PU",
+		"count": 5,
+		"qpPairs": 4,
+		"annotation": "billing list endpoint handling request operations",
+		"method": "POST",
+		"path": "/api/v2/billing/list",
+		"tags": ["users", "auth", "orders"],
+		"status": "active"
+	},
+	{
+		"eid": "E0016-QV",
+		"count": 3,
+		"qpPairs": 4,
+		"annotation": "auth logout endpoint handling request operations",
+		"method": "POST",
+		"path": "/api/v1/auth/logout",
+		"tags": ["admin", "system"],
+		"status": "active"
+	},
+	{
+		"eid": "E0017-RW",
+		"count": 4,
+		"qpPairs": 6,
+		"annotation": "auth history endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v2/auth/history",
+		"tags": ["reports", "orders", "notifications"],
+		"status": "deprecated"
+	},
+	{
+		"eid": "E0018-SX",
+		"count": 1,
+		"qpPairs": 1,
+		"annotation": "support login endpoint handling request operations",
+		"method": "DELETE",
+		"path": "/api/v1/support/login",
+		"tags": ["products", "analytics", "notifications", "billing"],
+		"status": "active"
+	},
+	{
+		"eid": "E0019-TY",
+		"count": 1,
+		"qpPairs": 3,
+		"annotation": "analytics status endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v1/analytics/status",
+		"tags": ["billing", "admin"],
+		"status": "beta"
+	},
+	{
+		"eid": "E0020-UZ",
+		"count": 1,
+		"qpPairs": 2,
+		"annotation": "users history endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v1/users/history",
+		"tags": ["system", "support", "billing"],
+		"status": "active"
+	},
+	{
+		"eid": "E0021-VA",
+		"count": 2,
+		"qpPairs": 8,
+		"annotation": "users stats endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v1/users/stats",
+		"tags": ["admin", "notifications", "system"],
+		"status": "deprecated"
+	},
+	{
+		"eid": "E0022-WB",
+		"count": 5,
+		"qpPairs": 5,
+		"annotation": "admin logout endpoint handling request operations",
+		"method": "POST",
+		"path": "/api/v2/admin/logout",
+		"tags": ["users", "analytics"],
+		"status": "active"
+	},
+	{
+		"eid": "E0023-XC",
+		"count": 3,
+		"qpPairs": 0,
+		"annotation": "reports login endpoint handling request operations",
+		"method": "DELETE",
+		"path": "/api/v1/reports/login",
+		"tags": ["users", "support", "notifications", "auth"],
+		"status": "active"
+	},
+	{
+		"eid": "E0024-YD",
+		"count": 1,
+		"qpPairs": 2,
+		"annotation": "support list endpoint handling request operations",
+		"method": "PUT",
+		"path": "/api/v1/support/list",
+		"tags": ["billing", "support", "notifications"],
+		"status": "active"
+	},
+	{
+		"eid": "E0025-ZE",
+		"count": 3,
+		"qpPairs": 6,
+		"annotation": "reports history endpoint handling request operations",
+		"method": "DELETE",
+		"path": "/api/v2/reports/history",
+		"tags": ["analytics", "users"],
+		"status": "active"
+	},
+	{
+		"eid": "E0026-AF",
+		"count": 2,
+		"qpPairs": 7,
+		"annotation": "admin list endpoint handling request operations",
+		"method": "POST",
+		"path": "/api/v1/admin/list",
+		"tags": ["admin", "inventory"],
+		"status": "active"
+	},
+	{
+		"eid": "E0027-BG",
+		"count": 1,
+		"qpPairs": 8,
+		"annotation": "system list endpoint handling request operations",
+		"method": "PUT",
+		"path": "/api/v1/system/list",
+		"tags": ["billing", "analytics"],
+		"status": "active"
+	},
+	{
+		"eid": "E0028-CH",
+		"count": 2,
+		"qpPairs": 0,
+		"annotation": "admin create endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v1/admin/create",
+		"tags": ["billing", "support", "notifications"],
+		"status": "active"
+	},
+	{
+		"eid": "E0029-DI",
+		"count": 3,
+		"qpPairs": 8,
+		"annotation": "notifications status endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v1/notifications/status",
+		"tags": ["notifications", "analytics", "reports", "products"],
+		"status": "active"
+	},
+	{
+		"eid": "E0030-EJ",
+		"count": 4,
+		"qpPairs": 2,
+		"annotation": "support update endpoint handling request operations",
+		"method": "DELETE",
+		"path": "/api/v1/support/update",
+		"tags": ["reports", "orders", "support"],
+		"status": "active"
+	},
+	{
+		"eid": "E0031-FK",
+		"count": 5,
+		"qpPairs": 6,
+		"annotation": "billing logout endpoint handling request operations",
+		"method": "DELETE",
+		"path": "/api/v1/billing/logout",
+		"tags": ["notifications", "products"],
+		"status": "beta"
+	},
+	{
+		"eid": "E0032-GL",
+		"count": 4,
+		"qpPairs": 6,
+		"annotation": "notifications status endpoint handling request operations",
+		"method": "POST",
+		"path": "/api/v1/notifications/status",
+		"tags": ["inventory", "support", "admin", "users"],
+		"status": "deprecated"
+	},
+	{
+		"eid": "E0033-HM",
+		"count": 2,
+		"qpPairs": 3,
+		"annotation": "admin status endpoint handling request operations",
+		"method": "POST",
+		"path": "/api/v1/admin/status",
+		"tags": ["orders", "products"],
+		"status": "active"
+	},
+	{
+		"eid": "E0034-IN",
+		"count": 4,
+		"qpPairs": 3,
+		"annotation": "admin details endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v1/admin/details",
+		"tags": ["analytics", "products", "reports", "admin"],
+		"status": "active"
+	},
+	{
+		"eid": "E0035-JO",
+		"count": 1,
+		"qpPairs": 2,
+		"annotation": "support history endpoint handling request operations",
+		"method": "PUT",
+		"path": "/api/v2/support/history",
+		"tags": ["reports", "users", "analytics"],
+		"status": "active"
+	},
+	{
+		"eid": "E0036-KP",
+		"count": 2,
+		"qpPairs": 4,
+		"annotation": "reports update endpoint handling request operations",
+		"method": "DELETE",
+		"path": "/api/v1/reports/update",
+		"tags": ["users", "notifications", "auth", "orders"],
+		"status": "active"
+	},
+	{
+		"eid": "E0037-LQ",
+		"count": 2,
+		"qpPairs": 8,
+		"annotation": "support login endpoint handling request operations",
+		"method": "PUT",
+		"path": "/api/v2/support/login",
+		"tags": ["analytics", "orders"],
+		"status": "active"
+	},
+	{
+		"eid": "E0038-MR",
+		"count": 5,
+		"qpPairs": 1,
+		"annotation": "auth stats endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v1/auth/stats",
+		"tags": ["reports", "analytics", "inventory", "products"],
+		"status": "active"
+	},
+	{
+		"eid": "E0039-NS",
+		"count": 1,
+		"qpPairs": 1,
+		"annotation": "support update endpoint handling request operations",
+		"method": "PUT",
+		"path": "/api/v1/support/update",
+		"tags": ["users", "support", "auth"],
+		"status": "active"
+	},
+	{
+		"eid": "E0040-OT",
+		"count": 2,
+		"qpPairs": 4,
+		"annotation": "support list endpoint handling request operations",
+		"method": "DELETE",
+		"path": "/api/v1/support/list",
+		"tags": ["orders", "support", "users", "reports"],
+		"status": "active"
+	},
+	{
+		"eid": "E0041-PU",
+		"count": 2,
+		"qpPairs": 5,
+		"annotation": "analytics delete endpoint handling request operations",
+		"method": "PUT",
+		"path": "/api/v2/analytics/delete",
+		"tags": ["analytics", "system"],
+		"status": "active"
+	},
+	{
+		"eid": "E0042-QV",
+		"count": 4,
+		"qpPairs": 8,
+		"annotation": "auth summary endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v1/auth/summary",
+		"tags": ["auth", "admin", "notifications", "users"],
+		"status": "active"
+	},
+	{
+		"eid": "E0043-RW",
+		"count": 2,
+		"qpPairs": 4,
+		"annotation": "inventory logout endpoint handling request operations",
+		"method": "POST",
+		"path": "/api/v1/inventory/logout",
+		"tags": ["users", "auth", "inventory"],
+		"status": "beta"
+	},
+	{
+		"eid": "E0044-SX",
+		"count": 3,
+		"qpPairs": 4,
+		"annotation": "auth history endpoint handling request operations",
+		"method": "PUT",
+		"path": "/api/v1/auth/history",
+		"tags": ["products", "admin", "reports"],
+		"status": "active"
+	},
+	{
+		"eid": "E0045-TY",
+		"count": 3,
+		"qpPairs": 3,
+		"annotation": "notifications summary endpoint handling request operations",
+		"method": "POST",
+		"path": "/api/v1/notifications/summary",
+		"tags": ["users", "inventory", "auth"],
+		"status": "deprecated"
+	},
+	{
+		"eid": "E0046-UZ",
+		"count": 4,
+		"qpPairs": 8,
+		"annotation": "notifications details endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v2/notifications/details",
+		"tags": ["auth", "orders", "admin"],
+		"status": "active"
+	},
+	{
+		"eid": "E0047-VA",
+		"count": 2,
+		"qpPairs": 3,
+		"annotation": "admin details endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v2/admin/details",
+		"tags": ["orders", "admin", "system"],
+		"status": "beta"
+	},
+	{
+		"eid": "E0048-WB",
+		"count": 3,
+		"qpPairs": 1,
+		"annotation": "admin delete endpoint handling request operations",
+		"method": "PUT",
+		"path": "/api/v2/admin/delete",
+		"tags": ["billing", "system"],
+		"status": "active"
+	},
+	{
+		"eid": "E0049-XC",
+		"count": 4,
+		"qpPairs": 2,
+		"annotation": "notifications details endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v1/notifications/details",
+		"tags": ["users", "auth"],
+		"status": "active"
+	},
+	{
+		"eid": "E0050-YD",
+		"count": 4,
+		"qpPairs": 8,
+		"annotation": "products create endpoint handling request operations",
+		"method": "DELETE",
+		"path": "/api/v2/products/create",
+		"tags": ["orders", "auth"],
+		"status": "active"
+	},
+	{
+		"eid": "E0051-ZE",
+		"count": 3,
+		"qpPairs": 4,
+		"annotation": "admin create endpoint handling request operations",
+		"method": "DELETE",
+		"path": "/api/v1/admin/create",
+		"tags": ["products", "billing"],
+		"status": "active"
+	},
+	{
+		"eid": "E0052-AF",
+		"count": 1,
+		"qpPairs": 6,
+		"annotation": "system update endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v1/system/update",
+		"tags": ["users", "system"],
+		"status": "active"
+	},
+	{
+		"eid": "E0053-BG",
+		"count": 4,
+		"qpPairs": 2,
+		"annotation": "support list endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v1/support/list",
+		"tags": ["inventory", "orders"],
+		"status": "active"
+	},
+	{
+		"eid": "E0054-CH",
+		"count": 3,
+		"qpPairs": 1,
+		"annotation": "notifications summary endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v2/notifications/summary",
+		"tags": ["users", "reports", "support"],
+		"status": "active"
+	},
+	{
+		"eid": "E0055-DI",
+		"count": 5,
+		"qpPairs": 0,
+		"annotation": "system update endpoint handling request operations",
+		"method": "DELETE",
+		"path": "/api/v1/system/update",
+		"tags": ["users", "auth"],
+		"status": "deprecated"
+	},
+	{
+		"eid": "E0056-EJ",
+		"count": 5,
+		"qpPairs": 7,
+		"annotation": "system create endpoint handling request operations",
+		"method": "POST",
+		"path": "/api/v1/system/create",
+		"tags": ["inventory", "products"],
+		"status": "active"
+	},
+	{
+		"eid": "E0057-FK",
+		"count": 4,
+		"qpPairs": 6,
+		"annotation": "orders create endpoint handling request operations",
+		"method": "POST",
+		"path": "/api/v1/orders/create",
+		"tags": ["inventory", "billing", "system", "analytics"],
+		"status": "active"
+	},
+	{
+		"eid": "E0058-GL",
+		"count": 5,
+		"qpPairs": 5,
+		"annotation": "orders update endpoint handling request operations",
+		"method": "DELETE",
+		"path": "/api/v2/orders/update",
+		"tags": ["system", "orders"],
+		"status": "active"
+	},
+	{
+		"eid": "E0059-HM",
+		"count": 2,
+		"qpPairs": 3,
+		"annotation": "users summary endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v1/users/summary",
+		"tags": ["billing", "inventory", "notifications", "orders"],
+		"status": "active"
+	},
+	{
+		"eid": "E0060-IN",
+		"count": 1,
+		"qpPairs": 7,
+		"annotation": "system list endpoint handling request operations",
+		"method": "DELETE",
+		"path": "/api/v1/system/list",
+		"tags": ["admin", "analytics"],
+		"status": "active"
+	},
+	{
+		"eid": "E0061-JO",
+		"count": 1,
+		"qpPairs": 4,
+		"annotation": "notifications login endpoint handling request operations",
+		"method": "DELETE",
+		"path": "/api/v1/notifications/login",
+		"tags": ["users", "analytics"],
+		"status": "active"
+	},
+	{
+		"eid": "E0062-KP",
+		"count": 5,
+		"qpPairs": 6,
+		"annotation": "orders list endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v2/orders/list",
+		"tags": ["users", "billing", "auth", "notifications"],
+		"status": "active"
+	},
+	{
+		"eid": "E0063-LQ",
+		"count": 2,
+		"qpPairs": 1,
+		"annotation": "support list endpoint handling request operations",
+		"method": "PUT",
+		"path": "/api/v2/support/list",
+		"tags": ["users", "auth", "notifications", "inventory"],
+		"status": "active"
+	},
+	{
+		"eid": "E0064-MR",
+		"count": 3,
+		"qpPairs": 4,
+		"annotation": "orders create endpoint handling request operations",
+		"method": "POST",
+		"path": "/api/v1/orders/create",
+		"tags": ["billing", "users", "reports", "products"],
+		"status": "active"
+	},
+	{
+		"eid": "E0065-NS",
+		"count": 1,
+		"qpPairs": 2,
+		"annotation": "orders summary endpoint handling request operations",
+		"method": "PUT",
+		"path": "/api/v1/orders/summary",
+		"tags": ["users", "analytics"],
+		"status": "active"
+	},
+	{
+		"eid": "E0066-OT",
+		"count": 4,
+		"qpPairs": 3,
+		"annotation": "products status endpoint handling request operations",
+		"method": "PUT",
+		"path": "/api/v1/products/status",
+		"tags": ["analytics", "inventory"],
+		"status": "active"
+	},
+	{
+		"eid": "E0067-PU",
+		"count": 4,
+		"qpPairs": 6,
+		"annotation": "support delete endpoint handling request operations",
+		"method": "POST",
+		"path": "/api/v1/support/delete",
+		"tags": ["admin", "support", "analytics", "orders"],
+		"status": "beta"
+	},
+	{
+		"eid": "E0068-QV",
+		"count": 3,
+		"qpPairs": 6,
+		"annotation": "products profile endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v1/products/profile",
+		"tags": ["reports", "notifications", "billing"],
+		"status": "active"
+	},
+	{
+		"eid": "E0069-RW",
+		"count": 2,
+		"qpPairs": 4,
+		"annotation": "analytics create endpoint handling request operations",
+		"method": "POST",
+		"path": "/api/v2/analytics/create",
+		"tags": ["inventory", "users", "auth"],
+		"status": "beta"
+	},
+	{
+		"eid": "E0070-SX",
+		"count": 5,
+		"qpPairs": 5,
+		"annotation": "users summary endpoint handling request operations",
+		"method": "POST",
+		"path": "/api/v1/users/summary",
+		"tags": ["notifications", "system"],
+		"status": "active"
+	},
+	{
+		"eid": "E0071-TY",
+		"count": 4,
+		"qpPairs": 0,
+		"annotation": "inventory profile endpoint handling request operations",
+		"method": "PUT",
+		"path": "/api/v1/inventory/profile",
+		"tags": ["support", "billing"],
+		"status": "active"
+	},
+	{
+		"eid": "E0072-UZ",
+		"count": 3,
+		"qpPairs": 7,
+		"annotation": "analytics login endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v1/analytics/login",
+		"tags": ["products", "inventory", "support"],
+		"status": "active"
+	},
+	{
+		"eid": "E0073-VA",
+		"count": 3,
+		"qpPairs": 4,
+		"annotation": "products history endpoint handling request operations",
+		"method": "POST",
+		"path": "/api/v2/products/history",
+		"tags": ["reports", "notifications", "users", "system"],
+		"status": "active"
+	},
+	{
+		"eid": "E0074-WB",
+		"count": 1,
+		"qpPairs": 8,
+		"annotation": "users status endpoint handling request operations",
+		"method": "POST",
+		"path": "/api/v1/users/status",
+		"tags": ["inventory", "system", "products"],
+		"status": "active"
+	},
+	{
+		"eid": "E0075-XC",
+		"count": 4,
+		"qpPairs": 2,
+		"annotation": "reports create endpoint handling request operations",
+		"method": "DELETE",
+		"path": "/api/v2/reports/create",
+		"tags": ["notifications", "auth"],
+		"status": "active"
+	},
+	{
+		"eid": "E0076-YD",
+		"count": 4,
+		"qpPairs": 2,
+		"annotation": "products logout endpoint handling request operations",
+		"method": "DELETE",
+		"path": "/api/v1/products/logout",
+		"tags": ["users", "auth", "notifications"],
+		"status": "deprecated"
+	},
+	{
+		"eid": "E0077-ZE",
+		"count": 4,
+		"qpPairs": 2,
+		"annotation": "billing summary endpoint handling request operations",
+		"method": "POST",
+		"path": "/api/v1/billing/summary",
+		"tags": ["analytics", "system", "billing", "admin"],
+		"status": "active"
+	},
+	{
+		"eid": "E0078-AF",
+		"count": 3,
+		"qpPairs": 7,
+		"annotation": "users details endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v1/users/details",
+		"tags": ["system", "billing", "products"],
+		"status": "active"
+	},
+	{
+		"eid": "E0079-BG",
+		"count": 5,
+		"qpPairs": 0,
+		"annotation": "orders status endpoint handling request operations",
+		"method": "DELETE",
+		"path": "/api/v1/orders/status",
+		"tags": ["orders", "auth"],
+		"status": "beta"
+	},
+	{
+		"eid": "E0080-CH",
+		"count": 4,
+		"qpPairs": 8,
+		"annotation": "reports summary endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v2/reports/summary",
+		"tags": ["reports", "auth"],
+		"status": "beta"
+	},
+	{
+		"eid": "E0081-DI",
+		"count": 3,
+		"qpPairs": 1,
+		"annotation": "analytics login endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v1/analytics/login",
+		"tags": ["inventory", "admin", "users"],
+		"status": "active"
+	},
+	{
+		"eid": "E0082-EJ",
+		"count": 1,
+		"qpPairs": 4,
+		"annotation": "admin history endpoint handling request operations",
+		"method": "DELETE",
+		"path": "/api/v1/admin/history",
+		"tags": ["users", "admin", "products", "orders"],
+		"status": "active"
+	},
+	{
+		"eid": "E0083-FK",
+		"count": 2,
+		"qpPairs": 8,
+		"annotation": "reports logout endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v2/reports/logout",
+		"tags": ["billing", "reports", "analytics"],
+		"status": "active"
+	},
+	{
+		"eid": "E0084-GL",
+		"count": 3,
+		"qpPairs": 8,
+		"annotation": "billing create endpoint handling request operations",
+		"method": "PUT",
+		"path": "/api/v1/billing/create",
+		"tags": ["analytics", "reports"],
+		"status": "active"
+	},
+	{
+		"eid": "E0085-HM",
+		"count": 1,
+		"qpPairs": 7,
+		"annotation": "reports history endpoint handling request operations",
+		"method": "POST",
+		"path": "/api/v2/reports/history",
+		"tags": ["support", "users"],
+		"status": "deprecated"
+	},
+	{
+		"eid": "E0086-IN",
+		"count": 2,
+		"qpPairs": 0,
+		"annotation": "inventory details endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v1/inventory/details",
+		"tags": ["reports", "orders"],
+		"status": "active"
+	},
+	{
+		"eid": "E0087-JO",
+		"count": 1,
+		"qpPairs": 3,
+		"annotation": "notifications update endpoint handling request operations",
+		"method": "PUT",
+		"path": "/api/v1/notifications/update",
+		"tags": ["system", "billing", "users"],
+		"status": "active"
+	},
+	{
+		"eid": "E0088-KP",
+		"count": 5,
+		"qpPairs": 7,
+		"annotation": "billing update endpoint handling request operations",
+		"method": "DELETE",
+		"path": "/api/v1/billing/update",
+		"tags": ["auth", "products"],
+		"status": "active"
+	},
+	{
+		"eid": "E0089-LQ",
+		"count": 4,
+		"qpPairs": 4,
+		"annotation": "auth create endpoint handling request operations",
+		"method": "POST",
+		"path": "/api/v2/auth/create",
+		"tags": ["analytics", "admin"],
+		"status": "active"
+	},
+	{
+		"eid": "E0090-MR",
+		"count": 2,
+		"qpPairs": 2,
+		"annotation": "orders details endpoint handling request operations",
+		"method": "POST",
+		"path": "/api/v2/orders/details",
+		"tags": ["reports", "orders"],
+		"status": "active"
+	},
+	{
+		"eid": "E0091-NS",
+		"count": 2,
+		"qpPairs": 2,
+		"annotation": "system summary endpoint handling request operations",
+		"method": "DELETE",
+		"path": "/api/v1/system/summary",
+		"tags": ["users", "auth", "admin"],
+		"status": "active"
+	},
+	{
+		"eid": "E0092-OT",
+		"count": 4,
+		"qpPairs": 6,
+		"annotation": "billing update endpoint handling request operations",
+		"method": "PUT",
+		"path": "/api/v1/billing/update",
+		"tags": ["orders", "analytics"],
+		"status": "beta"
+	},
+	{
+		"eid": "E0093-PU",
+		"count": 3,
+		"qpPairs": 4,
+		"annotation": "notifications summary endpoint handling request operations",
+		"method": "POST",
+		"path": "/api/v1/notifications/summary",
+		"tags": ["auth", "reports"],
+		"status": "active"
+	},
+	{
+		"eid": "E0094-QV",
+		"count": 2,
+		"qpPairs": 7,
+		"annotation": "users profile endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v1/users/profile",
+		"tags": ["billing", "reports"],
+		"status": "active"
+	},
+	{
+		"eid": "E0095-RW",
+		"count": 4,
+		"qpPairs": 8,
+		"annotation": "users history endpoint handling request operations",
+		"method": "POST",
+		"path": "/api/v1/users/history",
+		"tags": ["products", "inventory", "orders", "reports"],
+		"status": "active"
+	},
+	{
+		"eid": "E0096-SX",
+		"count": 4,
+		"qpPairs": 0,
+		"annotation": "users summary endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v1/users/summary",
+		"tags": ["users", "auth", "system", "admin"],
+		"status": "active"
+	},
+	{
+		"eid": "E0097-TY",
+		"count": 1,
+		"qpPairs": 2,
+		"annotation": "notifications status endpoint handling request operations",
+		"method": "POST",
+		"path": "/api/v1/notifications/status",
+		"tags": ["reports", "inventory"],
+		"status": "active"
+	},
+	{
+		"eid": "E0098-UZ",
+		"count": 5,
+		"qpPairs": 8,
+		"annotation": "inventory stats endpoint handling request operations",
+		"method": "DELETE",
+		"path": "/api/v1/inventory/stats",
+		"tags": ["reports", "analytics"],
+		"status": "active"
+	},
+	{
+		"eid": "E0099-VA",
+		"count": 2,
+		"qpPairs": 5,
+		"annotation": "reports status endpoint handling request operations",
+		"method": "POST",
+		"path": "/api/v1/reports/status",
+		"tags": ["users", "system"],
+		"status": "active"
+	},
+	{
+		"eid": "E0100-WB",
+		"count": 3,
+		"qpPairs": 6,
+		"annotation": "products logout endpoint handling request operations",
+		"method": "GET",
+		"path": "/api/v1/products/logout",
+		"tags": ["analytics", "orders", "auth", "system"],
+		"status": "active"
+	}
+]

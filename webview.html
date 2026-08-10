@@ -1,0 +1,495 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="UTF-8" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0"
+		/>
+		<style>
+			.alphabet span {
+				font-size: 0.8rem;
+				text-align: left;
+				display: grid;
+				vertical-align: center;
+				font-weight: 500;
+				color: #3b3b3b;
+				cursor: pointer;
+				border-radius: 4px;
+			}
+			.alphabet span:hover {
+				color: #000000;
+			}
+
+			.endpoint-card {
+				transition:
+					background-color 180ms ease,
+					border-color 180ms ease,
+					box-shadow 180ms ease,
+					transform 180ms ease;
+			}
+
+			.endpoint-card.active {
+				background: linear-gradient(
+					135deg,
+					#ecfeff 0%,
+					#f8fafc 100%
+				) !important;
+				border-color: #0f766e !important;
+				box-shadow: 0 12px 28px rgba(15, 118, 110, 0.18) !important;
+				transform: translateY(-1px);
+			}
+
+			#rq-number.active {
+				background: linear-gradient(
+					135deg,
+					#ecfeff 0%,
+					#f8fafc 100%
+				) !important;
+				border: 2px solid #0f766e !important;
+				/* border-color: #0f766e !important; */
+				box-shadow: 0 12px 28px rgba(15, 118, 110, 0.18) !important;
+				transform: translateY(-1px);
+			}
+
+			.rqno.active {
+				background-color: #ecfeff !important;
+				border-color: #0f766e !important;
+				box-shadow: 0 12px 28px rgba(15, 118, 110, 0.18) !important;
+				transform: translateY(-1px);
+			}
+			.endpoint-card.active h2,
+			.endpoint-card.active h3 {
+				color: #134e4a;
+			}
+
+			.inputGR.active {
+				background-color: white !important;
+				border: 2px solid #000000 !important;
+			}
+
+			.left-sidebar-headings h1.active {
+				background: linear-gradient(
+					135deg,
+					#ecfeff 0%,
+					#f8fafc 100%
+				) !important;
+				border-color: #0f766e !important;
+				box-shadow: 0 12px 28px rgba(15, 118, 110, 0.18) !important;
+				scale: 1.02;
+			}
+		</style>
+		<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+		<title>HASHEDTOKEN - Web View</title>
+	</head>
+	<body>
+		<main
+			class="w-full h-screen flex flex-col gap-2 bg-gray-50 overflow-hidden"
+		>
+			<div class="navbar py-0 flex-shrink-0 border-b-2 border-black/40">
+				<nav class="w-full z-50 py-2 transition-all duration-300">
+					<div class="w-full px-2 flex items-center justify-between">
+						<div class="flex items-center gap-3">
+							<div class="w-10 h-10">
+								<img
+									src="assets/ht-logo.png"
+									alt="HashedTokens Logo"
+									class="w-full h-full object-contain"
+								/>
+							</div>
+							<h1 class="text-2xl font-bold text-[#2d5016] whitespace-nowrap">
+								HashedTokens
+							</h1>
+						</div>
+
+						<div class="flex items-center gap-4 justify-around">
+							<a
+								href="/webview.html"
+								class="px-5 py-2 font-semibold transition-all duration-300 text-black/80 border-b-2 border-transparent hover:border-black/40"
+							>
+								Home
+							</a>
+							<a
+								href="/dashboard.html"
+								class="px-5 py-2 font-semibold transition-all duration-300 text-black/80 border-b-2 border-transparent hover:border-black/40"
+							>
+								Dashboard View
+							</a>
+							<a
+								href="/listview.html"
+								class="px-5 py-2 font-semibold transition-all duration-300 text-black/80 border-b-2 border-transparent hover:border-black/40"
+							>
+								List view
+							</a>
+							<a
+								href="/webview.html"
+								class="px-5 py-2 font-semibold transition-all duration-300 text-black border-b-2 border-black hover:border-black/40"
+							>
+								Web view
+							</a>
+						</div>
+					</div>
+				</nav>
+			</div>
+			<div
+				class="navbar2 flex-shrink-0 flex align-center justify-around px-4 py-2"
+			>
+				<div class="search_box w-[60%] flex items-center gap-2 justify-around">
+					<input
+						type="text"
+						placeholder="Search via URL, method, tags..."
+						oninput="searchEndpoints()"
+						class="w-[40%] px-4 py-3 rounded-lg border border-gray-300 outline-black focus:ring-2"
+					/>
+					<div
+						id="search-category"
+						class="flex items-center gap-3 rounded-xl border border-gray-300 bg-gray-100 p-1"
+					>
+						<button
+							type="button"
+							class="search-category-tab rounded-xl px-3 py-2 font-bold text-gray-700 transition-all duration-200 cursor-pointer"
+							data-category="ALL"
+							onclick="searchCategoryChange('ALL')"
+						>
+							ALL
+							<span
+								id="count-all"
+								class="ml-1 font-semibold text-gray-500"
+								>0</span
+							>
+						</button>
+						<button
+							type="button"
+							class="search-category-tab rounded-xl px-3 py-2 font-bold text-gray-700 transition-all duration-200 cursor-pointer"
+							data-category="GET"
+							onclick="searchCategoryChange('GET')"
+						>
+							GET
+							<span
+								id="count-get"
+								class="ml-1 font-semibold text-gray-500"
+								>0</span
+							>
+						</button>
+						<button
+							type="button"
+							class="search-category-tab rounded-xl px-3 py-2 font-bold text-gray-700 transition-all duration-200 cursor-pointer"
+							data-category="POST"
+							onclick="searchCategoryChange('POST')"
+						>
+							POST
+							<span
+								id="count-post"
+								class="ml-1 font-semibold text-gray-500"
+								>0</span
+							>
+						</button>
+						<button
+							type="button"
+							class="search-category-tab rounded-xl px-3 py-2 font-bold text-gray-700 transition-all duration-200 cursor-pointer"
+							data-category="PUT"
+							onclick="searchCategoryChange('PUT')"
+						>
+							PUT
+							<span
+								id="count-put"
+								class="ml-1 font-semibold text-gray-500"
+								>0</span
+							>
+						</button>
+						<button
+							type="button"
+							class="search-category-tab rounded-xl px-3 py-2 font-bold text-gray-700 transition-all duration-200 cursor-pointer"
+							data-category="DELETE"
+							onclick="searchCategoryChange('DELETE')"
+						>
+							DEL
+							<span
+								id="count-delete"
+								class="ml-1 font-semibold text-gray-500"
+								>0</span
+							>
+						</button>
+					</div>
+				</div>
+				<div class="w-1/14 grid place-content-center">
+					<a
+						href="#"
+						onclick="
+							clearAllFilters();
+							return false;
+						"
+						class="text-zinc-500 px-2 py-1 rounded-lg transition-all duration-300 first-letter:text-wrap text-center -ml-5"
+					>
+						clear all filter
+					</a>
+				</div>
+				<div class="flex items-center gap-4 py-2 px-4 justify-end w-[30%]">
+					<h1
+						class="px-5 py-2 font-semibold transition-all duration-300 text-zinc-600 shadow-lg uppercase text-right border-l-2 border-zinc-600"
+					>
+						total endpoints <br /><span
+							id="total_endpoints"
+							class="text-black"
+							>2</span
+						>
+					</h1>
+					<h1
+						class="px-5 py-2 font-semibold transition-all duration-300 text-zinc-600 shadow-lg border-l-2 border-zinc-600 text-right uppercase"
+					>
+						total tags :
+						<span
+							id="total_tags"
+							class="text-black"
+							>6</span
+						>
+						<br />
+						total segmented :
+						<span
+							id="total_segments"
+							class="text-black"
+							>6</span
+						>
+					</h1>
+				</div>
+			</div>
+			<div
+				class="main-content flex-1 rounded-lg p-4 grid grid-cols-16 grid-rows-10 gap-4 overflow-hidden"
+			>
+				<div
+					class="toggle-view cursor-pointer absolute top-16 left-4 z-20 rounded-full bg-white p-4 shadow-md hidden border-2 border-gray-800"
+					onclick="toggleView()"
+				>
+					<img
+						src="assets/toggle.svg"
+						alt=""
+						class="w-full"
+					/>
+				</div>
+				<div
+					class="endpointsTags col-span-3 bg-gray-100 row-span-10 rounded-lg relative overflow-x-hidden overflow-y-auto"
+				>
+					<div
+						class="w-full mb-4 flex px-2 justify-between items-center border-2 rounded-lg bg-slate-200 border-gray-300"
+					>
+						<h1 class="text-xl font-semibold">filters</h1>
+						<div
+							class="toggle-view w-6 cursor-pointer"
+							onclick="toggleView()"
+						>
+							<img
+								src="assets/toggle.svg"
+								alt=""
+								class="w-full"
+							/>
+						</div>
+					</div>
+					<div class="flex align-center justify-between left-sidebar-headings">
+						<h1
+							class="uppercase w-full border-y-2 border-black py-3 px-2 font-bold text-center cursor-pointer active"
+							onclick="loadSegments()"
+						>
+							ENDPOINT SEGMENTS
+						</h1>
+						<h1
+							class="uppercase w-full border-y-2 border-l-1 border-black py-3 px-2 font-bold text-center cursor-pointer"
+							onclick="loadAllTags()"
+						>
+							TAGS
+						</h1>
+					</div>
+					<div
+						class="content p-4 flex flex-col text-xl max-h-[70vh] overflow-y-auto"
+					></div>
+				</div>
+				<div
+					class="row-span-10 col-span-5 bg-white rounded-lg flex flex-col overflow-y-auto gap-2 relative shadow-lg"
+					id="endpoints_card_container"
+				>
+					<h1
+						class="uppercase w-full border-b-2 border-black py-3 px-2 font-bold"
+					>
+						ENDPOINTS
+					</h1>
+					<div
+						id="endpoints_scroll"
+						class="flex flex-col p-4 gap-2"
+					>
+						<!-- <div class="w-full p-4 bg-gray-50 shadow-md. border-2 border-gray-200 rounded-lg flex flex-col gap-2">
+							<div class="flex justify-between">
+								<h1 class="bg-green-500 text-white rounded-sm px-2 py-1 uppercase font-bold">get</h1>
+								<h2>ID : ED23</h2>
+							</div>
+							<h2 class="text-xl ">/api/user/hello</h2>
+							<h3 class="text-sm text-gray-600">This is a sample endpoint</h3>
+						</div> -->
+						<!-- Endpoint cards will be dynamically added here -->
+					</div>
+					<div
+						class="sticky bottom-0 w-full left-0 text-center z-10 backdrop-blur-lg text-black text-3xl flex p-3 justify-around rounded-lg"
+					>
+						<span
+							class="cursor-pointer"
+							id="prev-button"
+						>
+							<
+						</span>
+						<label
+							for="page-input"
+							class="flex items-center gap-2 text-xl"
+						>
+							Page:
+							<input
+								type="number"
+								id="page-input"
+								value="1"
+								min="1"
+								class="rounded-md w-5 text-center text-lg text-gray-900 bg-white focus:ring-2 focus:ring-zinc-500 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+							/>
+							<span>/ <span id="max-page">1</span></span>
+						</label>
+						<span
+							class="cursor-pointer"
+							id="next-button"
+						>
+							>
+						</span>
+					</div>
+				</div>
+				<div
+					class="col-span-1 row-span-10 bg-gray-100 rounded-lg py-4 max-h-[85vh] flex items-center justify-start gap-2 flex-col"
+					id="rq-number"
+				></div>
+				<div class="col-span-7 row-span-3 Detail flex flex-col">
+					<div
+						id="detail-panel"
+						class="w-full h-full p-4 shadow-md border-2 border-gray-200 bg-gray-50 rounded-lg flex flex-col gap-4 overflow-y-auto"
+					>
+						<div
+							id="detail-placeholder"
+							class="p-8 text-center text-gray-600 text-lg"
+						>
+							Selected endpoint will appear here
+						</div>
+						<div
+							id="detail-content"
+							class="hidden"
+						>
+							<div class="flex justify-between items-center gap-4">
+								<div class="rounded-lg p-1 text-center text-xl font-bold">
+									<span id="eid-box"></span>
+								</div>
+								<div class="flex gap-2 items-center">
+									<div
+										id="path-box"
+										class="rounded-lg p-1 text-center text-xl font-semibold text-gray-500"
+									>
+										Endpoint String
+									</div>
+									<div
+										id="crud-box"
+										class="rounded-lg p-1 text-center text-xl font-bold"
+									>
+										CRUD TYPE
+									</div>
+								</div>
+							</div>
+							<div
+								id="annotation-box"
+								class="rounded-lg p-3 text-left text-lg font-light max-h-25 overflow-x-auto"
+							>
+								Annotation (word wrapped)
+							</div>
+							<div
+								id="tags-box"
+								class="rounded-lg p-3 overflow-x-auto whitespace-nowrap"
+							>
+								<div class="font-bold text-lg inline-block mr-2">Tags:</div>
+								<div
+									id="tags-list"
+									class="inline-block"
+								></div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="col-span-7 row-span-7 flex gap-4 RRpanel">
+					<div class="request w-full rounded-lg flex flex-col">
+						<div
+							class="bg-gray-50 border-2 border-dashed rounded-xl w-full h-full flex flex-col overflow-hidden"
+						>
+							<div
+								class="w-full py-2 px-2 flex items-center justify-between rounded-tl-lg rounded-tr-lg border-b-2 border-gray-300"
+							>
+								<h1 class="text-2xl font-bold">Request</h1>
+								<h2 id="size"></h2>
+								<div class="flex gap-2">
+									<button
+										class="cursor-pointer hover:bg-white hover:border-gray-300 border border-transparent p-2 transition-all duration-300 rounded-sm"
+									>
+										<img
+											src="assets/clipboard-text-alt-svgrepo-com.svg"
+											alt=""
+											class="w-5"
+										/>
+									</button>
+									<button
+										class="cursor-pointer hover:bg-white hover:border-gray-300 border border-transparent p-2 transition-all duration-300 rounded-sm"
+									>
+										<img
+											src="assets/download-svgrepo-com.svg"
+											alt=""
+											class="w-5"
+										/>
+									</button>
+								</div>
+							</div>
+							<div
+								class="w-[calc(100%-1rem)] mx-auto my-2 flex-1 bg-white rounded-lg border border-black overflow-auto"
+								id="request-panel"
+							></div>
+						</div>
+					</div>
+					<div class="response w-full bg-gray-300 rounded-lg flex flex-col">
+						<div
+							class="bg-gray-50 border-2 border-dashed rounded-xl w-full h-full flex flex-col overflow-hidden"
+						>
+							<div
+								class="w-full py-2 px-2 flex items-center justify-between rounded-tl-lg rounded-tr-lg border-b-2 border-gray-300"
+							>
+								<h1 class="text-2xl font-bold">Response</h1>
+								<h2 id="size"></h2>
+								<div class="flex gap-2">
+									<button
+										class="cursor-pointer hover:bg-white hover:border-gray-300 border border-transparent p-2 transition-all duration-300 rounded-sm"
+									>
+										<img
+											src="assets/clipboard-text-alt-svgrepo-com.svg"
+											alt=""
+											class="w-5"
+										/>
+									</button>
+									<button
+										class="cursor-pointer hover:bg-white hover:border-gray-300 border border-transparent p-2 transition-all duration-300 rounded-sm"
+									>
+										<img
+											src="assets/download-svgrepo-com.svg"
+											alt=""
+											class="w-5"
+										/>
+									</button>
+								</div>
+							</div>
+							<div
+								class="w-[calc(100%-1rem)] mx-auto my-2 flex-1 bg-white rounded-lg border border-black overflow-auto"
+								id="response-panel"
+							></div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</main>
+		<!-- <script src="./script.js"></script> -->
+		<script src="scripts/webview.js"></script>
+	</body>
+</html>

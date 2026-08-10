@@ -1,0 +1,1 @@
+{"eid":"E0077-ZE","count":4,"qpPairs":2,"annotation":"billing summary endpoint handling request operations","method":"POST","path":"/api/v1/billing/summary","tags":["analytics","system","billing","admin"],"status":"active"}

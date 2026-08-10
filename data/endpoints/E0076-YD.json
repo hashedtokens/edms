@@ -1,0 +1,1 @@
+{"eid":"E0076-YD","count":4,"qpPairs":2,"annotation":"products logout endpoint handling request operations","method":"DELETE","path":"/api/v1/products/logout","tags":["users","auth","notifications"],"status":"deprecated"}

@@ -1,0 +1,1 @@
+{"request_id":"E0017-RW-request3","endpoint_id":"E0017-RW","meta_data":{"method":"GET","content_type":"application/json","authorization":"Bearer Token","request_size":"5 KB"},"body":{"headers":{"Authorization":"Bearer sample_token","Content-Type":"application/json"},"data":{"username":"john_doe","email":"john@example.com","role":"admin"}}}

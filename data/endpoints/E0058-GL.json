@@ -1,0 +1,1 @@
+{"eid":"E0058-GL","count":5,"qpPairs":5,"annotation":"orders update endpoint handling request operations","method":"DELETE","path":"/api/v2/orders/update","tags":["system","orders"],"status":"active"}

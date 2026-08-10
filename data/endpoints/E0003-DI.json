@@ -1,0 +1,1 @@
+{"eid":"E0003-DI","count":2,"qpPairs":0,"annotation":"auth profile endpoint handling request operations","method":"GET","path":"/api/v1/auth/profile","tags":["reports","notifications","admin"],"status":"active"}

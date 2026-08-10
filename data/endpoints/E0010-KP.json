@@ -1,0 +1,1 @@
+{"eid":"E0010-KP","count":3,"qpPairs":6,"annotation":"products summary endpoint handling request operations","method":"POST","path":"/api/v1/products/summary","tags":["orders","auth"],"status":"active"}

@@ -1,0 +1,1 @@
+{"eid":"E0086-IN","count":2,"qpPairs":0,"annotation":"inventory details endpoint handling request operations","method":"GET","path":"/api/v1/inventory/details","tags":["reports","orders"],"status":"active"}

@@ -1,0 +1,1 @@
+{"eid":"E0083-FK","count":2,"qpPairs":8,"annotation":"reports logout endpoint handling request operations","method":"GET","path":"/api/v2/reports/logout","tags":["billing","reports","analytics"],"status":"active"}

@@ -1,0 +1,1 @@
+{"eid":"E0025-ZE","count":3,"qpPairs":6,"annotation":"reports history endpoint handling request operations","method":"DELETE","path":"/api/v2/reports/history","tags":["analytics","users"],"status":"active"}

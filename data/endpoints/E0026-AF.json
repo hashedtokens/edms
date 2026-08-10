@@ -1,0 +1,1 @@
+{"eid":"E0026-AF","count":2,"qpPairs":7,"annotation":"admin list endpoint handling request operations","method":"POST","path":"/api/v1/admin/list","tags":["admin","inventory"],"status":"active"}

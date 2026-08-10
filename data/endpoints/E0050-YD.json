@@ -1,0 +1,1 @@
+{"eid":"E0050-YD","count":4,"qpPairs":8,"annotation":"products create endpoint handling request operations","method":"DELETE","path":"/api/v2/products/create","tags":["orders","auth"],"status":"active"}

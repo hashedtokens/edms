@@ -1,0 +1,1 @@
+{"eid":"E0041-PU","count":2,"qpPairs":5,"annotation":"analytics delete endpoint handling request operations","method":"PUT","path":"/api/v2/analytics/delete","tags":["analytics","system"],"status":"active"}

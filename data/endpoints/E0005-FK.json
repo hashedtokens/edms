@@ -1,0 +1,1 @@
+{"eid":"E0005-FK","count":5,"qpPairs":4,"annotation":"notifications list endpoint handling request operations","method":"GET","path":"/api/v1/notifications/list","tags":["orders","reports","users"],"status":"active"}

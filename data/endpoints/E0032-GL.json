@@ -1,0 +1,1 @@
+{"eid":"E0032-GL","count":4,"qpPairs":6,"annotation":"notifications status endpoint handling request operations","method":"POST","path":"/api/v1/notifications/status","tags":["inventory","support","admin","users"],"status":"deprecated"}

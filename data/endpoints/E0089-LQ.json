@@ -1,0 +1,1 @@
+{"eid":"E0089-LQ","count":4,"qpPairs":4,"annotation":"auth create endpoint handling request operations","method":"POST","path":"/api/v2/auth/create","tags":["analytics","admin"],"status":"active"}

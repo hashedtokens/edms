@@ -1,0 +1,10 @@
+{
+	"eid": "E0001-BG",
+	"count": 4,
+	"qpPairs": 2,
+	"annotation": "analytics logout endpoint handling request operations",
+	"method": "GET",
+	"path": "/api/v2/analytics/logout",
+	"tags": ["orders", "auth", "support"],
+	"status": "active"
+}

@@ -1,0 +1,1 @@
+{"eid":"E0043-RW","count":2,"qpPairs":4,"annotation":"inventory logout endpoint handling request operations","method":"POST","path":"/api/v1/inventory/logout","tags":["users","auth","inventory"],"status":"beta"}

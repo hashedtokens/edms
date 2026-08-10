@@ -1,0 +1,1 @@
+{"eid":"E0049-XC","count":4,"qpPairs":2,"annotation":"notifications details endpoint handling request operations","method":"GET","path":"/api/v1/notifications/details","tags":["users","auth"],"status":"active"}

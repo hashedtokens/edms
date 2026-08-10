@@ -1,0 +1,1 @@
+{"response_id":"E0017-RW-response6","endpoint_id":"E0017-RW","meta_data":{"status_code":200,"content_type":"application/json","response_size":"1 KB","response_time":"245 ms"},"body":{"status":"success","code":202,"message":"Task queued successfully","data":{"task_id":"TASK-8921","task":"generate_report","priority":"high","estimated_completion":"5 mins"}}}

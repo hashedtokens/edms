@@ -1,0 +1,1 @@
+{"eid":"E0080-CH","count":4,"qpPairs":8,"annotation":"reports summary endpoint handling request operations","method":"GET","path":"/api/v2/reports/summary","tags":["reports","auth"],"status":"beta"}

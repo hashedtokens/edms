@@ -1,0 +1,1 @@
+{"eid":"E0085-HM","count":1,"qpPairs":7,"annotation":"reports history endpoint handling request operations","method":"POST","path":"/api/v2/reports/history","tags":["support","users"],"status":"deprecated"}

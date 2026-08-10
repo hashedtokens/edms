@@ -1,0 +1,1 @@
+{"eid":"E0042-QV","count":4,"qpPairs":8,"annotation":"auth summary endpoint handling request operations","method":"GET","path":"/api/v1/auth/summary","tags":["auth","admin","notifications","users"],"status":"active"}

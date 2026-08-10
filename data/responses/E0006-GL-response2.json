@@ -1,0 +1,1 @@
+{"response_id":"E0006-GL-response2","endpoint_id":"E0006-GL","meta_data":{"status_code":201,"content_type":"application/json","response_size":"3 KB","response_time":"304 ms"},"body":{"status":"success","code":202,"message":"Task queued successfully","data":{"task_id":"TASK-8921","task":"generate_report","priority":"high","estimated_completion":"5 mins"}}}
