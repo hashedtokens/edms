@@ -21,6 +21,7 @@ So, EDMS helps to reduce the chaos so that development progresses without hassle
 * :white_check_mark: **Test View** - Endpoints can be tested in real time with advanced options 
 * :white_check_mark: **Filter / Merge Data** - Endpoints from multiple sources / team members can be easily filtered into independent collections or merged into one collection
 * 🚧 **Share** - Sharing endpoints with teams `Work-In-Progress`
+* 🚧 **Online Backup** - Securely backup your EQP data online `Work-In-Progress`
 
 ### Symbols 
 * `E` : **Endpoint** 
