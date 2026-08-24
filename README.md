@@ -27,3 +27,5 @@ So, EDMS helps to reduce the chaos so that development progresses without hassle
 * `E` : **Endpoint** 
 * `Q` : **Request**
 * `P` : **Response**
+
+`EQP` : All data related to _Endpoints_
