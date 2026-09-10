@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>EDMS Bookmark View</title>
+
+  <link href="../styles/output.css" rel="stylesheet">
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body class="bg-slate-950 text-slate-100 font-[Inter] min-h-screen overflow-hidden" data-current-page="list">
+
+  <!-- =========================================================
+       PAGE
+  ========================================================== -->
+
+  <div class="h-screen p-3 sm:p-4">
+
+    <div class="mx-auto flex h-full max-w-screen-2xl flex-col overflow-hidden
+             rounded-xl border border-slate-800 bg-slate-900">
+
+      <!-- =====================================================
+           HEADER
+      ====================================================== -->
+
+      <header class="flex shrink-0 flex-wrap items-center justify-between gap-4
+               border-b border-slate-700/40 bg-[#162235]
+               px-4 py-3 sm:px-6">
+
+        <div class="flex flex-col gap-0.5">
+
+          <h1 class="text-xl font-bold tracking-tight text-white sm:text-2xl">
+            Bookmarks
+          </h1>
+
+          <p class="text-[11px] text-slate-400 sm:text-xs">
+            Endpoint List View
+          </p>
+
+        </div>
+
+
+        <!-- Navigation -->
+                <nav class="navbar
+                            flex
+                            items-center
+                            gap-1
+                            rounded-full
+                            bg-slate-800
+                            p-1">
+
+
+                    <!-- Home -->
+                    <button id="homenav" data-target="./index.html" data-page="home" class="nav-button
+                                   rounded-lg
+                                   px-3.5 py-1.5
+                                   text-sm
+                                   font-medium
+                                   text-slate-400
+                                   transition
+                                   hover:bg-slate-700
+                                   hover:text-white">
+
+                        Home
+
+                    </button>
+
+
+                    <!-- Test View -->
+                    <button id="testnav" data-target="./testview.html" data-page="test" class="nav-button
+                                   rounded-lg
+                                   px-3.5 py-1.5
+                                   text-sm
+                                   font-medium
+                                   text-slate-400
+                                   transition
+                                   hover:bg-slate-700
+                                   hover:text-white">
+
+                        Test View
+
+                    </button>
+                    <!-- Bookmark View -->
+                    <button id="listnav" data-target="./listview.html" data-page="list" class="nav-button
+                                   rounded-lg
+                                   px-3.5 py-1.5
+                                   text-sm
+                                   font-medium
+                                   text-slate-400
+                                   transition
+                                   hover:bg-slate-700
+                                   hover:text-white">
+
+                        Bookmark View
+                    </button>
+                    <!-- Collection View -->
+                    <button id="collectionnav" data-target="./collection_view.html" data-page="collection" class="nav-button
+                                   rounded-lg
+                                   px-3.5 py-1.5
+                                   text-sm
+                                   font-medium
+                                   text-slate-400
+                                   transition
+                                   hover:bg-slate-700
+                                   hover:text-white">
+
+                        Collection View
+                    </button>
+                    <!-- Import / Export -->
+                    <button id="importexportnav" data-target="./import_export.html" data-page="import_export" class="nav-button
+                                     px-3.5
+                        py-1.5
+                        rounded-lg
+                        text-sm
+                        font-medium
+                        bg-cyan-500
+                        text-white
+                        shadow-lg
+                        shadow-cyan-500/30">
+
+                        Import / Export
+                    </button>
+
+
+                    <!-- Repo View -->
+                    <button id="reponav" data-target="./repoview.html" data-page="repo" class="nav-button
+                                   rounded-lg
+                                   px-3.5 py-1.5
+                                   text-sm
+                                   font-medium
+                                   text-slate-400
+                                   transition
+                                   hover:bg-slate-700
+                                   hover:text-white">
+
+                        Repo View
+                    </button>
+                </nav>
+
+      </header>
+
+
+      <!-- =====================================================
+           TOOLBAR
+      ====================================================== -->
+
+      <section class="flex shrink-0 flex-wrap items-center gap-2
+               border-b border-slate-800 bg-slate-900/80 px-3 py-2.5">
+
+        <!-- Search -->
+
+        <div class="relative min-w-[180px] flex-1 sm:max-w-xs">
+
+          <svg class="pointer-events-none absolute left-2.5 top-1/2
+                   h-4 w-4 -translate-y-1/2 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="1.8">
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-3.5-3.5" />
+          </svg>
+
+          <input id="searchInput" type="search" placeholder="Search endpoint..." class="h-8 w-full rounded-md border border-slate-800
+                   bg-slate-800/80 pl-8 pr-3 text-xs outline-none
+                   transition focus:border-cyan-500
+                   focus:ring-1 focus:ring-cyan-500/30">
+
+        </div>
+
+
+        <!-- CRUD -->
+
+        <select id="crudFilter" class="h-8 rounded-md border border-slate-800
+                 bg-slate-800 px-2.5 text-xs outline-none
+                 focus:border-cyan-500">
+          <option>All CRUD</option>
+          <option>GET</option>
+          <option>POST</option>
+          <option>PUT</option>
+          <option>PATCH</option>
+          <option>DELETE</option>
+        </select>
+
+
+        <!-- Reset -->
+
+        <button id="resetFilters" type="button" title="Reset filters" class="inline-flex h-8 items-center gap-1.5 rounded-md
+                 border border-slate-700 bg-slate-800 px-2.5
+                 text-xs text-slate-300 transition
+                 hover:border-slate-600 hover:bg-slate-700">
+
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M3 12a9 9 0 0 1 15.3-6.4L21 8" />
+            <path d="M21 3v5h-5" />
+            <path d="M21 12a9 9 0 0 1-15.3 6.4L3 16" />
+            <path d="M3 21v-5h5" />
+          </svg>
+
+          Reset
+
+        </button>
+        <!-- Tags Manager -->
+
+        <button id="tagsManager" type="button" title="Manage tags" class="inline-flex h-8 items-center gap-1.5 rounded-md
+         border border-slate-700 bg-slate-800 px-2.5
+         text-xs text-slate-300 transition
+         hover:border-slate-600 hover:bg-slate-700">
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M20.5 13.5 13.5 20.5
+         a2 2 0 0 1-2.8 0L4 13.8V4h9.8l6.7 6.7
+         a2 2 0 0 1 0 2.8Z" />
+
+            <circle cx="8.5" cy="8.5" r="1" />
+          </svg>
+
+          Tags
+        </button>
+
+
+        <div class="ml-auto flex items-center gap-2">
+
+          <!-- Delete -->
+
+          <button id="deleteSelected" type="button" disabled title="Delete selected endpoints" class="inline-flex h-8 items-center gap-1.5 rounded-md
+                   border border-rose-500/20 bg-rose-500/10
+                   px-2.5 text-xs font-medium text-rose-400
+                   transition hover:bg-rose-500/15
+                   disabled:cursor-not-allowed disabled:opacity-35">
+
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M4 7h16" />
+              <path d="M10 11v6M14 11v6" />
+              <path d="M6 7l1 13h10l1-13" />
+              <path d="M9 7V4h6v3" />
+            </svg>
+
+            Delete
+
+          </button>
+
+
+          <!-- Download -->
+
+          <button id="downloadSelected" type="button" disabled title="Download selected endpoints" class="inline-flex h-8 items-center gap-1.5 rounded-md
+                   bg-sky-600 px-2.5 text-xs font-medium text-white
+                   transition hover:bg-sky-500
+                   disabled:cursor-not-allowed disabled:opacity-35">
+
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M12 3v12" />
+              <path d="m7 10 5 5 5-5" />
+              <path d="M5 21h14" />
+            </svg>
+
+            Download
+
+          </button>
+
+        </div>
+
+      </section>
+
+
+      <!-- =====================================================
+           SELECTED ITEMS BAR
+      ====================================================== -->
+
+      <div id="selectionBar" class="hidden shrink-0 items-center gap-3
+               border-b border-cyan-500/10 bg-cyan-500/[0.035]
+               px-3 py-2">
+
+        <span id="selectedCount" class="rounded-md bg-cyan-500/10 px-2 py-1
+                 text-xs font-medium text-cyan-300">
+          0 selected
+        </span>
+
+        <div id="selectedList" class="flex min-w-0 flex-1 items-center gap-1.5
+                 overflow-x-auto"></div>
+
+        <button id="clearSelection" type="button" class="shrink-0 text-xs text-slate-400
+                 hover:text-white">
+          Clear
+        </button>
+
+      </div>
+
+
+      <!-- =====================================================
+           MAIN WORKSPACE
+      ====================================================== -->
+
+      <div class="flex min-h-0 flex-1 overflow-hidden">
+
+
+        <!-- ===================================================
+             SIDEBAR
+        ==================================================== -->
+
+        <aside id="filterSidebar" class="relative flex w-48 shrink-0 flex-col overflow-hidden
+                 border-r border-slate-800 bg-slate-900
+                 transition-all duration-200">
+
+          <!-- Sidebar top -->
+
+          <div class="flex shrink-0 items-center justify-between
+                   border-b border-slate-800 px-3 py-2.5">
+
+            <span id="sidebarTitle" class="text-xs font-semibold text-slate-200">
+              Filters
+            </span>
+
+            <button id="sidebarToggle" type="button" title="Collapse sidebar" class="rounded-md p-1 text-slate-500
+                     transition hover:bg-slate-800 hover:text-white">
+
+              <svg id="sidebarToggleIcon" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="1.8">
+                <path d="m15 18-6-6 6-6" />
+              </svg>
+
+            </button>
+
+          </div>
+
+
+          <!-- Sidebar content -->
+
+          <div id="sidebarContent" class="min-h-0 flex-1 overflow-y-auto p-3
+                   scrollbar scrollbar-thin
+                   scrollbar-thumb-slate-700
+                   scrollbar-track-transparent">
+
+            <!-- Stats -->
+
+            <section class="mb-5">
+
+              <div class="mb-2 flex items-center justify-between
+                       border-b border-slate-800 pb-1.5">
+                <h3 class="text-xs font-semibold text-slate-300">
+                  Stats
+                </h3>
+              </div>
+
+              <div class="space-y-2">
+
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-slate-500">
+                    Endpoints
+                  </span>
+
+                  <span id="endpointStat" class="text-xs font-medium text-slate-300">
+                    0
+                  </span>
+                </div>
+
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-slate-500">
+                    Tags
+                  </span>
+
+                  <span id="tagStat" class="text-xs font-medium text-slate-300">
+                    0
+                  </span>
+                </div>
+
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-slate-500">
+                    Segments
+                  </span>
+
+                  <span id="segmentStat" class="text-xs font-medium text-slate-300">
+                    0
+                  </span>
+                </div>
+
+              </div>
+
+            </section>
+
+
+            <!-- Tags -->
+
+            <section class="mb-5">
+
+              <div class="mb-2 border-b border-slate-800 pb-1.5">
+                <h3 class="text-xs font-semibold text-slate-300">
+                  Tags
+                </h3>
+              </div>
+
+              <div id="tagsContainer" class="flex flex-col gap-1.5"></div>
+
+            </section>
+
+
+            <!-- Segments -->
+
+            <section>
+
+              <div class="mb-2 border-b border-slate-800 pb-1.5">
+                <h3 class="text-xs font-semibold text-slate-300">
+                  Segments
+                </h3>
+              </div>
+
+              <div id="segmentsContainer" class="flex flex-col gap-1.5"></div>
+
+            </section>
+
+          </div>
+
+        </aside>
+
+
+        <!-- ===================================================
+             TABLE AREA
+        ==================================================== -->
+
+        <main class="min-w-0 flex-1 overflow-hidden bg-slate-950/20">
+
+          <div class="flex h-full min-w-0 flex-col">
+
+
+            <!-- Table scroll container -->
+
+            <div id="tableScroll" class="min-h-0 flex-1 overflow-auto
+                     scrollbar scrollbar-thin
+                     scrollbar-thumb-slate-700
+                     scrollbar-track-transparent
+                     hover:scrollbar-thumb-cyan-500/60">
+
+              <table class="w-full min-w-[920px] table-fixed text-xs">
+
+                <thead class="sticky top-0 z-20
+                         border-b border-slate-800
+                         bg-slate-900/98 backdrop-blur">
+
+                  <tr class="text-left text-slate-400">
+
+                    <!-- Select -->
+
+                    <th class="w-10 px-2 py-2.5">
+                      <input id="selectAll" type="checkbox" class="h-3.5 w-3.5 accent-cyan-400" title="Select all">
+                    </th>
+
+
+                    <!-- EID -->
+
+                    <th id="col-eid" class="relative w-20 px-2 py-2.5">
+                      EID
+
+                      <span class="resize-handle absolute right-0 top-0
+                               h-full w-2 cursor-col-resize"></span>
+                    </th>
+
+
+                    <!-- Method -->
+
+                    <th id="col-method" class="w-20 px-2 py-2.5">
+                      Method
+                    </th>
+
+
+                    <!-- Endpoint -->
+
+                    <th id="col-endpoint" class="relative w-[28%] min-w-[230px]
+                             px-2 py-2.5">
+                      Endpoint
+
+                      <span class="resize-handle absolute right-0 top-0
+                               h-full w-2 cursor-col-resize"></span>
+                    </th>
+
+
+                    <!-- Tags -->
+
+                    <th id="col-tags" class="relative w-[18%] min-w-[150px]
+                             px-2 py-2.5">
+                      Tags
+
+                      <span class="resize-handle absolute right-0 top-0
+                               h-full w-2 cursor-col-resize"></span>
+                    </th>
+
+
+                    <!-- QP -->
+
+                    <th id="col-qp" class="w-12 px-2 py-2.5 text-center">
+                      QP
+                    </th>
+
+
+                    <!-- Annotation -->
+
+                    <th id="col-annotation" class="relative w-[22%] min-w-[180px]
+                             px-2 py-2.5">
+                      Annotation
+
+                      <span class="resize-handle absolute right-0 top-0
+                               h-full w-2 cursor-col-resize"></span>
+                    </th>
+
+
+                    <!-- Updated -->
+
+                    <th id="col-updated" class="w-32 px-2 py-2.5">
+                      Updated
+                    </th>
+
+                  </tr>
+
+                </thead>
+
+                <tbody id="endpointTable"></tbody>
+
+              </table>
+
+            </div>
+
+
+            <!-- =================================================
+                 FOOTER / PAGINATION
+            ================================================== -->
+
+            <footer class="flex shrink-0 flex-wrap items-center
+                     justify-between gap-3 border-t border-slate-800
+                     bg-slate-900 px-3 py-2.5">
+
+              <p class="text-[11px] text-slate-500">
+
+                Showing
+
+                <span id="showingEndpoints" class="font-medium text-slate-300">
+                  0
+                </span>
+
+                of
+
+                <span id="totalEndpoints" class="font-medium text-slate-300">
+                  0
+                </span>
+
+                endpoints
+
+              </p>
+
+
+              <div id="pagination" class="flex items-center gap-1"></div>
+
+            </footer>
+
+          </div>
+
+        </main>
+
+
+        <!-- ===================================================
+             QP PANEL
+        ==================================================== -->
+
+        <aside id="qpSidebar" class="flex w-16 shrink-0 flex-col
+                 border-l border-slate-800 bg-slate-900">
+
+          <div class="border-b border-slate-800 py-2.5
+                   text-center text-xs font-semibold text-slate-300">
+            QP
+          </div>
+
+
+          <div id="qpPanel" class="min-h-0 flex-1 space-y-1.5
+                   overflow-y-auto p-1.5
+                   scrollbar scrollbar-thin
+                   scrollbar-thumb-slate-700
+                   scrollbar-track-transparent">
+
+            <div class="py-5 text-center text-[10px] text-slate-600">
+              Select
+            </div>
+
+          </div>
+
+
+          <div class="border-t border-slate-800 p-1.5">
+
+            <button id="addQP" type="button" disabled title="Add query parameter" class="flex h-7 w-full items-center justify-center
+                     rounded-md border border-slate-700
+                     bg-slate-800 text-slate-400
+                     transition hover:border-cyan-500/40
+                     hover:bg-cyan-500/10 hover:text-cyan-300
+                     disabled:cursor-not-allowed disabled:opacity-30">
+
+              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+
+            </button>
+
+
+            <button id="deleteQP" type="button" disabled title="Delete selected QP" class="mt-1.5 flex h-7 w-full items-center
+                     justify-center rounded-md
+                     border border-rose-500/20
+                     bg-rose-500/10 text-rose-400
+                     transition hover:bg-rose-500/15
+                     disabled:cursor-not-allowed
+                     disabled:opacity-30">
+
+              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M4 7h16" />
+                <path d="M10 11v6M14 11v6" />
+                <path d="M6 7l1 13h10l1-13" />
+                <path d="M9 7V4h6v3" />
+              </svg>
+
+            </button>
+
+          </div>
+
+        </aside>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- =========================================================
+       REQUEST / RESPONSE VIEWER
+  ========================================================== -->
+
+  <div id="detailsOverlay" class="pointer-events-none fixed inset-0 z-40 hidden">
+
+    <div class="absolute inset-0 bg-slate-950/20"></div>
+
+
+    <div id="detailsPanel" class="pointer-events-auto absolute bottom-4 right-4
+         flex h-[min(560px,calc(100vh-32px))]
+         w-[min(900px,calc(100vw-32px))]
+         overflow-hidden rounded-xl border
+         border-slate-700 bg-slate-900
+         shadow-2xl shadow-black/50">
+      <!-- Viewer Controls -->
+
+      <div class="absolute right-3 top-3 z-30 flex items-center justify-between gap-1">
+
+        <!-- Fullscreen -->
+
+        <button id="detailsFullscreen" type="button" title="Full screen" class="rounded-md p-1.5 text-slate-500
+             transition hover:bg-slate-800
+             hover:text-white">
+
+          <svg id="detailsFullscreenIcon" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="1.8">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+            <path d="M16 3h3a2 2 0 0 1 2 2v3" />
+            <path d="M21 16v3a2 2 0 0 1-2 2h-3" />
+            <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+          </svg>
+
+        </button>
+
+
+        <!-- Close -->
+
+        <button id="detailsClose" type="button" title="Close" class="rounded-md p-1.5 text-slate-500
+             transition hover:bg-slate-800
+             hover:text-white">
+
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M6 6l12 12" />
+            <path d="M18 6 6 18" />
+          </svg>
+
+        </button>
+
+      </div>
+
+      <!-- Request -->
+
+      <section id="requestBox" class="flex min-w-0 flex-1 flex-col border-r
+               border-slate-800">
+
+        <header class="flex shrink-0 items-center justify-between
+                 border-b border-slate-800 px-4 py-3">
+
+          <div>
+
+            <h3 class="text-sm font-semibold text-white">
+              Request
+            </h3>
+
+            <p id="requestEndpoint" class="mt-0.5 truncate font-mono text-[11px]
+                     text-cyan-400">
+              —
+            </p>
+
+          </div>
+
+        </header>
+
+
+        <div class="min-h-0 flex-1 space-y-4 overflow-y-auto p-4
+                 scrollbar scrollbar-thin
+                 scrollbar-thumb-slate-700">
+
+          <div>
+
+            <h4 class="mb-1 text-[11px] font-medium text-slate-500">
+              Headers
+            </h4>
+
+            <pre id="requestHeaders" class="overflow-x-auto rounded-lg
+                     bg-slate-950/70 p-3 font-mono
+                     text-[11px] leading-5 text-slate-300"></pre>
+
+          </div>
+
+
+          <div>
+
+            <h4 class="mb-1 text-[11px] font-medium text-slate-500">
+              Query Params
+            </h4>
+
+            <pre id="requestQuery" class="overflow-x-auto rounded-lg
+                     bg-slate-950/70 p-3 font-mono
+                     text-[11px] leading-5 text-slate-300"></pre>
+
+          </div>
+
+
+          <div>
+
+            <h4 class="mb-1 text-[11px] font-medium text-slate-500">
+              Path Params
+            </h4>
+
+            <pre id="requestPath" class="overflow-x-auto rounded-lg
+                     bg-slate-950/70 p-3 font-mono
+                     text-[11px] leading-5 text-slate-300"></pre>
+
+          </div>
+
+
+          <div>
+
+            <h4 class="mb-1 text-[11px] font-medium text-slate-500">
+              Request Body
+            </h4>
+
+            <pre id="requestBody" class="overflow-x-auto rounded-lg
+                     bg-slate-950/70 p-3 font-mono
+                     text-[11px] leading-5 text-slate-300"></pre>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- Response -->
+
+      <section id="responseBox" class="flex min-w-0 flex-1 flex-col">
+
+        <header class="flex shrink-0 items-center justify-between
+                 border-b border-slate-800 px-4 py-3">
+
+          <div>
+
+            <h3 class="text-sm font-semibold text-white">
+              Response
+            </h3>
+
+            <p id="responseStatus" class="mt-0.5 text-[11px] font-semibold
+                     text-emerald-400">
+              —
+            </p>
+
+          </div>
+
+        </header>
+
+
+        <div class="min-h-0 flex-1 space-y-4 overflow-y-auto p-4
+                 scrollbar scrollbar-thin
+                 scrollbar-thumb-slate-700">
+
+          <div class="grid grid-cols-2 gap-3">
+
+            <div class="rounded-lg border border-slate-800
+                     bg-slate-950/40 p-3">
+
+              <p class="text-[10px] text-slate-500">
+                Response Time
+              </p>
+
+              <p id="responseTime" class="mt-1 text-xs text-slate-300">
+                —
+              </p>
+
+            </div>
+
+
+            <div class="rounded-lg border border-slate-800
+                     bg-slate-950/40 p-3">
+
+              <p class="text-[10px] text-slate-500">
+                Payload
+              </p>
+
+              <p id="responsePayload" class="mt-1 text-xs text-slate-300">
+                —
+              </p>
+
+            </div>
+
+
+            <div class="rounded-lg border border-slate-800
+                     bg-slate-950/40 p-3">
+
+              <p class="text-[10px] text-slate-500">
+                Server
+              </p>
+
+              <p id="responseServer" class="mt-1 truncate text-xs text-slate-300">
+                —
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <div>
+
+            <h4 class="mb-1 text-[11px] font-medium text-slate-500">
+              Response Headers
+            </h4>
+
+            <pre id="responseHeaders" class="overflow-x-auto rounded-lg
+                     bg-slate-950/70 p-3 font-mono
+                     text-[11px] leading-5 text-slate-300"></pre>
+
+          </div>
+
+
+          <div>
+
+            <h4 class="mb-1 text-[11px] font-medium text-slate-500">
+              Response Body
+            </h4>
+
+            <pre id="responseBody" class="overflow-x-auto rounded-lg
+                     bg-slate-950/70 p-3 font-mono
+                     text-[11px] leading-5 text-slate-300"></pre>
+
+          </div>
+
+        </div>
+
+      </section>
+
+    </div>
+
+  </div>
+
+
+  <!-- =========================================================
+       MODAL
+  ========================================================== -->
+
+  <div id="modalOverlay" class="fixed inset-0 z-50 hidden items-center
+           justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+
+    <div id="modalPanel" class="w-full max-w-lg overflow-hidden rounded-xl
+             border border-slate-700 bg-slate-900 shadow-2xl">
+
+      <div class="flex items-center justify-between
+               border-b border-slate-800 px-4 py-3">
+
+        <h3 id="modalTitle" class="text-sm font-semibold text-white">
+          Action
+        </h3>
+
+        <button id="modalClose" type="button" class="rounded-md p-1 text-slate-500
+                 hover:bg-slate-800 hover:text-white">
+
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M6 6l12 12M18 6 6 18" />
+          </svg>
+
+        </button>
+
+      </div>
+
+
+      <div id="modalContent" class="max-h-[70vh] overflow-y-auto p-4"></div>
+
+    </div>
+
+  </div>
+
+
+  <!-- =========================================================
+       CONTEXT MENU
+  ========================================================== -->
+
+  <div id="contextMenu" class="fixed z-[60] hidden min-w-48 overflow-hidden
+           rounded-lg border border-slate-700
+           bg-slate-900 py-1 shadow-2xl"></div>
+
+  <script src="../api/edms-api.js"></script>
+  <script src="../js/nav-bar.js"></script>
+  <script src="../js/tags_manager.js"></script>
+  <script src="../js/listview/listview.js"></script>
+
+</body>
+
+</html>

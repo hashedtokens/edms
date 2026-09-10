@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>EDMS Repo View</title>
+
+    <link
+        href="../styles/output.css"
+        rel="stylesheet"
+    >
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet"
+    >
+</head>
+
+
+<body
+    class="min-h-screen overflow-hidden bg-slate-950
+           font-[Inter] text-slate-100"
+    data-current-page="repo"
+>
+
+
+    <!-- =========================================================
+         PAGE
+    ========================================================== -->
+
+    <div class="h-screen p-3 sm:p-4">
+
+        <div
+            class="mx-auto flex h-full max-w-screen-2xl
+                   flex-col overflow-hidden rounded-xl
+                   border border-slate-800 bg-slate-900"
+        >
+
+
+            <!-- =====================================================
+                 HEADER
+            ====================================================== -->
+
+            <header
+                class="flex shrink-0 flex-wrap items-center
+                       justify-between gap-3
+                       border-b border-slate-700/40
+                       bg-[#162235] px-4 py-3 sm:px-6"
+            >
+
+                <div class="flex min-w-0 flex-col gap-0.5">
+
+                    <h1
+                        class="truncate text-xl font-bold
+                               tracking-tight text-white sm:text-2xl"
+                    >
+                        Repo View
+                    </h1>
+
+                    <p class="text-[11px] text-slate-400 sm:text-xs">
+                        Repository folder management
+                    </p>
+
+                </div>
+
+
+                <!-- Navigation -->
+                <nav class="navbar
+                            flex
+                            items-center
+                            gap-1
+                            rounded-full
+                            bg-slate-800
+                            p-1">
+
+
+                    <!-- Home -->
+                    <button id="homenav" data-target="./index.html" data-page="home" class="nav-button
+                                   rounded-lg
+                                   px-3.5 py-1.5
+                                   text-sm
+                                   font-medium
+                                   text-slate-400
+                                   transition
+                                   hover:bg-slate-700
+                                   hover:text-white">
+
+                        Home
+
+                    </button>
+
+
+                    <!-- Test View -->
+                    <button id="testnav" data-target="./testview.html" data-page="test" class="nav-button
+                                   rounded-lg
+                                   px-3.5 py-1.5
+                                   text-sm
+                                   font-medium
+                                   text-slate-400
+                                   transition
+                                   hover:bg-slate-700
+                                   hover:text-white">
+
+                        Test View
+
+                    </button>
+                    <!-- Bookmark View -->
+                    <button id="listnav" data-target="./listview.html" data-page="list" class="nav-button
+                                   rounded-lg
+                                   px-3.5 py-1.5
+                                   text-sm
+                                   font-medium
+                                   text-slate-400
+                                   transition
+                                   hover:bg-slate-700
+                                   hover:text-white">
+
+                        Bookmark View
+                    </button>
+                    <!-- Collection View -->
+                    <button id="collectionnav" data-target="./collection_view.html" data-page="collection" class="nav-button
+                                   rounded-lg
+                                   px-3.5 py-1.5
+                                   text-sm
+                                   font-medium
+                                   text-slate-400
+                                   transition
+                                   hover:bg-slate-700
+                                   hover:text-white">
+
+                        Collection View
+                    </button>
+                    <!-- Import / Export -->
+                    <button id="importexportnav" data-target="./import_export.html" data-page="import_export" class="nav-button
+                                     px-3.5
+                        py-1.5
+                        rounded-lg
+                        text-sm
+                        font-medium
+                        bg-cyan-500
+                        text-white
+                        shadow-lg
+                        shadow-cyan-500/30">
+
+                        Import / Export
+                    </button>
+
+
+                    <!-- Repo View -->
+                    <button id="reponav" data-target="./repoview.html" data-page="repo" class="nav-button
+                                   rounded-lg
+                                   px-3.5 py-1.5
+                                   text-sm
+                                   font-medium
+                                   text-slate-400
+                                   transition
+                                   hover:bg-slate-700
+                                   hover:text-white">
+
+                        Repo View
+                    </button>
+                </nav>
+
+            </header>
+
+
+            <!-- =====================================================
+                 TOOLBAR
+            ====================================================== -->
+
+            <section
+                class="flex shrink-0 flex-wrap items-center
+                       gap-2 border-b border-slate-800
+                       bg-slate-900/80 px-3 py-2.5"
+            >
+
+                <!-- Search -->
+
+                <div
+                    class="relative min-w-[180px]
+                           flex-1 sm:max-w-xs"
+                >
+
+                    <svg
+                        class="pointer-events-none absolute left-2.5
+                               top-1/2 h-4 w-4
+                               -translate-y-1/2 text-slate-500"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                    >
+                        <circle cx="11" cy="11" r="7"/>
+                        <path d="m20 20-3.5-3.5"/>
+                    </svg>
+
+                    <input
+                        id="repoSearch"
+                        type="search"
+                        placeholder="Search repo views..."
+                        class="h-8 w-full rounded-md
+                               border border-slate-800
+                               bg-slate-800/80 pl-8 pr-3
+                               text-xs outline-none
+                               transition
+                               focus:border-cyan-500
+                               focus:ring-1
+                               focus:ring-cyan-500/30"
+                    >
+
+                </div>
+
+
+                <!-- CRUD -->
+
+                <select
+                    id="crudFilter"
+                    class="h-8 rounded-md
+                           border border-slate-800
+                           bg-slate-800 px-2.5 text-xs
+                           outline-none
+                           focus:border-cyan-500"
+                >
+                    <option value="all">CRUD: All</option>
+                    <option value="GET">GET</option>
+                    <option value="POST">POST</option>
+                    <option value="PUT">PUT</option>
+                    <option value="PATCH">PATCH</option>
+                    <option value="DELETE">DELETE</option>
+                </select>
+
+
+                <!-- Reset -->
+
+                <button
+                    id="resetFilters"
+                    type="button"
+                    class="inline-flex h-8 items-center
+                           gap-1.5 rounded-md
+                           border border-slate-700
+                           bg-slate-800 px-2.5
+                           text-xs text-slate-300
+                           transition
+                           hover:bg-slate-700"
+                >
+
+                    <svg
+                        class="h-3.5 w-3.5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                    >
+                        <path d="M3 12a9 9 0 0 1 15.3-6.4L21 8"/>
+                        <path d="M21 3v5h-5"/>
+                        <path d="M21 12a9 9 0 0 1-15.3 6.4L3 16"/>
+                        <path d="M3 21v-5h5"/>
+                    </svg>
+
+                    Reset
+
+                </button>
+
+
+                <!-- New -->
+
+                <button
+                    id="createRepoBtn"
+                    type="button"
+                    class="inline-flex h-8 items-center
+                           gap-1.5 rounded-md
+                           bg-sky-600 px-2.5
+                           text-xs font-medium text-white
+                           transition hover:bg-sky-500"
+                >
+
+                    <svg
+                        class="h-3.5 w-3.5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                    >
+                        <path d="M12 5v14"/>
+                        <path d="M5 12h14"/>
+                    </svg>
+
+                    New
+
+                </button>
+
+            </section>
+
+
+            <!-- =====================================================
+                 SELECTED FOLDERS BAR
+            ====================================================== -->
+
+            <div
+                id="selectionBar"
+                class="hidden shrink-0 items-center
+                       gap-3 border-b
+                       border-cyan-500/10
+                       bg-cyan-500/[0.035]
+                       px-3 py-2"
+            >
+
+                <span
+                    id="selectedRepoCount"
+                    class="rounded-md bg-cyan-500/10
+                           px-2 py-1 text-xs font-medium
+                           text-cyan-300"
+                >
+                    0 selected
+                </span>
+
+
+                <div
+                    id="selectedRepoList"
+                    class="flex min-w-0 flex-1
+                           items-center gap-1.5
+                           overflow-x-auto"
+                ></div>
+
+
+                <button
+                    id="clearRepoSelection"
+                    type="button"
+                    class="shrink-0 text-xs
+                           text-slate-400
+                           hover:text-white"
+                >
+                    Clear
+                </button>
+
+            </div>
+
+
+            <!-- =====================================================
+                 MAIN WORKSPACE
+            ====================================================== -->
+
+            <div class="flex min-h-0 flex-1 overflow-hidden">
+
+
+                <!-- =================================================
+                     FILTER SIDEBAR
+                ================================================== -->
+
+                <aside
+                    id="filterSidebar"
+                    class="relative flex w-48 shrink-0
+                           flex-col overflow-hidden
+                           border-r border-slate-800
+                           bg-slate-900
+                           transition-all duration-200"
+                >
+
+                    <div
+                        class="flex shrink-0 items-center
+                               justify-between
+                               border-b border-slate-800
+                               px-3 py-2.5"
+                    >
+
+                        <span
+                            id="sidebarTitle"
+                            class="text-xs font-semibold
+                                   text-slate-200"
+                        >
+                            Filters
+                        </span>
+
+
+                        <button
+                            id="sidebarToggle"
+                            type="button"
+                            title="Collapse sidebar"
+                            class="rounded-md p-1
+                                   text-slate-500
+                                   transition
+                                   hover:bg-slate-800
+                                   hover:text-white"
+                        >
+
+                            <svg
+                                id="sidebarToggleIcon"
+                                class="h-4 w-4"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.8"
+                            >
+                                <path d="m15 18-6-6 6-6"/>
+                            </svg>
+
+                        </button>
+
+                    </div>
+
+
+                    <div
+                        id="sidebarContent"
+                        class="min-h-0 flex-1
+                               overflow-y-auto p-3
+                               scrollbar scrollbar-thin
+                               scrollbar-thumb-slate-700
+                               scrollbar-track-transparent"
+                    >
+
+                        <!-- Stats -->
+
+                        <section class="mb-5">
+
+                            <div
+                                class="mb-2 border-b
+                                       border-slate-800
+                                       pb-1.5"
+                            >
+                                <h3
+                                    class="text-xs font-semibold
+                                           text-slate-300"
+                                >
+                                    Stats
+                                </h3>
+                            </div>
+
+
+                            <div class="space-y-2">
+
+                                <div
+                                    class="flex items-center
+                                           justify-between"
+                                >
+                                    <span
+                                        class="text-xs text-slate-500"
+                                    >
+                                        Repo Views
+                                    </span>
+
+                                    <span
+                                        id="repoStat"
+                                        class="text-xs font-medium
+                                               text-slate-300"
+                                    >
+                                        0
+                                    </span>
+                                </div>
+
+
+                                <div
+                                    class="flex items-center
+                                           justify-between"
+                                >
+                                    <span
+                                        class="text-xs text-slate-500"
+                                    >
+                                        Tags
+                                    </span>
+
+                                    <span
+                                        id="tagStat"
+                                        class="text-xs font-medium
+                                               text-slate-300"
+                                    >
+                                        0
+                                    </span>
+                                </div>
+
+
+                                <div
+                                    class="flex items-center
+                                           justify-between"
+                                >
+                                    <span
+                                        class="text-xs text-slate-500"
+                                    >
+                                        Segments
+                                    </span>
+
+                                    <span
+                                        id="segmentStat"
+                                        class="text-xs font-medium
+                                               text-slate-300"
+                                    >
+                                        0
+                                    </span>
+                                </div>
+
+                            </div>
+
+                        </section>
+
+
+                        <!-- Tags -->
+
+                        <section class="mb-5">
+
+                            <div
+                                class="mb-2 border-b
+                                       border-slate-800
+                                       pb-1.5"
+                            >
+                                <h3
+                                    class="text-xs font-semibold
+                                           text-slate-300"
+                                >
+                                    Tags
+                                </h3>
+                            </div>
+
+
+                            <div
+                                id="tagsContainer"
+                                class="flex flex-col gap-1.5"
+                            ></div>
+
+                        </section>
+
+
+                        <!-- Segments -->
+
+                        <section class="mb-5">
+
+                            <div
+                                class="mb-2 border-b
+                                       border-slate-800
+                                       pb-1.5"
+                            >
+                                <h3
+                                    class="text-xs font-semibold
+                                           text-slate-300"
+                                >
+                                    Segments
+                                </h3>
+                            </div>
+
+
+                            <div
+                                id="segmentsContainer"
+                                class="flex flex-col gap-1.5"
+                            ></div>
+
+                        </section>
+
+
+                    </div>
+
+                </aside>
+
+
+                <!-- =================================================
+                     TABLE
+                ================================================== -->
+
+                <main
+                    class="min-w-0 flex-1 overflow-hidden
+                           bg-slate-950/20"
+                >
+
+                    <div class="flex h-full min-w-0 flex-col">
+
+
+                        <div
+                            id="tableScroll"
+                            class="min-h-0 flex-1
+                                   overflow-auto
+                                   scrollbar scrollbar-thin
+                                   scrollbar-thumb-slate-700
+                                   scrollbar-track-transparent
+                                   hover:scrollbar-thumb-cyan-500/60"
+                        >
+
+                            <table
+                                class="w-full min-w-[1250px]
+                                       text-xs"
+                            >
+
+                                <thead
+                                    class="sticky top-0 z-20
+                                           border-b border-slate-800
+                                           bg-slate-900/98
+                                           backdrop-blur"
+                                >
+
+                                    <tr
+                                        class="text-left
+                                               text-slate-400"
+                                    >
+
+                                        <th class="w-10 px-2 py-2.5">
+                                            <input
+                                                id="selectAllRepos"
+                                                type="checkbox"
+                                                class="h-3.5 w-3.5
+                                                       accent-cyan-400"
+                                                title="Select all"
+                                            >
+                                        </th>
+
+                                        <th class="px-2 py-2.5 whitespace-nowrap">Folder Name</th>
+                                        <th class="px-2 py-2.5 whitespace-nowrap">Tags</th>
+                                        <th class="px-2 py-2.5 whitespace-nowrap">Date Created</th>
+
+                                        <th class="w-12 px-1 py-2.5 text-center" title="GET endpoints">GET</th>
+                                        <th class="w-12 px-1 py-2.5 text-center" title="POST endpoints">POST</th>
+                                        <th class="w-12 px-1 py-2.5 text-center" title="PUT endpoints">PUT</th>
+                                        <th class="w-12 px-1 py-2.5 text-center" title="PATCH endpoints">PATCH</th>
+                                        <th class="w-12 px-1 py-2.5 text-center" title="DELETE endpoints">DEL</th>
+
+                                        <th class="px-2 py-2.5 whitespace-nowrap">Size</th>
+                                        <th class="px-2 py-2.5 whitespace-nowrap">EID Count</th>
+                                        <th class="px-2 py-2.5 whitespace-nowrap">Segments</th>
+                                        <th class="px-2 py-2.5 whitespace-nowrap">Tags in Data</th>
+                                        <th class="px-2 py-2.5 whitespace-nowrap">QP Count</th>
+                                        <th class="px-2 py-2.5 whitespace-nowrap">Index Lists</th>
+                                        <th class="px-2 py-2.5 whitespace-nowrap">Annotation</th>
+
+                                    </tr>
+
+                                </thead>
+
+
+                                <tbody id="repoTableBody"></tbody>
+
+                            </table>
+
+                        </div>
+
+
+                        <!-- Footer -->
+
+                        <footer
+                            class="flex shrink-0
+                                   flex-wrap items-center
+                                   justify-between gap-3
+                                   border-t border-slate-800
+                                   bg-slate-900
+                                   px-3 py-2.5"
+                        >
+
+                            <p class="text-[11px] text-slate-500">
+
+                                Showing
+
+                                <span id="repoRangeStart" class="font-medium text-slate-300">0</span>
+                                –
+                                <span id="repoRangeEnd" class="font-medium text-slate-300">0</span>
+                                of
+                                <span id="repoTotal" class="font-medium text-slate-300">0</span>
+                                repo views
+
+                            </p>
+
+
+                            <div class="flex items-center gap-1">
+
+                                <button
+                                    id="repoPrev"
+                                    type="button"
+                                    class="min-w-7 rounded-md
+                                           border border-slate-700
+                                           px-2 py-1 text-[11px]
+                                           text-slate-400
+                                           transition
+                                           hover:bg-slate-800
+                                           hover:text-white
+                                           disabled:cursor-not-allowed
+                                           disabled:opacity-30"
+                                >
+                                    ‹
+                                </button>
+
+
+                                <div id="repoPagination" class="flex items-center gap-1"></div>
+
+
+                                <button
+                                    id="repoNext"
+                                    type="button"
+                                    class="min-w-7 rounded-md
+                                           border border-slate-700
+                                           px-2 py-1 text-[11px]
+                                           text-slate-400
+                                           transition
+                                           hover:bg-slate-800
+                                           hover:text-white
+                                           disabled:cursor-not-allowed
+                                           disabled:opacity-30"
+                                >
+                                    ›
+                                </button>
+
+                            </div>
+
+                        </footer>
+
+                    </div>
+
+                </main>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =========================================================
+         CONTEXT MENU
+    ========================================================== -->
+
+    <div
+        id="contextMenu"
+        class="hidden fixed z-[1000] w-56 overflow-hidden rounded-lg border border-slate-700 bg-slate-900 shadow-2xl shadow-black/50"
+    ></div>
+
+
+    <!-- =========================================================
+         MODAL
+    ========================================================== -->
+
+    <div
+        id="modalBackdrop"
+        class="fixed inset-0 z-[2000]
+               hidden items-center justify-center
+               bg-slate-950/70 p-4
+               backdrop-blur-sm"
+    >
+
+        <div
+            id="modalContent"
+            class="max-h-[85vh] w-full max-w-2xl
+                   overflow-y-auto rounded-xl
+                   border border-slate-700
+                   bg-slate-900 p-5 shadow-2xl
+                   scrollbar scrollbar-thin
+                   scrollbar-thumb-slate-700"
+        ></div>
+
+    </div>
+
+
+    <script src="../js/repo_view/repoview.js"></script>
+    <script src="../js/repo_view/rmbrv.js"></script>
+    <script src="../js/nav-bar.js"></script>
+
+</body>
+
+</html>

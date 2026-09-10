@@ -1,0 +1,38 @@
+services:
+  webserver:
+    build:
+      context: ../backend
+      dockerfile: webserver/Dockerfile
+    container_name: webserver
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../backend/webserver/data:/app/data
+      - webserver-data:/app/edms_data
+      - edms-root:/app/edms_root
+    environment:
+      - RUST_LOG=info
+      - EDMS_DB_PATH=/app/data/edms.db
+    networks:
+      - hashedtokens-edms
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: edms-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - webserver
+    networks:
+      - hashedtokens-edms
+
+networks:
+  hashedtokens-edms:
+    name: hashedtokens-edms
+    driver: bridge
+
+volumes:
+  webserver-data:
+  edms-root:

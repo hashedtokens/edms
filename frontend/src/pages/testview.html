@@ -1,0 +1,1829 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>EDMS - Test View</title>
+
+    <link
+        href="../styles/output.css"
+        rel="stylesheet"
+    >
+
+    <link
+        rel="preconnect"
+        href="https://fonts.googleapis.com"
+    >
+
+    <link
+        rel="preconnect"
+        href="https://fonts.gstatic.com"
+        crossorigin
+    >
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet"
+    >
+
+</head>
+
+
+<body
+    class="bg-[#020617]
+    text-slate-100
+    h-screen
+    overflow-hidden
+    antialiased
+    p-2"
+    data-current-page="test"
+>
+
+
+<div
+    class="container
+    mx-auto
+    max-w-screen-2xl
+    h-full
+    p-2"
+>
+
+
+    <!-- APP -->
+
+    <div
+        class="app
+        h-full
+        flex
+        flex-col
+        bg-[#111827]
+        border
+        border-slate-700/40
+        rounded-2xl
+        overflow-hidden"
+    >
+
+
+        <!-- HEADER -->
+
+        <header
+            class="header
+            shrink-0
+            flex
+            items-center
+            justify-between
+            h-16
+            px-5
+            border-b
+            border-slate-700/40
+            bg-[#162235]"
+        >
+
+
+            <!-- HEADER TITLE -->
+
+            <div
+                class="header-title
+                flex
+                flex-col
+                items-start
+                gap-0.5"
+            >
+
+                <h1
+                    class="text-2xl
+                    font-bold
+                    tracking-tight
+                    text-white"
+                >
+                    TestView
+                </h1>
+
+                <p
+                    class="text-xs
+                    text-slate-400"
+                >
+                    Endpoint Testing Workspace
+                </p>
+
+            </div>
+
+
+           <!-- Navigation -->
+                <nav class="navbar
+                            flex
+                            items-center
+                            gap-1
+                            rounded-full
+                            bg-slate-800
+                            p-1">
+
+
+                    <!-- Home -->
+                    <button id="homenav" data-target="./index.html" data-page="home" class="nav-button
+                                   rounded-lg
+                                   px-3.5 py-1.5
+                                   text-sm
+                                   font-medium
+                                   text-slate-400
+                                   transition
+                                   hover:bg-slate-700
+                                   hover:text-white">
+
+                        Home
+
+                    </button>
+
+
+                    <!-- Test View -->
+                    <button id="testnav" data-target="./testview.html" data-page="test" class="nav-button
+                                   rounded-lg
+                                   px-3.5 py-1.5
+                                   text-sm
+                                   font-medium
+                                   text-slate-400
+                                   transition
+                                   hover:bg-slate-700
+                                   hover:text-white">
+
+                        Test View
+
+                    </button>
+                    <!-- Bookmark View -->
+                    <button id="listnav" data-target="./listview.html" data-page="list" class="nav-button
+                                   rounded-lg
+                                   px-3.5 py-1.5
+                                   text-sm
+                                   font-medium
+                                   text-slate-400
+                                   transition
+                                   hover:bg-slate-700
+                                   hover:text-white">
+
+                        Bookmark View
+                    </button>
+                    <!-- Collection View -->
+                    <button id="collectionnav" data-target="./collection_view.html" data-page="collection" class="nav-button
+                                   rounded-lg
+                                   px-3.5 py-1.5
+                                   text-sm
+                                   font-medium
+                                   text-slate-400
+                                   transition
+                                   hover:bg-slate-700
+                                   hover:text-white">
+
+                        Collection View
+                    </button>
+                    <!-- Import / Export -->
+                    <button id="importexportnav" data-target="./import_export.html" data-page="import_export" class="nav-button
+                                     px-3.5
+                        py-1.5
+                        rounded-lg
+                        text-sm
+                        font-medium
+                        bg-cyan-500
+                        text-white
+                        shadow-lg
+                        shadow-cyan-500/30">
+
+                        Import / Export
+                    </button>
+
+
+                    <!-- Repo View -->
+                    <button id="reponav" data-target="./repoview.html" data-page="repo" class="nav-button
+                                   rounded-lg
+                                   px-3.5 py-1.5
+                                   text-sm
+                                   font-medium
+                                   text-slate-400
+                                   transition
+                                   hover:bg-slate-700
+                                   hover:text-white">
+
+                        Repo View
+                    </button>
+                </nav>
+
+        </header>
+
+
+        <!-- MAIN -->
+
+        <main
+            class="main
+            flex
+            flex-1
+            min-h-0"
+        >
+
+
+            <!-- SIDEBAR -->
+
+            <aside
+                id="testSidebar"
+                class="sidebar
+                w-[32%]
+                h-full
+                border-r
+                border-slate-700/40
+                bg-[#101827]
+                flex
+                flex-col
+                min-h-0
+                transition-all
+                duration-200
+                overflow-hidden"
+            >
+
+
+                <!-- SIDEBAR TOP STRIP -->
+
+                <div
+                    class="flex
+                    items-center
+                    justify-between
+                    px-3
+                    h-9
+                    border-b
+                    border-slate-800
+                    bg-slate-900
+                    shrink-0"
+                >
+
+                    <span
+                        class="text-[11px]
+                        font-semibold
+                        text-slate-500
+                        uppercase
+                        tracking-wide"
+                    >
+                        Panel
+                    </span>
+
+
+                    <button
+                        id="sidebarCollapseToggle"
+                        type="button"
+                        title="Collapse sidebar"
+                        class="p-1
+                        rounded-md
+                        text-slate-400
+                        hover:bg-slate-800
+                        hover:text-cyan-400
+                        transition"
+                    >
+
+                        <svg
+                            class="icon-collapse
+                            w-4
+                            h-4"
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <polyline
+                                points="15 18 9 12 15 6"
+                            ></polyline>
+                        </svg>
+
+
+                        <svg
+                            class="icon-expand
+                            w-4
+                            h-4
+                            hidden"
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <polyline
+                                points="9 18 15 12 9 6"
+                            ></polyline>
+                        </svg>
+
+                    </button>
+
+                </div>
+
+
+                <!-- SIDEBAR CONTENT -->
+
+                <div
+                    id="sidebarContent"
+                    class="flex
+                    flex-col
+                    flex-1
+                    min-h-0"
+                >
+
+
+                    <!-- TABS -->
+
+                    <div
+                        class="tabs
+                        flex
+                        items-center
+                        bg-slate-900
+                        gap-1
+                        px-4
+                        h-9
+                        border-b
+                        border-slate-800
+                        shrink-0"
+                    >
+
+                        <button
+                            id="historyTab"
+                            class="flex-1
+                            px-1.5
+                            h-full
+                            text-sm
+                            font-medium
+                            border-b-2
+                            border-transparent
+                            text-slate-400
+                            hover:text-white
+                            hover:border-sky-400/60
+                            transition-colors"
+                        >
+                            History
+                        </button>
+
+
+                        <button
+                            id="bookmarksTab"
+                            class="flex-1
+                            px-1.5
+                            h-full
+                            text-sm
+                            font-medium
+                            border-b-2
+                            border-transparent
+                            text-slate-400
+                            hover:text-white
+                            hover:border-sky-400/60
+                            transition-colors"
+                        >
+                            Bookmarks
+                        </button>
+
+
+                        <button
+                            id="endpointsTab"
+                            class="flex-1
+                            h-full
+                            text-sm
+                            font-semibold
+                            text-sky-400
+                            border-b-2
+                            border-sky-500"
+                        >
+                            Endpoints
+                        </button>
+
+                    </div>
+
+
+                    <!-- SEARCH -->
+
+                    <div
+                        class="searchbar
+                        px-4
+                        pt-3
+                        pb-2
+                        shrink-0"
+                    >
+
+                        <input
+                            type="text"
+                            id="testSearchInput"
+                            placeholder="Search endpoints..."
+                            class="w-full
+                            h-8
+                            px-3
+                            rounded-md
+                            text-sm
+                            bg-slate-800
+                            border
+                            border-slate-700/40
+                            text-slate-100
+                            placeholder:text-slate-500
+                            focus:outline-none
+                            focus:ring-2
+                            focus:ring-sky-500
+                            focus:border-sky-500
+                            transition"
+                        >
+
+                    </div>
+
+
+                    <!-- METHOD FILTER -->
+
+                    <div
+                        class="method-filter
+                        px-4
+                        pb-3
+                        flex
+                        items-center
+                        gap-3
+                        shrink-0"
+                    >
+
+                        <label
+                            class="text-[11px]
+                            font-semibold
+                            uppercase
+                            tracking-wider
+                            text-slate-500
+                            whitespace-nowrap"
+                        >
+                            Method
+                        </label>
+
+
+                        <div
+                            class="flex
+                            flex-wrap
+                            items-center
+                            gap-1.5"
+                        >
+
+                            <button
+                                id="methodGET"
+                                type="button"
+                                class="px-2.5
+                                py-1
+                                rounded-lg
+                                text-[11px]
+                                font-medium
+                                bg-emerald-500/15
+                                text-emerald-400
+                                border
+                                border-emerald-500/30
+                                transition
+                                hover:bg-emerald-500/25
+                                hover:border-emerald-400
+                                active:scale-95"
+                            >
+                                GET
+                            </button>
+
+
+                            <button
+                                id="methodPOST"
+                                type="button"
+                                class="px-2.5
+                                py-1
+                                rounded-lg
+                                text-[11px]
+                                font-medium
+                                bg-amber-500/15
+                                text-amber-400
+                                border
+                                border-amber-500/30
+                                transition
+                                hover:bg-amber-500/25
+                                hover:border-amber-400
+                                active:scale-95"
+                            >
+                                POST
+                            </button>
+
+
+                            <button
+                                id="methodPUT"
+                                type="button"
+                                class="px-2.5
+                                py-1
+                                rounded-lg
+                                text-[11px]
+                                font-medium
+                                bg-sky-500/15
+                                text-sky-400
+                                border
+                                border-sky-500/30
+                                transition
+                                hover:bg-sky-500/25
+                                hover:border-sky-400
+                                active:scale-95"
+                            >
+                                PUT
+                            </button>
+
+
+                            <button
+                                id="methodDELETE"
+                                type="button"
+                                class="px-2.5
+                                py-1
+                                rounded-lg
+                                text-[11px]
+                                font-medium
+                                bg-red-500/15
+                                text-red-400
+                                border
+                                border-red-500/30
+                                transition
+                                hover:bg-red-500/25
+                                hover:border-red-400
+                                active:scale-95"
+                            >
+                                DELETE
+                            </button>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- TIME + URL FILTERS -->
+
+                    <div
+                        class="filters
+                        flex
+                        gap-3
+                        px-4
+                        pb-4
+                        border-b
+                        border-slate-800
+                        shrink-0"
+                    >
+
+                        <div
+                            class="time-filter
+                            flex-1
+                            flex
+                            flex-col
+                            gap-1.5"
+                        >
+
+                            <label
+                                for="timeFilter"
+                                class="text-[11px]
+                                font-semibold
+                                uppercase
+                                tracking-wide
+                                text-slate-500"
+                            >
+                                Time
+                            </label>
+
+
+                            <select
+                                id="timeFilter"
+                                name="time-filter"
+                                class="w-full
+                                h-8
+                                px-3
+                                rounded-lg
+                                bg-slate-800
+                                border
+                                border-slate-700/40
+                                text-sm
+                                text-slate-100
+                                hover:border-slate-500
+                                focus:outline-none
+                                focus:ring-2
+                                focus:ring-sky-500
+                                focus:border-sky-500
+                                transition
+                                cursor-pointer"
+                            >
+
+                                <option value="all">
+                                    All Time
+                                </option>
+
+                                <option value="today">
+                                    Today
+                                </option>
+
+                                <option value="week">
+                                    This Week
+                                </option>
+
+                            </select>
+
+                        </div>
+
+
+                        <div
+                            class="url-filter
+                            flex-1
+                            flex
+                            flex-col
+                            gap-1.5"
+                        >
+
+                            <label
+                                for="urlFilter"
+                                class="text-[11px]
+                                font-semibold
+                                uppercase
+                                tracking-wide
+                                text-slate-500"
+                            >
+                                URL
+                            </label>
+
+
+                            <input
+                                type="text"
+                                id="urlFilter"
+                                name="url-filter"
+                                placeholder="Filter URL..."
+                                class="w-full
+                                h-8
+                                px-3
+                                rounded-lg
+                                bg-slate-800
+                                border
+                                border-slate-700/40
+                                text-sm
+                                text-slate-100
+                                placeholder:text-slate-500
+                                hover:border-slate-500
+                                focus:outline-none
+                                focus:ring-2
+                                focus:ring-sky-500
+                                focus:border-sky-500
+                                transition"
+                            >
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- ENDPOINT LIST -->
+
+                    <div
+                        id="testEndpointList"
+                        class="history-list
+                        flex-1
+                        min-h-0
+                        overflow-y-auto
+                        scrollbar
+                        scrollbar-thin
+                        scrollbar-thumb-slate-600
+                        scrollbar-track-transparent
+                        hover:scrollbar-thumb-cyan-400
+                        px-3
+                        py-2
+                        space-y-2"
+                    >
+                    </div>
+
+                </div>
+
+            </aside>
+
+
+            <!-- QP PANEL -->
+
+            <div
+                class="w-16
+                min-w-16
+                h-full
+                border-r
+                border-slate-700/40
+                bg-slate-900
+                flex
+                flex-col
+                shrink-0"
+            >
+
+
+                <!-- QP HEADER -->
+
+                <div
+                    id="qpHeader"
+                    class="relative
+                    flex
+                    items-center
+                    justify-between
+                    gap-1
+                    border-b
+                    border-slate-700
+                    px-1.5
+                    py-2
+                    shrink-0"
+                >
+
+                    <span
+                        class="text-xs
+                        font-semibold"
+                    >
+                        QP
+                    </span>
+
+
+                    <button
+                        id="qpMenuButton"
+                        type="button"
+                        title="QP options"
+                        class="p-0.5
+                        rounded
+                        text-slate-400
+                        hover:bg-slate-800
+                        hover:text-cyan-400
+                        transition"
+                    >
+
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="w-4 h-4"
+                        >
+                            <circle
+                                cx="12"
+                                cy="5"
+                                r="1"
+                            ></circle>
+
+                            <circle
+                                cx="12"
+                                cy="12"
+                                r="1"
+                            ></circle>
+
+                            <circle
+                                cx="12"
+                                cy="19"
+                                r="1"
+                            ></circle>
+                        </svg>
+
+                    </button>
+
+
+                    <!-- QP MENU -->
+
+                    <div
+                        id="qpMenu"
+                        class="hidden
+                        absolute
+                        top-7
+                        right-0
+                        mt-1
+                        w-36
+                        z-30
+                        rounded-lg
+                        border
+                        border-slate-700
+                        bg-slate-900
+                        shadow-2xl
+                        overflow-hidden"
+                    >
+
+                        <button
+                            type="button"
+                            data-qp-action="create"
+                            class="flex
+                            w-full
+                            items-center
+                            px-3
+                            py-2
+                            text-left
+                            text-xs
+                            text-slate-300
+                            hover:bg-slate-800
+                            hover:text-white
+                            transition"
+                        >
+                            Create QP
+                        </button>
+
+
+                        <button
+                            type="button"
+                            data-qp-action="select-all"
+                            class="flex
+                            w-full
+                            items-center
+                            px-3
+                            py-2
+                            text-left
+                            text-xs
+                            text-slate-300
+                            hover:bg-slate-800
+                            hover:text-white
+                            transition"
+                        >
+                            Select All
+                        </button>
+
+
+                        <button
+                            type="button"
+                            data-qp-action="clear-selection"
+                            class="flex
+                            w-full
+                            items-center
+                            px-3
+                            py-2
+                            text-left
+                            text-xs
+                            text-slate-300
+                            hover:bg-slate-800
+                            hover:text-white
+                            transition"
+                        >
+                            Clear Selection
+                        </button>
+
+
+                        <div
+                            class="border-t
+                            border-slate-800"
+                        ></div>
+
+
+                        <button
+                            type="button"
+                            data-qp-action="delete-selected"
+                            class="flex
+                            w-full
+                            items-center
+                            px-3
+                            py-2
+                            text-left
+                            text-xs
+                            text-rose-400
+                            hover:bg-rose-500/10
+                            transition"
+                        >
+                            Delete Selected
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <!-- QP BUTTONS -->
+
+                <div
+                    id="qpPanel"
+                    class="flex-1
+                    min-h-0
+                    overflow-y-auto
+                    p-2
+                    space-y-2"
+                >
+                </div>
+
+            </div>
+
+
+            <!-- WORKSPACE -->
+
+            <section
+                class="workspace
+                flex-1
+                min-w-[420px]
+                flex
+                flex-col
+                min-h-0
+                bg-[#06111F]
+                p-4
+                space-y-4
+                overflow-y-auto
+                scrollbar
+                scrollbar-thin
+                scrollbar-thumb-slate-600
+                scrollbar-track-transparent
+                hover:scrollbar-thumb-cyan-400"
+            >
+
+
+                <!-- TOOLBAR -->
+
+                <div
+                    class="toolbar
+                    flex
+                    items-center
+                    gap-2
+                    px-3
+                    py-2.5
+                    bg-slate-900
+                    rounded-xl
+                    border
+                    border-slate-700/40
+                    shrink-0"
+                >
+
+                    <select
+                        id="Method"
+                        name="Method"
+                        class="h-8
+                        w-24
+                        shrink-0
+                        rounded-lg
+                        border
+                        border-slate-700/40
+                        bg-slate-800
+                        px-3
+                        text-sm
+                        font-medium
+                        text-slate-100
+                        hover:border-slate-500
+                        focus:outline-none
+                        focus:ring-2
+                        focus:ring-cyan-500
+                        transition"
+                    >
+
+                        <option>
+                            GET
+                        </option>
+
+                        <option>
+                            POST
+                        </option>
+
+                        <option>
+                            PUT
+                        </option>
+
+                        <option>
+                            DELETE
+                        </option>
+
+                    </select>
+
+
+                    <!-- ADDRESS MODE TOGGLE -->
+
+                    <button
+                        id="addressModeToggle"
+                        type="button"
+                        title="Toggle address bar mode (combined / split)"
+                        class="h-8
+                        w-8
+                        shrink-0
+                        flex
+                        items-center
+                        justify-center
+                        rounded-lg
+                        border
+                        border-slate-700/40
+                        bg-slate-800
+                        text-slate-400
+                        hover:text-cyan-400
+                        hover:border-cyan-500/50
+                        transition"
+                    >
+
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="w-4 h-4"
+                        >
+                            <path
+                                d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"
+                            ></path>
+
+                            <path
+                                d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
+                            ></path>
+                        </svg>
+
+                    </button>
+
+
+                    <!-- SPLIT ADDRESS -->
+
+                    <div
+                        id="addressSplit"
+                        class="flex
+                        flex-1
+                        gap-2
+                        min-w-0"
+                    >
+
+                        <input
+                            type="text"
+                            id="URL-prefix"
+                            placeholder="https://api.example.com"
+                            class="flex-1
+                            min-w-0
+                            h-8
+                            rounded-lg
+                            border
+                            border-slate-700/40
+                            bg-slate-800
+                            px-3
+                            text-sm
+                            text-slate-100
+                            placeholder:text-slate-500
+                            hover:border-slate-500
+                            focus:outline-none
+                            focus:ring-2
+                            focus:ring-cyan-500
+                            transition"
+                        >
+
+
+                        <input
+                            type="text"
+                            id="Endpoint-path"
+                            placeholder="/users"
+                            class="flex-1
+                            min-w-0
+                            h-8
+                            rounded-lg
+                            border
+                            border-slate-700/40
+                            bg-slate-800
+                            px-3
+                            text-sm
+                            text-slate-100
+                            placeholder:text-slate-500
+                            hover:border-slate-500
+                            focus:outline-none
+                            focus:ring-2
+                            focus:ring-cyan-500
+                            transition"
+                        >
+
+                    </div>
+
+
+                    <!-- COMBINED ADDRESS -->
+
+                    <input
+                        type="text"
+                        id="URL-full"
+                        placeholder="https://api.example.com/users"
+                        class="hidden
+                        flex-1
+                        min-w-0
+                        h-8
+                        rounded-lg
+                        border
+                        border-slate-700/40
+                        bg-slate-800
+                        px-3
+                        text-sm
+                        text-slate-100
+                        placeholder:text-slate-500
+                        hover:border-slate-500
+                        focus:outline-none
+                        focus:ring-2
+                        focus:ring-cyan-500
+                        transition"
+                    >
+
+
+                    <!-- RUN -->
+
+                    <button
+                        id="runRequest"
+                        type="button"
+                        class="h-8
+                        shrink-0
+                        px-4
+                        flex
+                        items-center
+                        gap-1.5
+                        rounded-lg
+                        bg-cyan-500
+                        text-slate-950
+                        font-semibold
+                        text-sm
+                        transition
+                        hover:bg-cyan-400
+                        active:scale-95
+                        shadow-md
+                        shadow-cyan-500/20"
+                    >
+
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="w-4 h-4"
+                        >
+                            <polygon
+                                points="6 3 20 12 6 21 6 3"
+                            ></polygon>
+                        </svg>
+
+                        Run
+
+                    </button>
+
+
+                    <!-- STOP -->
+
+                    <button
+                        id="stopRequest"
+                        type="button"
+                        class="h-8
+                        shrink-0
+                        px-4
+                        flex
+                        items-center
+                        gap-1.5
+                        rounded-lg
+                        border
+                        border-red-500/40
+                        bg-transparent
+                        text-red-400
+                        font-semibold
+                        text-sm
+                        transition
+                        hover:bg-red-500/10
+                        active:scale-95"
+                    >
+
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="currentColor"
+                            class="w-3.5 h-3.5"
+                        >
+                            <rect
+                                x="4"
+                                y="4"
+                                width="16"
+                                height="16"
+                                rx="2"
+                            ></rect>
+                        </svg>
+
+                        Stop
+
+                    </button>
+
+                </div>
+
+
+                <!-- METADATA -->
+
+                <div
+                    class="metadata
+                    grid
+                    grid-cols-[2fr_1fr]
+                    gap-3
+                    shrink-0"
+                >
+
+
+                    <!-- ANNOTATIONS -->
+
+                    <div
+                        class="annotations
+                        rounded-xl
+                        border
+                        border-slate-700/40
+                        bg-slate-900
+                        p-3
+                        space-y-2"
+                    >
+
+                        <label
+                            for="annotations"
+                            class="block
+                            text-[11px]
+                            font-semibold
+                            uppercase
+                            tracking-wider
+                            text-slate-500"
+                        >
+                            Annotations
+                        </label>
+
+
+                        <textarea
+                            id="annotations"
+                            name="annotations"
+                            placeholder="Write notes about this endpoint..."
+                            class="w-full
+                            h-16
+                            resize-none
+                            rounded-lg
+                            border
+                            border-slate-700/40
+                            bg-slate-800
+                            px-3
+                            py-2
+                            text-sm
+                            text-slate-100
+                            placeholder:text-slate-500
+                            hover:border-slate-500
+                            focus:outline-none
+                            focus:ring-2
+                            focus:ring-cyan-500
+                            focus:border-cyan-500
+                            transition"
+                        ></textarea>
+
+                    </div>
+
+
+                    <!-- TAGS -->
+
+                    <div
+                        class="tags
+                        rounded-xl
+                        border
+                        border-slate-700/40
+                        bg-slate-900
+                        p-3
+                        space-y-2"
+                    >
+
+                        <label
+                            for="tagInput"
+                            class="block
+                            text-[11px]
+                            font-semibold
+                            uppercase
+                            tracking-wider
+                            text-slate-500"
+                        >
+                            Tags
+                        </label>
+
+
+                        <div
+                            class="flex
+                            gap-2"
+                        >
+
+                            <input
+                                type="text"
+                                id="tagInput"
+                                placeholder="Add tag..."
+                                class="flex-1
+                                h-8
+                                rounded-lg
+                                border
+                                border-slate-700/40
+                                bg-slate-800
+                                px-3
+                                text-sm
+                                text-slate-100
+                                placeholder:text-slate-500
+                                hover:border-slate-500
+                                focus:outline-none
+                                focus:ring-2
+                                focus:ring-cyan-500
+                                transition"
+                            >
+
+
+                            <button
+                                id="addTagButton"
+                                type="button"
+                                class="h-8
+                                w-8
+                                shrink-0
+                                rounded-lg
+                                bg-cyan-500
+                                text-slate-950
+                                font-bold
+                                transition
+                                hover:bg-cyan-400
+                                active:scale-95"
+                            >
+                                +
+                            </button>
+
+                        </div>
+
+
+                        <div
+                            id="endpointTags"
+                            class="flex
+                            flex-wrap
+                            gap-1.5"
+                        >
+
+                            <span
+                                class="text-xs
+                                text-slate-500"
+                            >
+                                No tags selected.
+                            </span>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- REQUEST / RESPONSE -->
+
+                <div
+                    class="request-response
+                    grid
+                    grid-cols-1
+                    lg:grid-cols-2
+                    gap-4
+                    flex-1
+                    min-h-0"
+                >
+
+
+                    <!-- REQUEST PANEL -->
+
+                    <div
+                        id="requestBox"
+                        class="request
+                        flex
+                        flex-col
+                        min-h-0
+                        h-full
+                        rounded-xl
+                        bg-[#172334]
+                        border
+                        border-slate-700/40"
+                    >
+
+
+                        <!-- REQUEST HEADER -->
+
+                        <div
+                            class="panelheader
+                            flex
+                            items-center
+                            justify-between
+                            px-3
+                            py-2.5
+                            border-b
+                            border-slate-800
+                            shrink-0"
+                        >
+
+                            <h3
+                                class="font-semibold
+                                text-sm"
+                            >
+                                Request Details
+                            </h3>
+
+
+                            <div
+                                class="flex
+                                items-center
+                                gap-1"
+                            >
+
+                                <button
+                                    id="requestFullscreen"
+                                    type="button"
+                                    class="rounded-md
+                                    p-1.5
+                                    text-slate-400
+                                    transition
+                                    hover:bg-slate-700
+                                    hover:text-cyan-400"
+                                    title="Fullscreen"
+                                >
+
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        class="w-4 h-4"
+                                    >
+                                        <path
+                                            d="M8 3H5a2 2 0 0 0-2 2v3"
+                                        ></path>
+
+                                        <path
+                                            d="M21 8V5a2 2 0 0 0-2-2h-3"
+                                        ></path>
+
+                                        <path
+                                            d="M3 16v3a2 2 0 0 0 2 2h3"
+                                        ></path>
+
+                                        <path
+                                            d="M16 21h3a2 2 0 0 0 2-2v-3"
+                                        ></path>
+                                    </svg>
+
+                                </button>
+
+
+                                <button
+                                    id="requestReset"
+                                    type="button"
+                                    class="rounded-md
+                                    p-1.5
+                                    text-slate-400
+                                    transition
+                                    hover:bg-slate-700
+                                    hover:text-yellow-400"
+                                    title="Reset Size"
+                                >
+
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        class="w-4 h-4"
+                                    >
+                                        <path
+                                            d="M3 12a9 9 0 1 0 3-6.7L3 8"
+                                        ></path>
+
+                                        <path
+                                            d="M3 3v5h5"
+                                        ></path>
+                                    </svg>
+
+                                </button>
+
+                            </div>
+
+                        </div>
+
+
+                        <!-- REQUEST TABS -->
+
+                        <div
+                            class="panel-tabs
+                            flex
+                            gap-2
+                            px-3
+                            py-2
+                            border-b
+                            border-slate-800
+                            shrink-0"
+                        >
+
+                            <button
+                                id="requestHeadersTab"
+                                type="button"
+                                class="reqb
+                                px-3
+                                py-1.5
+                                rounded-lg
+                                bg-cyan-500
+                                text-slate-950
+                                text-xs
+                                font-semibold
+                                transition
+                                hover:bg-cyan-400
+                                active:scale-95"
+                            >
+                                Headers
+                            </button>
+
+
+                            <button
+                                id="requestBodyTab"
+                                type="button"
+                                class="reqb
+                                px-3
+                                py-1.5
+                                rounded-lg
+                                bg-slate-800
+                                text-slate-300
+                                text-xs
+                                font-medium
+                                hover:bg-slate-700
+                                transition
+                                active:scale-95"
+                            >
+                                Body
+                            </button>
+
+                        </div>
+
+
+                        <!-- REQUEST EDITOR -->
+
+                        <div
+                            class="content
+                            flex-1
+                            min-h-0
+                            flex
+                            p-3
+                            bg-slate-950/40"
+                        >
+
+                            <textarea
+                                id="requestContent"
+                                class="w-full
+                                h-full
+                                resize-none
+                                rounded-lg
+                                border
+                                border-slate-700/40
+                                bg-slate-950
+                                px-4
+                                py-3
+                                text-sm
+                                font-mono
+                                leading-6
+                                text-slate-200
+                                placeholder:text-slate-600
+                                hover:border-slate-600
+                                focus:outline-none
+                                focus:ring-2
+                                focus:ring-cyan-500
+                                focus:border-cyan-500
+                                transition"
+                                spellcheck="false"
+                                placeholder='{
+"Authorization": "Bearer token"
+}'
+                            ></textarea>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- RESPONSE PANEL -->
+
+                    <div
+                        id="responseBox"
+                        class="response
+                        flex
+                        flex-col
+                        min-h-0
+                        h-full
+                        rounded-xl
+                        bg-[#172334]
+                        border
+                        border-slate-700/40"
+                    >
+
+
+                        <!-- RESPONSE HEADER -->
+
+                        <div
+                            class="panelheader
+                            flex
+                            items-center
+                            justify-between
+                            px-3
+                            py-2.5
+                            border-b
+                            border-slate-800
+                            shrink-0"
+                        >
+
+                            <h3
+                                class="font-semibold
+                                text-sm"
+                            >
+                                Response Details
+                            </h3>
+
+
+                            <div
+                                class="flex
+                                items-center
+                                gap-1"
+                            >
+
+                                <button
+                                    id="responseFullscreen"
+                                    type="button"
+                                    class="rounded-md
+                                    p-1.5
+                                    text-slate-400
+                                    transition
+                                    hover:bg-slate-700
+                                    hover:text-cyan-400"
+                                    title="Fullscreen"
+                                >
+
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        class="w-4 h-4"
+                                    >
+                                        <path
+                                            d="M8 3H5a2 2 0 0 0-2 2v3"
+                                        ></path>
+
+                                        <path
+                                            d="M21 8V5a2 2 0 0 0-2-2h-3"
+                                        ></path>
+
+                                        <path
+                                            d="M3 16v3a2 2 0 0 0 2 2h3"
+                                        ></path>
+
+                                        <path
+                                            d="M16 21h3a2 2 0 0 0 2-2v-3"
+                                        ></path>
+                                    </svg>
+
+                                </button>
+
+
+                                <button
+                                    id="responseReset"
+                                    type="button"
+                                    class="rounded-md
+                                    p-1.5
+                                    text-slate-400
+                                    transition
+                                    hover:bg-slate-700
+                                    hover:text-yellow-400"
+                                    title="Reset Size"
+                                >
+
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        class="w-4 h-4"
+                                    >
+                                        <path
+                                            d="M3 12a9 9 0 1 0 3-6.7L3 8"
+                                        ></path>
+
+                                        <path
+                                            d="M3 3v5h5"
+                                        ></path>
+                                    </svg>
+
+                                </button>
+
+                            </div>
+
+                        </div>
+
+
+                        <!-- RESPONSE TABS -->
+
+                        <div
+                            class="panel-tabs
+                            flex
+                            gap-2
+                            px-3
+                            py-2
+                            border-b
+                            border-slate-800
+                            shrink-0"
+                        >
+
+                            <button
+                                id="responseHeadersTab"
+                                type="button"
+                                class="respb
+                                px-3
+                                py-1.5
+                                rounded-lg
+                                bg-cyan-500
+                                text-slate-950
+                                text-xs
+                                font-semibold
+                                transition
+                                hover:bg-cyan-400
+                                active:scale-95"
+                            >
+                                Headers
+                            </button>
+
+
+                            <button
+                                id="responseBodyTab"
+                                type="button"
+                                class="respb
+                                px-3
+                                py-1.5
+                                rounded-lg
+                                bg-slate-800
+                                text-slate-300
+                                text-xs
+                                font-medium
+                                hover:bg-slate-700
+                                transition
+                                active:scale-95"
+                            >
+                                Body
+                            </button>
+
+                        </div>
+
+
+                        <!-- RESPONSE EDITOR -->
+
+                        <div
+                            class="content
+                            flex-1
+                            min-h-0
+                            flex
+                            p-3
+                            bg-slate-950/40"
+                        >
+
+                            <textarea
+                                id="responseContent"
+                                class="w-full
+                                h-full
+                                resize-none
+                                rounded-lg
+                                border
+                                border-slate-700/40
+                                bg-slate-950
+                                px-4
+                                py-3
+                                text-sm
+                                font-mono
+                                leading-6
+                                text-slate-200
+                                placeholder:text-slate-600
+                                hover:border-slate-600
+                                focus:outline-none
+                                focus:ring-2
+                                focus:ring-cyan-500
+                                focus:border-cyan-500
+                                transition"
+                                spellcheck="false"
+                                placeholder='{
+"status": "success",
+"data": {}
+}'
+                            ></textarea>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+        </main>
+
+    </div>
+
+</div>
+
+
+<!-- NAVIGATION SCRIPT -->
+
+<script src="../api/edms-api.js"></script>
+
+<script src="../js/nav-bar.js"></script>
+
+<script src="../js/testview/testview.js"></script>
+
+
+</body>
+
+</html>
