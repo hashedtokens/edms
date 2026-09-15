@@ -20,6 +20,13 @@ use compute::api::handlers::{
     write_endpoint_inner, write_headers_inner, write_request_inner, write_response_inner,
     tagops_merge_inner, tagops_create_inner, tagops_bulk_add_inner,
     tagops_bulk_remove_inner, tagops_rename_inner,
+    remove_url_prefix_inner, RemoveUrlRequest,
+    table_view_scan_inner, TableViewScanRequest,
+    table_view_format_check_inner, TableViewFormatCheckRequest,
+    table_view_move_inner, TableViewMoveRequest,
+    table_view_takeout_inner, TableViewTakeoutRequest,
+    audit_orphaned_eids_inner, AuditRequest,
+    purge_orphaned_eids_inner, PurgeRequest,
 };
 use compute::tagops::{
     MergeRequest as TagMergeRequest, CreateFromTagsRequest,
@@ -85,7 +92,20 @@ async fn main() {
     let started_at = Instant::now();
 
     // 4. Dispatch to the right inner handler
-    let (success, result, error) = dispatch(&task, request.payload).await;
+    let view_type = request
+        .payload
+        .get("view_type")
+        .or_else(|| request.payload.get("ViewType"))
+        .cloned();
+
+    let (success, mut result, error) = dispatch(&task, request.payload).await;
+
+    // Preserve ViewType in callback result if specified in request payload
+    if let Some(vt) = view_type {
+        if let Some(obj) = result.as_object_mut() {
+            obj.insert("view_type".to_string(), vt);
+        }
+    }
 
     let elapsed_ms = started_at.elapsed().as_millis();
 
@@ -183,6 +203,34 @@ async fn dispatch(task: &str, payload: Value) -> (bool, Value, Option<String>) {
 
         "tagops_rename" => {
             run(payload, |p: RenameTagRequest| tagops_rename_inner(p)).await
+        }
+
+        "remove_url_prefix" => {
+            run(payload, |p: RemoveUrlRequest| remove_url_prefix_inner(p)).await
+        }
+
+        "table_view_scan" => {
+            run(payload, |p: TableViewScanRequest| table_view_scan_inner(p)).await
+        }
+
+        "table_view_format_check" => {
+            run(payload, |p: TableViewFormatCheckRequest| table_view_format_check_inner(p)).await
+        }
+
+        "table_view_move" => {
+            run(payload, |p: TableViewMoveRequest| table_view_move_inner(p)).await
+        }
+
+        "table_view_takeout" => {
+            run(payload, |p: TableViewTakeoutRequest| table_view_takeout_inner(p)).await
+        }
+
+        "audit_orphaned_eids" => {
+            run(payload, |p: AuditRequest| audit_orphaned_eids_inner(p)).await
+        }
+
+        "purge_orphaned_eids" => {
+            run(payload, |p: PurgeRequest| purge_orphaned_eids_inner(p)).await
         }
 
         unknown => {

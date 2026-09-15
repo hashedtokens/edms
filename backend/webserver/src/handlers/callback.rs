@@ -52,6 +52,25 @@ pub async fn ipc_callback(
         }
     }
 
+    // Check if the result requests a ViewType refresh
+    if let Some(vt) = callback
+        .result
+        .get("view_type")
+        .or_else(|| callback.result.get("ViewType"))
+        .and_then(|v| v.as_str())
+    {
+        let count = callback
+            .result
+            .get("count")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1) as usize;
+        info!("[callback] broadcasting ViewRefresh for view_type='{vt}', count={count}");
+        let _ = state.events_tx.send(ServerEvent::ViewRefresh {
+            view_type: vt.to_string(),
+            count,
+        });
+    }
+
     Json(json!({ "status": "received" }))
 }
 

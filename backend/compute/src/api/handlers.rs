@@ -652,3 +652,149 @@ pub async fn tagops_rename_inner(req: RenameTagRequest) -> Result<String, String
     .await
     .map_err(|e| e.to_string())?
 }
+
+// ── REMOVE URL PREFIX ─────────────────────────────────────────────────────────
+
+pub use crate::remove_url::{
+    apply_remove_url_prefix, strip_url_prefix, RemoveUrlRequest, RemoveUrlSummary, TargetSelection,
+};
+
+pub async fn remove_url_prefix_inner(req: RemoveUrlRequest) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || {
+        let summary = apply_remove_url_prefix(req).map_err(|e| e.to_string())?;
+        serde_json::to_string(&summary).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+// ── TABLE VIEW & VALIDATION ──────────────────────────────────────────────────
+
+pub use crate::table_view::{
+    check_item_format, move_item_to_view, scan_imports_table, takeout_item, MoveResult, TableItem,
+    TableViewResponse, TakeoutResult, ViewPurpose,
+};
+pub use crate::validate::{
+    validate_bookmark_format, validate_webview_format, ComponentStatus, ValidationReport,
+};
+
+#[derive(Deserialize)]
+pub struct TableViewScanRequest {
+    pub imports_dir: String,
+}
+
+#[derive(Deserialize)]
+pub struct TableViewFormatCheckRequest {
+    pub item_path: String,
+    pub purpose: ViewPurpose,
+}
+
+#[derive(Deserialize)]
+pub struct TableViewMoveRequest {
+    pub storage_root: String,
+    pub item_path: String,
+    pub purpose: ViewPurpose,
+}
+
+#[derive(Deserialize)]
+pub struct TableViewTakeoutRequest {
+    pub source_path: String,
+    pub dest_name: String,
+    pub storage_root: String,
+    pub overwrite: bool,
+}
+
+pub async fn table_view_scan_inner(req: TableViewScanRequest) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || {
+        let res = scan_imports_table(Path::new(&req.imports_dir));
+        serde_json::to_string(&res).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+pub async fn table_view_format_check_inner(
+    req: TableViewFormatCheckRequest,
+) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || {
+        let report = check_item_format(Path::new(&req.item_path), req.purpose);
+        serde_json::to_string(&report).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+pub async fn table_view_move_inner(req: TableViewMoveRequest) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || {
+        let res = move_item_to_view(
+            Path::new(&req.storage_root),
+            Path::new(&req.item_path),
+            req.purpose,
+        )
+        .map_err(|e| e.to_string())?;
+        serde_json::to_string(&res).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+pub async fn table_view_takeout_inner(req: TableViewTakeoutRequest) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || {
+        let res = takeout_item(
+            Path::new(&req.source_path),
+            &req.dest_name,
+            Path::new(&req.storage_root),
+            req.overwrite,
+        )
+        .map_err(|e| e.to_string())?;
+        serde_json::to_string(&res).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+// ── ORPHANED EID AUDIT & PURGE ───────────────────────────────────────────────
+
+pub use crate::audit_orphanedEIDs::{
+    execute_purge, generate_audit_report, AuditReport, AuditRequest, PurgeRequest, PurgeResult,
+};
+
+pub async fn audit_orphaned_eids_inner(req: AuditRequest) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || {
+        let report = generate_audit_report(
+            Path::new(&req.db_path),
+            Path::new(&req.eqp_dir),
+            Path::new(&req.output_path),
+        )
+        .map_err(|e| e.to_string())?;
+        serde_json::to_string(&report).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+pub async fn purge_orphaned_eids_inner(req: PurgeRequest) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || {
+        let report = if let Some(ref path_str) = req.audit_report_path {
+            let f = std::fs::File::open(path_str).map_err(|e| e.to_string())?;
+            serde_json::from_reader(f).map_err(|e| e.to_string())?
+        } else {
+            generate_audit_report(
+                Path::new(&req.db_path),
+                Path::new(&req.eqp_dir),
+                Path::new("temp/audit.json"),
+            )
+            .map_err(|e| e.to_string())?
+        };
+
+        let result = execute_purge(
+            Path::new(&req.db_path),
+            Path::new(&req.eqp_dir),
+            &report,
+        )
+        .map_err(|e| e.to_string())?;
+        serde_json::to_string(&result).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}

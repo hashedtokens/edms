@@ -211,3 +211,87 @@ pub fn store_crud_operations_result(
     dashboard_db::store_crud_operations(&conn, &computed_at, &rows).map_err(|e| e.to_string())?;
     Ok(computed_at)
 }
+
+/// GET /purge_audit_report
+/// Retrieves the most recent audit report from disk (temp/audit.json)
+/// or generates one on-the-fly.
+pub async fn get_purge_audit_report(
+    State(state): State<AppState>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let report_path = state.storage_root.join("temp").join("audit.json");
+    if report_path.exists() {
+        if let Ok(file) = std::fs::File::open(&report_path) {
+            if let Ok(report) = serde_json::from_reader::<_, serde_json::Value>(file) {
+                return (StatusCode::OK, Json(report));
+            }
+        }
+    }
+
+    let eqp_dir = state.storage_root.join("storage").join("globalEQPData");
+    match compute::audit_orphanedEIDs::generate_audit_report(
+        &state.db_path,
+        &eqp_dir,
+        &report_path,
+    ) {
+        Ok(report) => (StatusCode::OK, Json(json!(report))),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": format!("{e}") })),
+        ),
+    }
+}
+
+/// POST /purge_orphaned
+/// Executes the purge of orphaned disk folders and DB rows based on the audit report.
+pub async fn execute_purge_orphaned(
+    State(state): State<AppState>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let report_path = state.storage_root.join("temp").join("audit.json");
+    let eqp_dir = state.storage_root.join("storage").join("globalEQPData");
+
+    let report = if report_path.exists() {
+        if let Ok(file) = std::fs::File::open(&report_path) {
+            serde_json::from_reader::<_, compute::audit_orphanedEIDs::AuditReport>(file).ok()
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    let report = match report {
+        Some(r) => r,
+        None => {
+            match compute::audit_orphanedEIDs::generate_audit_report(
+                &state.db_path,
+                &eqp_dir,
+                &report_path,
+            ) {
+                Ok(r) => r,
+                Err(e) => {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(json!({ "error": format!("Failed to generate audit report: {e}") })),
+                    );
+                }
+            }
+        }
+    };
+
+    match compute::audit_orphanedEIDs::execute_purge(
+        &state.db_path,
+        &eqp_dir,
+        &report,
+    ) {
+        Ok(result) => {
+            let _ = std::fs::remove_file(&report_path);
+            (StatusCode::OK, Json(json!(result)))
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": format!("{e}") })),
+        ),
+    }
+}
+
+

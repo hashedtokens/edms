@@ -25,8 +25,9 @@ use handlers::{
     bookmarks::{remove_from_collection, save_to_collection, ws_load_collection},
     callback::ipc_callback,
     dashboard::{
-        compare_daily_snapshots, get_crud_operations, get_dashboard_snapshot,
-        get_dashboard_snapshot_history, get_static_data, refresh_crud_operations,
+        compare_daily_snapshots, execute_purge_orphaned, get_crud_operations, get_dashboard_snapshot,
+        get_dashboard_snapshot_history, get_purge_audit_report, get_static_data,
+        refresh_crud_operations,
     },
     dataview::{dashboard, delete_folder, merge_folder, ws_make_folder_active},
     endpoints::{create_endpoint, delete_endpoint},
@@ -38,7 +39,7 @@ use handlers::{
         save_bookmark, save_history, stop, ws_add_from_history_to_bookmark,
         ws_delete_from_bookmark, ws_load_bookmarks, ws_load_endpoints, ws_load_history, ws_run,
     },
-    view::{home, list_view, test_view},
+    view::{home, list_view, test_view, trigger_view_refresh},
     view_catalog::{
         create_collection_entry, create_repoview_entry,
         create_webview_entry, delete_collection_entry, get_collection_entry,
@@ -149,6 +150,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/endpoints/:endpoint_id/delete", post(delete_endpoint))
         .route("/test-view", get(test_view))
         .route("/list-view", get(list_view))
+        .route("/view/refresh", post(trigger_view_refresh))
         .route("/test-view/endpoints/load", get(ws_load_endpoints))
         .route("/test-view/bookmarks/load", get(ws_load_bookmarks))
         .route("/test-view/history/load", get(ws_load_history))
@@ -176,6 +178,8 @@ async fn main() -> anyhow::Result<()> {
         .route("/dashboard/crud-operations", get(get_crud_operations))
         .route("/dashboard/crud-operations/refresh", post(refresh_crud_operations))
         .route("/dashboard/compare", get(compare_daily_snapshots))
+        .route("/purge_audit_report", get(get_purge_audit_report))
+        .route("/purge_orphaned", post(execute_purge_orphaned))
         .route("/collections/create", post(create_collection_entry))
         .route("/collections/list", get(list_collections))
         .route("/collections/:name", get(get_collection_entry))
