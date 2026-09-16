@@ -4,82 +4,55 @@
 <head>
     <meta charset="UTF-8">
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <title>EDMS Collection Data View</title>
 
-    <link
-        href="../styles/output.css"
-        rel="stylesheet"
-    >
+    <link href="../styles/output.css" rel="stylesheet">
 
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-        rel="stylesheet"
-    >
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 
 
-<body
-    class="h-screen overflow-hidden
+<body class="h-screen overflow-hidden
            bg-slate-950 text-slate-100
-           font-[Inter]"
->
+           font-[Inter]">
 
 
     <div class="h-full p-3 sm:p-4">
 
-        <div
-            class="mx-auto flex h-full
+        <div class="mx-auto flex h-full
                    max-w-screen-2xl
                    flex-col overflow-hidden
                    rounded-xl
                    border border-slate-800
-                   bg-slate-900"
-        >
+                   bg-slate-900">
 
 
             <!-- =====================================================
                  HEADER
             ====================================================== -->
 
-            <header
-                class="flex shrink-0
+            <header class="flex shrink-0
                        flex-wrap items-center
                        justify-between gap-3
                        border-b border-slate-800
                        bg-[#162235]
-                       px-4 py-3 sm:px-5"
-            >
+                       px-4 py-3 sm:px-5">
 
                 <div class="min-w-0">
 
-                    <div
-                        class="flex items-center gap-2"
-                    >
+                    <div class="flex items-center gap-2">
 
-                        <button
-                            id="backToCollections"
-                            type="button"
-                            title="Back to Collection View"
-                            class="rounded-md p-1.5
+                        <button id="backToCollections" type="button" title="Back to Collection View" class="rounded-md p-1.5
                                    text-slate-500
                                    transition
                                    hover:bg-slate-800
-                                   hover:text-white"
-                        >
+                                   hover:text-white">
 
-                            <svg
-                                class="h-4 w-4"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="1.8"
-                            >
-                                <path d="m15 18-6-6 6-6"/>
+                            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="1.8">
+                                <path d="m15 18-6-6 6-6" />
                             </svg>
 
                         </button>
@@ -87,21 +60,15 @@
 
                         <div class="min-w-0">
 
-                            <h1
-                                id="collectionTitle"
-                                class="truncate
+                            <h1 id="collectionTitle" class="truncate
                                        text-lg font-semibold
-                                       text-white"
-                            >
+                                       text-white">
                                 Collection Data View
                             </h1>
 
-                            <p
-                                id="collectionSubtitle"
-                                class="truncate
+                            <p id="collectionSubtitle" class="truncate
                                        text-[11px]
-                                       text-slate-500"
-                            >
+                                       text-slate-500">
                                 Loading collection...
                             </p>
 
@@ -112,32 +79,25 @@
                 </div>
 
 
-                <nav
-                    class="flex items-center
+                <nav class="flex items-center
                            gap-1 rounded-full
-                           bg-slate-800 p-1"
-                >
+                           bg-slate-800 p-1">
 
-                    <button
-                        data-target="./collection_view.html"
-                        class="rounded-lg
+                    <button data-target="./collection_view.html" class="rounded-lg
                                px-3 py-1.5
                                text-xs
                                text-slate-400
                                hover:bg-slate-700
-                               hover:text-white"
-                    >
+                               hover:text-white">
                         Collections
                     </button>
 
 
-                    <button
-                        class="rounded-lg
+                    <button class="rounded-lg
                                bg-cyan-500
                                px-3 py-1.5
                                text-xs font-medium
-                               text-white"
-                    >
+                               text-white">
                         Data View
                     </button>
 
@@ -150,116 +110,86 @@
                  COLLECTION INFO
             ====================================================== -->
 
-            <section
-                class="grid shrink-0
+            <section class="grid shrink-0
                        grid-cols-2 gap-2
                        border-b border-slate-800
                        bg-slate-900
-                       p-3 sm:grid-cols-4"
-            >
+                       p-3 sm:grid-cols-4">
 
-                <div
-                    class="rounded-lg
+                <div class="rounded-lg
                            border border-slate-800
                            bg-slate-950/40
-                           px-3 py-2"
-                >
+                           px-3 py-2">
 
-                    <p
-                        class="text-[10px]
+                    <p class="text-[10px]
                                uppercase tracking-wide
-                               text-slate-600"
-                    >
+                               text-slate-600">
                         Endpoints
                     </p>
 
-                    <p
-                        id="endpointCount"
-                        class="mt-0.5
+                    <p id="endpointCount" class="mt-0.5
                                text-sm font-semibold
-                               text-slate-200"
-                    >
+                               text-slate-200">
                         0
                     </p>
 
                 </div>
 
 
-                <div
-                    class="rounded-lg
+                <div class="rounded-lg
                            border border-slate-800
                            bg-slate-950/40
-                           px-3 py-2"
-                >
+                           px-3 py-2">
 
-                    <p
-                        class="text-[10px]
+                    <p class="text-[10px]
                                uppercase tracking-wide
-                               text-slate-600"
-                    >
+                               text-slate-600">
                         Tags
                     </p>
 
-                    <p
-                        id="tagCount"
-                        class="mt-0.5
+                    <p id="tagCount" class="mt-0.5
                                text-sm font-semibold
-                               text-slate-200"
-                    >
+                               text-slate-200">
                         0
                     </p>
 
                 </div>
 
 
-                <div
-                    class="rounded-lg
+                <div class="rounded-lg
                            border border-slate-800
                            bg-slate-950/40
-                           px-3 py-2"
-                >
+                           px-3 py-2">
 
-                    <p
-                        class="text-[10px]
+                    <p class="text-[10px]
                                uppercase tracking-wide
-                               text-slate-600"
-                    >
+                               text-slate-600">
                         GET
                     </p>
 
-                    <p
-                        id="getCount"
-                        class="mt-0.5
+                    <p id="getCount" class="mt-0.5
                                text-sm font-semibold
-                               text-emerald-400"
-                    >
+                               text-emerald-400">
                         0
                     </p>
 
                 </div>
 
 
-                <div
-                    class="rounded-lg
+                <div class="rounded-lg
                            border border-slate-800
                            bg-slate-950/40
-                           px-3 py-2"
-                >
+                           px-3 py-2">
 
-                    <p
-                        class="text-[10px]
+                    <p class="text-[10px]
                                uppercase tracking-wide
-                               text-slate-600"
-                    >
+                               text-slate-600">
                         Write Operations
                     </p>
 
-                    <p
-                        id="writeCount"
-                        class="mt-0.5
+                    <p id="writeCount" class="mt-0.5
                                text-sm font-semibold
-                               text-sky-400"
-                    >
+                               text-sky-400">
                         0
                     </p>
 
@@ -272,61 +202,44 @@
                  TOOLBAR
             ====================================================== -->
 
-            <section
-                class="flex shrink-0
+            <section class="flex shrink-0
                        flex-wrap items-center gap-2
                        border-b border-slate-800
                        bg-slate-900/80
-                       px-3 py-2.5"
-            >
+                       px-3 py-2.5">
 
-                <div
-                    class="relative
+                <div class="relative
                            min-w-[190px]
-                           flex-1 sm:max-w-xs"
-                >
+                           flex-1 sm:max-w-xs">
 
-                    <svg
-                        class="pointer-events-none
+                    <svg class="pointer-events-none
                                absolute left-2.5 top-1/2
                                h-3.5 w-3.5
                                -translate-y-1/2
-                               text-slate-600"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="1.8"
-                    >
-                        <circle cx="11" cy="11" r="7"/>
-                        <path d="m20 20-3.5-3.5"/>
+                               text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="1.8">
+                        <circle cx="11" cy="11" r="7" />
+                        <path d="m20 20-3.5-3.5" />
                     </svg>
 
-                    <input
-                        id="endpointSearch"
-                        type="search"
-                        placeholder="Search endpoint..."
-                        class="h-8 w-full
+                    <input id="endpointSearch" type="search" placeholder="Search endpoint..." class="h-8 w-full
                                rounded-md
                                border border-slate-800
                                bg-slate-800
                                pl-8 pr-3
                                text-xs
                                outline-none
-                               focus:border-cyan-500"
-                    >
+                               focus:border-cyan-500">
 
                 </div>
 
 
-                <select
-                    id="methodFilter"
-                    class="h-8 rounded-md
+                <select id="methodFilter" class="h-8 rounded-md
                            border border-slate-800
                            bg-slate-800
                            px-2.5 text-xs
                            outline-none
-                           focus:border-cyan-500"
-                >
+                           focus:border-cyan-500">
 
                     <option value="all">
                         All CRUD
@@ -355,16 +268,13 @@
                 </select>
 
 
-                <select
-                    id="tagFilter"
-                    class="h-8 max-w-40
+                <select id="tagFilter" class="h-8 max-w-40
                            rounded-md
                            border border-slate-800
                            bg-slate-800
                            px-2.5 text-xs
                            outline-none
-                           focus:border-cyan-500"
-                >
+                           focus:border-cyan-500">
 
                     <option value="">
                         Tags
@@ -373,50 +283,37 @@
                 </select>
 
 
-                <button
-                    id="resetEndpointFilters"
-                    type="button"
-                    class="h-8 rounded-md
+                <button id="resetEndpointFilters" type="button" class="h-8 rounded-md
                            border border-slate-700
                            bg-slate-800
                            px-2.5 text-xs
                            text-slate-400
                            hover:bg-slate-700
-                           hover:text-white"
-                >
+                           hover:text-white">
                     Reset
                 </button>
 
 
-                <div
-                    class="ml-auto
-                           flex items-center gap-2"
-                >
+                <div class="ml-auto
+                           flex items-center gap-2">
 
-                    <span
-                        id="selectionLabel"
-                        class="hidden
+                    <span id="selectionLabel" class="hidden
                                rounded-md
                                bg-cyan-500/10
                                px-2 py-1
                                text-[10px]
-                               text-cyan-300"
-                    >
+                               text-cyan-300">
                         0 selected
                     </span>
 
 
-                    <button
-                        id="clearEndpointSelection"
-                        type="button"
-                        class="hidden h-8
+                    <button id="clearEndpointSelection" type="button" class="hidden h-8
                                rounded-md
                                border border-slate-700
                                bg-slate-800
                                px-2.5 text-xs
                                text-slate-400
-                               hover:bg-slate-700"
-                    >
+                               hover:bg-slate-700">
                         Clear
                     </button>
 
@@ -429,89 +326,63 @@
                  WORKSPACE
             ====================================================== -->
 
-            <div
-                class="relative min-h-0
-                       flex-1 overflow-hidden"
-            >
+            <div class="relative min-h-0
+                       flex-1 overflow-hidden">
 
 
                 <!-- Endpoint table -->
 
-                <div
-                    class="absolute inset-0
+                <div class="absolute inset-0
                            overflow-auto
                            scrollbar scrollbar-thin
                            scrollbar-thumb-slate-700
-                           scrollbar-track-transparent"
-                >
+                           scrollbar-track-transparent">
 
-                    <table
-                        class="w-full
+                    <table class="w-full
                                min-w-[900px]
-                               text-xs"
-                    >
+                               text-xs">
 
-                        <thead
-                            class="sticky top-0 z-20
+                        <thead class="sticky top-0 z-20
                                    border-b border-slate-800
                                    bg-slate-900/98
-                                   backdrop-blur"
-                        >
+                                   backdrop-blur">
 
-                            <tr
-                                class="text-left
-                                       text-slate-500"
-                            >
+                            <tr class="text-left
+                                       text-slate-500">
 
-                                <th
-                                    class="w-10 px-3 py-2.5"
-                                >
+                                <th class="w-10 px-3 py-2.5">
 
-                                    <input
-                                        id="selectAllEndpoints"
-                                        type="checkbox"
-                                        class="h-3.5 w-3.5
-                                               accent-cyan-400"
-                                    >
+                                    <input id="selectAllEndpoints" type="checkbox" class="h-3.5 w-3.5
+                                               accent-cyan-400">
 
                                 </th>
 
 
-                                <th
-                                    class="w-20 px-3 py-2.5"
-                                >
+                                <th class="w-20 px-3 py-2.5">
                                     Method
                                 </th>
 
 
-                                <th
-                                    class="w-[34%]
-                                           px-3 py-2.5"
-                                >
+                                <th class="w-[34%]
+                                           px-3 py-2.5">
                                     Endpoint
                                 </th>
 
 
-                                <th
-                                    class="w-[18%]
-                                           px-3 py-2.5"
-                                >
+                                <th class="w-[18%]
+                                           px-3 py-2.5">
                                     Tags
                                 </th>
 
 
-                                <th
-                                    class="w-16 px-3 py-2.5
-                                           text-center"
-                                >
+                                <th class="w-16 px-3 py-2.5
+                                           text-center">
                                     QP
                                 </th>
 
 
-                                <th
-                                    class="w-[22%]
-                                           px-3 py-2.5"
-                                >
+                                <th class="w-[22%]
+                                           px-3 py-2.5">
                                     Annotation
                                 </th>
 
@@ -520,119 +391,91 @@
                         </thead>
 
 
-                        <tbody
-                            id="endpointTableBody"
-                        ></tbody>
+                        <tbody id="endpointTableBody"></tbody>
 
                     </table>
 
                 </div>
 
 
-                
 
-            <!-- =====================================================
+
+                <!-- =====================================================
                  FOOTER / PAGINATION
             ====================================================== -->
 
-            <footer
-                class="flex shrink-0
+                <footer class="flex shrink-0
                        flex-wrap items-center
                        justify-between gap-3
                        border-t border-slate-800
                        bg-slate-900
-                       px-3 py-2.5"
-            >
+                       px-3 py-2.5">
 
-                <p
-                    class="text-[11px]
-                           text-slate-500"
-                >
+                    <p class="text-[11px]
+                           text-slate-500">
 
-                    Showing
+                        Showing
 
-                    <span
-                        id="rangeStart"
-                        class="text-slate-300"
-                    >
-                        0
-                    </span>
+                        <span id="rangeStart" class="text-slate-300">
+                            0
+                        </span>
 
-                    –
+                        –
 
-                    <span
-                        id="rangeEnd"
-                        class="text-slate-300"
-                    >
-                        0
-                    </span>
+                        <span id="rangeEnd" class="text-slate-300">
+                            0
+                        </span>
 
-                    of
+                        of
 
-                    <span
-                        id="totalEndpoints"
-                        class="text-slate-300"
-                    >
-                        0
-                    </span>
+                        <span id="totalEndpoints" class="text-slate-300">
+                            0
+                        </span>
 
-                    endpoints
+                        endpoints
 
-                </p>
+                    </p>
 
 
-                <div
-                    class="flex items-center
-                           gap-1"
-                >
+                    <div class="flex items-center
+                           gap-1">
 
-                    <button
-                        id="prevPage"
-                        type="button"
-                        class="min-w-7 rounded-md
+                        <button id="prevPage" type="button" class="min-w-7 rounded-md
                                border border-slate-700
                                px-2 py-1
                                text-[11px]
                                text-slate-400
                                hover:bg-slate-800
-                               disabled:opacity-30"
-                    >
-                        ‹
-                    </button>
+                               disabled:opacity-30">
+                            ‹
+                        </button>
 
 
-                    <div
-                        id="pageNumbers"
-                        class="flex items-center
-                               gap-1"
-                    ></div>
+                        <div id="pageNumbers" class="flex items-center
+                               gap-1"></div>
 
 
-                    <button
-                        id="nextPage"
-                        type="button"
-                        class="min-w-7 rounded-md
+                        <button id="nextPage" type="button" class="min-w-7 rounded-md
                                border border-slate-700
                                px-2 py-1
                                text-[11px]
                                text-slate-400
                                hover:bg-slate-800
-                               disabled:opacity-30"
-                    >
-                        ›
-                    </button>
+                               disabled:opacity-30">
+                            ›
+                        </button>
 
-                </div>
+                    </div>
 
-            </footer>
+                </footer>
+
+            </div>
 
         </div>
 
-    </div>
 
-
-    <script src="../js/collectionview/collection_dataview.js"></script>
-    <script src="../js/nav-bar.js"></script>
+        <script src="../js/collectionview/collection_dataview.js"></script>
+        <script src="../js/nav-bar.js"></script>
 
 </body>
 

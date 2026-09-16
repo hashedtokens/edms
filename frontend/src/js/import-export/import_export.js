@@ -115,42 +115,42 @@ document.addEventListener("DOMContentLoaded", () => {
 
             row.innerHTML = `
 
-                <!-- Folder Name -->
+            <!-- Folder Name -->
 
-                <td class="px-5 py-3
-                           font-medium
-                           text-slate-200">
+            <td class="px-5 py-3
+                       font-medium
+                       text-slate-900 dark:text-slate-200">
 
-                    ${item.name}
+                ${item.name}
 
-                </td>
-                <!-- Purpose -->
+            </td>
+            <!-- Purpose -->
 
-                <td class="px-5 py-3
-                           text-slate-400">
+            <td class="px-5 py-3
+                       text-slate-500 dark:text-slate-400">
 
-                    ${item.purpose}
+                ${item.purpose}
 
-                </td>
-                <!-- Size -->
+            </td>
+            <!-- Size -->
 
-                <td class="px-5 py-3
-                           text-slate-400">
+            <td class="px-5 py-3
+                       text-slate-500 dark:text-slate-400">
 
-                    ${item.size}
+                ${item.size}
 
-                </td>
-                <!-- Format Check -->
+            </td>
+            <!-- Format Check -->
 
-                <td class="px-5 py-3">
+            <td class="px-5 py-3">
 
-                    ${getFormatCheckBadge(
+                ${getFormatCheckBadge(
                 item.formatCheck
             )}
 
-                </td>
+            </td>
 
-            `;
+        `;
             // RIGHT CLICK
             row.addEventListener(
                 "contextmenu",
@@ -311,6 +311,17 @@ document.addEventListener("DOMContentLoaded", () => {
             "uncompressedTab"
         );
 
+    const ACTIVE_TAB_CLASSES = [
+        "bg-slate-900", "dark:bg-cyan-500",
+        "text-white", "dark:text-slate-950"
+    ];
+
+    const INACTIVE_TAB_CLASSES = [
+        "bg-white", "dark:bg-slate-800",
+        "text-slate-600", "dark:text-slate-300",
+        "border", "border-slate-200", "dark:border-transparent"
+    ];
+
     if (compressedTab) {
 
         compressedTab.addEventListener(
@@ -320,26 +331,22 @@ document.addEventListener("DOMContentLoaded", () => {
                 currentView = "compressed";
 
                 compressedTab.classList.remove(
-                    "bg-slate-800",
-                    "text-slate-300"
+                    ...INACTIVE_TAB_CLASSES
                 );
 
                 compressedTab.classList.add(
-                    "bg-cyan-500",
-                    "text-slate-950"
+                    ...ACTIVE_TAB_CLASSES
                 );
 
 
                 if (uncompressedTab) {
 
                     uncompressedTab.classList.remove(
-                        "bg-cyan-500",
-                        "text-slate-950"
+                        ...ACTIVE_TAB_CLASSES
                     );
 
                     uncompressedTab.classList.add(
-                        "bg-slate-800",
-                        "text-slate-300"
+                        ...INACTIVE_TAB_CLASSES
                     );
 
                 }
@@ -358,26 +365,22 @@ document.addEventListener("DOMContentLoaded", () => {
                 currentView = "uncompressed";
 
                 uncompressedTab.classList.remove(
-                    "bg-slate-800",
-                    "text-slate-300"
+                    ...INACTIVE_TAB_CLASSES
                 );
 
                 uncompressedTab.classList.add(
-                    "bg-cyan-500",
-                    "text-slate-950"
+                    ...ACTIVE_TAB_CLASSES
                 );
 
 
                 if (compressedTab) {
 
                     compressedTab.classList.remove(
-                        "bg-cyan-500",
-                        "text-slate-950"
+                        ...ACTIVE_TAB_CLASSES
                     );
 
                     compressedTab.classList.add(
-                        "bg-slate-800",
-                        "text-slate-300"
+                        ...INACTIVE_TAB_CLASSES
                     );
 
                 }

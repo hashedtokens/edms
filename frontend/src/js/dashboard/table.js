@@ -15,26 +15,36 @@ function createStatsTable({
     const methods = [
         {
             name: "GET",
-            color: "text-emerald-500"
+            color: "text-emerald-600 dark:text-emerald-500"
         },
         {
             name: "POST",
-            color: "text-yellow-500"
+            color: "text-yellow-600 dark:text-yellow-500"
         },
         {
             name: "PUT",
-            color: "text-blue-500"
+            color: "text-blue-600 dark:text-blue-500"
         },
         {
             name: "PATCH",
-            color: "text-purple-500"
+            color: "text-purple-600 dark:text-purple-500"
         },
         {
             name: "DELETE",
-            color: "text-red-500"
+            color: "text-red-600 dark:text-red-500"
         }
     ];
+    // TOTAL ENDPOINTS
+    const endpointRow = rows.find(
+        row => row.name === "Endpoint Segments"
+    );
 
+    const endpoints = endpointRow
+        ? methods.reduce((total, method) => {
+            return total +
+                Number(endpointRow.methods?.[method.name]?.count || 0);
+        }, 0)
+        : 0;
     // METHOD HEADERS
     let methodHeaders = "";
 
@@ -44,7 +54,7 @@ function createStatsTable({
             <th
                 colspan="2"
                 class="
-                    border-l border-slate-800
+                    border-l border-slate-300 dark:border-slate-800
                     px-3 py-2
                     text-center
                     font-semibold
@@ -65,7 +75,7 @@ function createStatsTable({
         subHeaders += `
             <th
                 class="
-                    border-l border-slate-800
+                    border-l border-slate-300 dark:border-slate-800
                     px-2 py-1
                     text-center
                 "
@@ -103,7 +113,7 @@ function createStatsTable({
             cells += `
                 <td
                     class="
-                        border-l border-slate-800
+                        border-l border-slate-300 dark:border-slate-800
                         px-3 py-2.5
                         text-center
                         font-semibold
@@ -119,7 +129,7 @@ function createStatsTable({
                     class="
                         px-3 py-2.5
                         text-center
-                        text-slate-400
+                        text-slate-500 dark:text-slate-400
                     "
                 >
                     ${data.count}
@@ -130,7 +140,7 @@ function createStatsTable({
         tableRows += `
             <tr
                 class="
-                    border-b border-slate-800
+                    border-b border-slate-300 dark:border-slate-800
                     last:border-b-0
                 "
             >
@@ -139,7 +149,7 @@ function createStatsTable({
                     class="
                         px-3 py-2.5
                         font-medium
-                        text-slate-300
+                        text-slate-600 dark:text-slate-300
                     "
                 >
                     ${row.name}
@@ -157,11 +167,11 @@ function createStatsTable({
 
         <section
             class="
-                mt-5
+                mt-3
                 overflow-hidden
                 rounded-lg
-                border border-slate-800
-                bg-slate-900
+                border border-slate-300 dark:border-slate-800
+                bg-slate-100 dark:bg-slate-900
             "
         >
 
@@ -170,29 +180,18 @@ function createStatsTable({
                     flex
                     items-center
                     justify-between
-                    border-b border-slate-800
-                    px-4 py-3
+                    border-b border-slate-300 dark:border-slate-800
+                    px-2.5 py-1.5
                 "     >
                 <h3
                     class="
                         text-sm
                         font-semibold
-                        text-slate-200
+                        text-slate-700 dark:text-slate-200
                     "
                 >
                     ${title}
                 </h3>
-
-
-                <span
-                    class="
-                        text-xs
-                        font-semibold
-                        text-slate-300
-                    "
-                >
-                    Entries ${entries}
-                </span>
 
             </div>
 
@@ -213,18 +212,27 @@ function createStatsTable({
                         <tr
                             class="
                                 border-b
-                                border-slate-800
+                                border-slate-300 dark:border-slate-800
                             "
                         >
 
-                            <!-- Row name column -->
+                            <!-- Row name column: now holds Endpoints / Entries -->
 
                             <th
                                 class="
                                     w-40
                                     px-3 py-2
+                                    text-left
                                 "
                             >
+                                <div class="flex flex-col gap-0.5">
+                                    <span class="text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+                                        Endpoints ${endpoints}
+                                    </span>
+                                    <span class="text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+                                        Entries ${entries}
+                                    </span>
+                                </div>
                             </th>
                            ${methodHeaders}
 
@@ -236,9 +244,9 @@ function createStatsTable({
                         <tr
                             class="
                                 border-b
-                                border-slate-800
+                                border-slate-300 dark:border-slate-800
                                 text-[10px]
-                                text-slate-500
+                                text-slate-400 dark:text-slate-500
                             "
                         >
 

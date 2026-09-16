@@ -3,168 +3,192 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <title>EDMS Repo View</title>
 
-    <link
-        href="../styles/output.css"
-        rel="stylesheet"
-    >
+    <link href="../styles/output.css" rel="stylesheet">
 
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-        rel="stylesheet"
-    >
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Flash-prevention: set theme class before first paint -->
+    <script>
+        (function () {
+            const theme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.classList.toggle('dark', theme === 'dark');
+        })();
+    </script>
 </head>
 
 
-<body
-    class="min-h-screen overflow-hidden bg-slate-950
-           font-[Inter] text-slate-100"
-    data-current-page="repo"
->
+<body class="min-h-screen overflow-hidden bg-slate-100 dark:bg-slate-950
+           font-[Inter] text-slate-800 dark:text-slate-100 transition-colors" data-current-page="repo">
 
 
     <!-- =========================================================
          PAGE
     ========================================================== -->
 
-    <div class="h-screen p-3 sm:p-4">
+    <div class="h-screen p-3 sm:p-3">
 
-        <div
-            class="mx-auto flex h-full max-w-screen-2xl
+        <div class="mx-auto flex h-full max-w-screen-2xl
                    flex-col overflow-hidden rounded-xl
-                   border border-slate-800 bg-slate-900"
-        >
+                   border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
 
 
             <!-- =====================================================
                  HEADER
             ====================================================== -->
 
-            <header
-                class="flex shrink-0 flex-wrap items-center
+            <header class="flex shrink-0 flex-wrap items-center
                        justify-between gap-3
-                       border-b border-slate-700/40
-                       bg-[#162235] px-4 py-3 sm:px-6"
-            >
+                       border-b border-slate-200 dark:border-slate-700
+                       bg-slate-50 dark:bg-[#162235] px-3 py-2 sm:px-4">
 
-                <div class="flex min-w-0 flex-col gap-0.5">
+                <a href="./index.html" class="brand
+flex
+items-center
+gap-2.5
+shrink-0
+group">
 
-                    <h1
-                        class="truncate text-xl font-bold
-                               tracking-tight text-white sm:text-2xl"
-                    >
-                        Repo View
-                    </h1>
+                    <span class="text-lg
+    font-bold
+    tracking-tight
+    text-slate-900 dark:text-white">
+                        Logo HashedTokens EDMS
+                    </span>
 
-                    <p class="text-[11px] text-slate-400 sm:text-xs">
-                        Repository folder management
-                    </p>
+                </a>
+
+                <!-- Header actions: nav + theme toggle -->
+                <div class="flex items-center gap-2">
+
+                    <nav class="navbar
+                    flex
+                    items-center
+                    gap-1
+                    rounded
+                    bg-slate-100 dark:bg-slate-800
+                    p-1">
+
+
+                        <!-- Home -->
+                        <button id="homenav" data-target="./index.html" data-page="home" class="nav-button
+                           rounded
+                           px-3.5 py-1.5
+                           text-sm
+                           font-medium
+                           text-slate-500 dark:text-slate-400
+                           transition
+                           hover:bg-slate-200 dark:hover:bg-slate-700
+                           hover:text-slate-900 dark:hover:text-white">
+
+                            Home
+
+                        </button>
+
+
+                        <!-- Test View -->
+                        <button id="testnav" data-target="./testview.html" data-page="test" class="nav-button
+                           rounded
+                           px-3.5 py-1.5
+                           text-sm
+                           font-medium
+                           text-slate-500 dark:text-slate-400
+                           transition
+                           hover:bg-slate-200 dark:hover:bg-slate-700
+                           hover:text-slate-900 dark:hover:text-white">
+
+                            Test View
+
+                        </button>
+                        <!-- Bookmark View -->
+                        <button id="listnav" data-target="./listview.html" data-page="list" class="nav-button
+                           rounded
+                           px-3.5 py-1.5
+                           text-sm
+                           font-medium
+                           text-slate-500 dark:text-slate-400
+                           transition
+                           hover:bg-slate-200 dark:hover:bg-slate-700
+                           hover:text-slate-900 dark:hover:text-white">
+
+                            Bookmark View
+                        </button>
+                        <!-- Collection View -->
+                        <button id="collectionnav" data-target="./collection_view.html" data-page="collection" class="nav-button
+                           rounded
+                           px-3.5 py-1.5
+                           text-sm
+                           font-medium
+                           text-slate-500 dark:text-slate-400
+                           transition
+                           hover:bg-slate-200 dark:hover:bg-slate-700
+                           hover:text-slate-900 dark:hover:text-white">
+
+                            Collection View
+                        </button>
+                        <!-- Import / Export -->
+                        <button id="importexportnav" data-target="./import_export.html" data-page="import_export" class="nav-button
+                           rounded
+                           px-3.5 py-1.5
+                           text-sm
+                           font-medium
+                           text-slate-500 dark:text-slate-400
+                           transition
+                           hover:bg-slate-200 dark:hover:bg-slate-700
+                           hover:text-slate-900 dark:hover:text-white">
+
+                            Import / Export
+                        </button>
+
+
+                        <!-- Repo View -->
+                        <button id="reponav" data-target="./repoview.html" data-page="repo" class="nav-button
+                           rounded
+                           px-3.5 py-1.5
+                           text-sm
+                           font-medium
+                           bg-slate-900 dark:bg-cyan-500
+                           text-white
+                           shadow-lg
+                           shadow-slate-900/30 dark:shadow-cyan-500/30">
+
+                            Repo View
+                        </button>
+                    </nav>
+
+                    <!-- Theme toggle -->
+                    <button id="themeToggle" type="button" title="Toggle theme" class="
+                    flex items-center justify-center
+                    h-8 w-8
+                    rounded-full
+                    bg-slate-200 dark:bg-slate-700
+                    text-slate-700 dark:text-slate-200
+                    border border-slate-300 dark:border-slate-600
+                    transition
+                    hover:bg-slate-300 dark:hover:bg-slate-600
+                    hover:text-slate-900 dark:hover:text-white
+                    hover:border-cyan-400/50">
+
+                        <svg id="iconSun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="w-4 h-4 hidden">
+                            <circle cx="12" cy="12" r="4"></circle>
+                            <path
+                                d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41">
+                            </path>
+                        </svg>
+
+                        <svg id="iconMoon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="w-4 h-4">
+                            <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"></path>
+                        </svg>
+                    </button>
 
                 </div>
-
-
-                <!-- Navigation -->
-                <nav class="navbar
-                            flex
-                            items-center
-                            gap-1
-                            rounded-full
-                            bg-slate-800
-                            p-1">
-
-
-                    <!-- Home -->
-                    <button id="homenav" data-target="./index.html" data-page="home" class="nav-button
-                                   rounded-lg
-                                   px-3.5 py-1.5
-                                   text-sm
-                                   font-medium
-                                   text-slate-400
-                                   transition
-                                   hover:bg-slate-700
-                                   hover:text-white">
-
-                        Home
-
-                    </button>
-
-
-                    <!-- Test View -->
-                    <button id="testnav" data-target="./testview.html" data-page="test" class="nav-button
-                                   rounded-lg
-                                   px-3.5 py-1.5
-                                   text-sm
-                                   font-medium
-                                   text-slate-400
-                                   transition
-                                   hover:bg-slate-700
-                                   hover:text-white">
-
-                        Test View
-
-                    </button>
-                    <!-- Bookmark View -->
-                    <button id="listnav" data-target="./listview.html" data-page="list" class="nav-button
-                                   rounded-lg
-                                   px-3.5 py-1.5
-                                   text-sm
-                                   font-medium
-                                   text-slate-400
-                                   transition
-                                   hover:bg-slate-700
-                                   hover:text-white">
-
-                        Bookmark View
-                    </button>
-                    <!-- Collection View -->
-                    <button id="collectionnav" data-target="./collection_view.html" data-page="collection" class="nav-button
-                                   rounded-lg
-                                   px-3.5 py-1.5
-                                   text-sm
-                                   font-medium
-                                   text-slate-400
-                                   transition
-                                   hover:bg-slate-700
-                                   hover:text-white">
-
-                        Collection View
-                    </button>
-                    <!-- Import / Export -->
-                    <button id="importexportnav" data-target="./import_export.html" data-page="import_export" class="nav-button
-                                     px-3.5
-                        py-1.5
-                        rounded-lg
-                        text-sm
-                        font-medium
-                        bg-cyan-500
-                        text-white
-                        shadow-lg
-                        shadow-cyan-500/30">
-
-                        Import / Export
-                    </button>
-
-
-                    <!-- Repo View -->
-                    <button id="reponav" data-target="./repoview.html" data-page="repo" class="nav-button
-                                   rounded-lg
-                                   px-3.5 py-1.5
-                                   text-sm
-                                   font-medium
-                                   text-slate-400
-                                   transition
-                                   hover:bg-slate-700
-                                   hover:text-white">
-
-                        Repo View
-                    </button>
-                </nav>
 
             </header>
 
@@ -173,59 +197,42 @@
                  TOOLBAR
             ====================================================== -->
 
-            <section
-                class="flex shrink-0 flex-wrap items-center
-                       gap-2 border-b border-slate-800
-                       bg-slate-900/80 px-3 py-2.5"
-            >
+            <section class="flex shrink-0 flex-wrap items-center
+                       gap-2 border-b border-slate-200 dark:border-slate-800
+                       bg-slate-50 dark:bg-slate-900/80 px-3 py-2">
 
                 <!-- Search -->
 
-                <div
-                    class="relative min-w-[180px]
-                           flex-1 sm:max-w-xs"
-                >
+                <div class="relative min-w-[180px]
+                           flex-1 sm:max-w-xs">
 
-                    <svg
-                        class="pointer-events-none absolute left-2.5
+                    <svg class="pointer-events-none absolute left-2.5
                                top-1/2 h-4 w-4
-                               -translate-y-1/2 text-slate-500"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="1.8"
-                    >
-                        <circle cx="11" cy="11" r="7"/>
-                        <path d="m20 20-3.5-3.5"/>
+                               -translate-y-1/2 text-slate-400 dark:text-slate-500" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="1.8">
+                        <circle cx="11" cy="11" r="7" />
+                        <path d="m20 20-3.5-3.5" />
                     </svg>
 
-                    <input
-                        id="repoSearch"
-                        type="search"
-                        placeholder="Search repo views..."
-                        class="h-8 w-full rounded-md
-                               border border-slate-800
-                               bg-slate-800/80 pl-8 pr-3
+                    <input id="repoSearch" type="search" placeholder="Search repo views..." class="h-8 w-full rounded-md
+                               border border-slate-300 dark:border-slate-800
+                               bg-slate-100 dark:bg-slate-800/80 pl-8 pr-3
                                text-xs outline-none
                                transition
                                focus:border-cyan-500
                                focus:ring-1
-                               focus:ring-cyan-500/30"
-                    >
+                               focus:ring-cyan-500/30">
 
                 </div>
 
 
                 <!-- CRUD -->
 
-                <select
-                    id="crudFilter"
-                    class="h-8 rounded-md
-                           border border-slate-800
-                           bg-slate-800 px-2.5 text-xs
+                <select id="crudFilter" class="h-8 rounded-md
+                           border border-slate-300 dark:border-slate-800
+                           bg-slate-100 dark:bg-slate-800 px-2.5 text-xs
                            outline-none
-                           focus:border-cyan-500"
-                >
+                           focus:border-cyan-500">
                     <option value="all">CRUD: All</option>
                     <option value="GET">GET</option>
                     <option value="POST">POST</option>
@@ -237,29 +244,19 @@
 
                 <!-- Reset -->
 
-                <button
-                    id="resetFilters"
-                    type="button"
-                    class="inline-flex h-8 items-center
+                <button id="resetFilters" type="button" class="inline-flex h-8 items-center
                            gap-1.5 rounded-md
-                           border border-slate-700
-                           bg-slate-800 px-2.5
-                           text-xs text-slate-300
+                           border border-slate-300 dark:border-slate-700
+                           bg-slate-100 dark:bg-slate-800 px-2.5
+                           text-xs text-slate-600 dark:text-slate-300
                            transition
-                           hover:bg-slate-700"
-                >
+                           hover:bg-slate-200 dark:hover:bg-slate-700">
 
-                    <svg
-                        class="h-3.5 w-3.5"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="1.8"
-                    >
-                        <path d="M3 12a9 9 0 0 1 15.3-6.4L21 8"/>
-                        <path d="M21 3v5h-5"/>
-                        <path d="M21 12a9 9 0 0 1-15.3 6.4L3 16"/>
-                        <path d="M3 21v-5h5"/>
+                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="M3 12a9 9 0 0 1 15.3-6.4L21 8" />
+                        <path d="M21 3v5h-5" />
+                        <path d="M21 12a9 9 0 0 1-15.3 6.4L3 16" />
+                        <path d="M3 21v-5h5" />
                     </svg>
 
                     Reset
@@ -269,25 +266,15 @@
 
                 <!-- New -->
 
-                <button
-                    id="createRepoBtn"
-                    type="button"
-                    class="inline-flex h-8 items-center
+                <button id="createRepoBtn" type="button" class="inline-flex h-8 items-center
                            gap-1.5 rounded-md
-                           bg-sky-600 px-2.5
+                           bg-slate-900 dark:bg-sky-600 px-2.5
                            text-xs font-medium text-white
-                           transition hover:bg-sky-500"
-                >
+                           transition hover:bg-slate-800 dark:hover:bg-sky-500">
 
-                    <svg
-                        class="h-3.5 w-3.5"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="1.8"
-                    >
-                        <path d="M12 5v14"/>
-                        <path d="M5 12h14"/>
+                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="M12 5v14" />
+                        <path d="M5 12h14" />
                     </svg>
 
                     New
@@ -301,40 +288,27 @@
                  SELECTED FOLDERS BAR
             ====================================================== -->
 
-            <div
-                id="selectionBar"
-                class="hidden shrink-0 items-center
+            <div id="selectionBar" class="hidden shrink-0 items-center
                        gap-3 border-b
                        border-cyan-500/10
                        bg-cyan-500/[0.035]
-                       px-3 py-2"
-            >
+                       px-3 py-2">
 
-                <span
-                    id="selectedRepoCount"
-                    class="rounded-md bg-cyan-500/10
+                <span id="selectedRepoCount" class="rounded-md bg-cyan-500/10
                            px-2 py-1 text-xs font-medium
-                           text-cyan-300"
-                >
+                           text-cyan-700 dark:text-cyan-300">
                     0 selected
                 </span>
 
 
-                <div
-                    id="selectedRepoList"
-                    class="flex min-w-0 flex-1
+                <div id="selectedRepoList" class="flex min-w-0 flex-1
                            items-center gap-1.5
-                           overflow-x-auto"
-                ></div>
+                           overflow-x-auto"></div>
 
 
-                <button
-                    id="clearRepoSelection"
-                    type="button"
-                    class="shrink-0 text-xs
-                           text-slate-400
-                           hover:text-white"
-                >
+                <button id="clearRepoSelection" type="button" class="shrink-0 text-xs
+                           text-slate-500 dark:text-slate-400
+                           hover:text-slate-900 dark:hover:text-white">
                     Clear
                 </button>
 
@@ -352,51 +326,32 @@
                      FILTER SIDEBAR
                 ================================================== -->
 
-                <aside
-                    id="filterSidebar"
-                    class="relative flex w-48 shrink-0
+                <aside id="filterSidebar" class="relative flex w-48 shrink-0
                            flex-col overflow-hidden
-                           border-r border-slate-800
-                           bg-slate-900
-                           transition-all duration-200"
-                >
+                           border-r border-slate-200 dark:border-slate-700
+                           bg-slate-50 dark:bg-slate-900
+                           transition-all duration-200">
 
-                    <div
-                        class="flex shrink-0 items-center
+                    <div class="flex shrink-0 items-center
                                justify-between
-                               border-b border-slate-800
-                               px-3 py-2.5"
-                    >
+                               border-b border-slate-200 dark:border-slate-800
+                               px-3 py-2.5">
 
-                        <span
-                            id="sidebarTitle"
-                            class="text-xs font-semibold
-                                   text-slate-200"
-                        >
+                        <span id="sidebarTitle" class="text-xs font-semibold
+                                   text-slate-700 dark:text-slate-200">
                             Filters
                         </span>
 
 
-                        <button
-                            id="sidebarToggle"
-                            type="button"
-                            title="Collapse sidebar"
-                            class="rounded-md p-1
-                                   text-slate-500
+                        <button id="sidebarToggle" type="button" title="Collapse sidebar" class="rounded-md p-1
+                                   text-slate-500 dark:text-slate-500
                                    transition
-                                   hover:bg-slate-800
-                                   hover:text-white"
-                        >
+                                   hover:bg-slate-200 dark:hover:bg-slate-800
+                                   hover:text-slate-900 dark:hover:text-white">
 
-                            <svg
-                                id="sidebarToggleIcon"
-                                class="h-4 w-4"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="1.8"
-                            >
-                                <path d="m15 18-6-6 6-6"/>
+                            <svg id="sidebarToggleIcon" class="h-4 w-4" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="1.8">
+                                <path d="m15 18-6-6 6-6" />
                             </svg>
 
                         </button>
@@ -404,28 +359,21 @@
                     </div>
 
 
-                    <div
-                        id="sidebarContent"
-                        class="min-h-0 flex-1
+                    <div id="sidebarContent" class="min-h-0 flex-1
                                overflow-y-auto p-3
                                scrollbar scrollbar-thin
-                               scrollbar-thumb-slate-700
-                               scrollbar-track-transparent"
-                    >
+                               scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700
+                               scrollbar-track-transparent">
 
                         <!-- Stats -->
 
                         <section class="mb-5">
 
-                            <div
-                                class="mb-2 border-b
-                                       border-slate-800
-                                       pb-1.5"
-                            >
-                                <h3
-                                    class="text-xs font-semibold
-                                           text-slate-300"
-                                >
+                            <div class="mb-2 border-b
+                                       border-slate-200 dark:border-slate-800
+                                       pb-1.5">
+                                <h3 class="text-xs font-semibold
+                                           text-slate-600 dark:text-slate-300">
                                     Stats
                                 </h3>
                             </div>
@@ -433,61 +381,40 @@
 
                             <div class="space-y-2">
 
-                                <div
-                                    class="flex items-center
-                                           justify-between"
-                                >
-                                    <span
-                                        class="text-xs text-slate-500"
-                                    >
+                                <div class="flex items-center
+                                           justify-between">
+                                    <span class="text-xs text-slate-500 dark:text-slate-500">
                                         Repo Views
                                     </span>
 
-                                    <span
-                                        id="repoStat"
-                                        class="text-xs font-medium
-                                               text-slate-300"
-                                    >
+                                    <span id="repoStat" class="text-xs font-medium
+                                               text-slate-600 dark:text-slate-300">
                                         0
                                     </span>
                                 </div>
 
 
-                                <div
-                                    class="flex items-center
-                                           justify-between"
-                                >
-                                    <span
-                                        class="text-xs text-slate-500"
-                                    >
+                                <div class="flex items-center
+                                           justify-between">
+                                    <span class="text-xs text-slate-500 dark:text-slate-500">
                                         Tags
                                     </span>
 
-                                    <span
-                                        id="tagStat"
-                                        class="text-xs font-medium
-                                               text-slate-300"
-                                    >
+                                    <span id="tagStat" class="text-xs font-medium
+                                               text-slate-600 dark:text-slate-300">
                                         0
                                     </span>
                                 </div>
 
 
-                                <div
-                                    class="flex items-center
-                                           justify-between"
-                                >
-                                    <span
-                                        class="text-xs text-slate-500"
-                                    >
+                                <div class="flex items-center
+                                           justify-between">
+                                    <span class="text-xs text-slate-500 dark:text-slate-500">
                                         Segments
                                     </span>
 
-                                    <span
-                                        id="segmentStat"
-                                        class="text-xs font-medium
-                                               text-slate-300"
-                                    >
+                                    <span id="segmentStat" class="text-xs font-medium
+                                               text-slate-600 dark:text-slate-300">
                                         0
                                     </span>
                                 </div>
@@ -501,24 +428,17 @@
 
                         <section class="mb-5">
 
-                            <div
-                                class="mb-2 border-b
-                                       border-slate-800
-                                       pb-1.5"
-                            >
-                                <h3
-                                    class="text-xs font-semibold
-                                           text-slate-300"
-                                >
+                            <div class="mb-2 border-b
+                                       border-slate-200 dark:border-slate-800
+                                       pb-1.5">
+                                <h3 class="text-xs font-semibold
+                                           text-slate-600 dark:text-slate-300">
                                     Tags
                                 </h3>
                             </div>
 
 
-                            <div
-                                id="tagsContainer"
-                                class="flex flex-col gap-1.5"
-                            ></div>
+                            <div id="tagsContainer" class="flex flex-col gap-1.5"></div>
 
                         </section>
 
@@ -527,24 +447,17 @@
 
                         <section class="mb-5">
 
-                            <div
-                                class="mb-2 border-b
-                                       border-slate-800
-                                       pb-1.5"
-                            >
-                                <h3
-                                    class="text-xs font-semibold
-                                           text-slate-300"
-                                >
+                            <div class="mb-2 border-b
+                                       border-slate-200 dark:border-slate-800
+                                       pb-1.5">
+                                <h3 class="text-xs font-semibold
+                                           text-slate-600 dark:text-slate-300">
                                     Segments
                                 </h3>
                             </div>
 
 
-                            <div
-                                id="segmentsContainer"
-                                class="flex flex-col gap-1.5"
-                            ></div>
+                            <div id="segmentsContainer" class="flex flex-col gap-1.5"></div>
 
                         </section>
 
@@ -558,49 +471,33 @@
                      TABLE
                 ================================================== -->
 
-                <main
-                    class="min-w-0 flex-1 overflow-hidden
-                           bg-slate-950/20"
-                >
+                <main class="min-w-0 flex-1 overflow-hidden
+                           bg-slate-100/40 dark:bg-slate-950/20">
 
                     <div class="flex h-full min-w-0 flex-col">
 
 
-                        <div
-                            id="tableScroll"
-                            class="min-h-0 flex-1
+                        <div id="tableScroll" class="min-h-0 flex-1
                                    overflow-auto
                                    scrollbar scrollbar-thin
-                                   scrollbar-thumb-slate-700
+                                   scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700
                                    scrollbar-track-transparent
-                                   hover:scrollbar-thumb-cyan-500/60"
-                        >
+                                   hover:scrollbar-thumb-cyan-500/60">
 
-                            <table
-                                class="w-full min-w-[1250px]
-                                       text-xs"
-                            >
+                            <table class="w-full min-w-[1250px]
+                                       text-xs">
 
-                                <thead
-                                    class="sticky top-0 z-20
-                                           border-b border-slate-800
-                                           bg-slate-900/98
-                                           backdrop-blur"
-                                >
+                                <thead class="sticky top-0 z-20
+                                           border-b border-slate-200 dark:border-slate-800
+                                           bg-slate-50/98 dark:bg-slate-900/98
+                                           backdrop-blur">
 
-                                    <tr
-                                        class="text-left
-                                               text-slate-400"
-                                    >
+                                    <tr class="text-left
+                                               text-slate-500 dark:text-slate-400">
 
                                         <th class="w-10 px-2 py-2.5">
-                                            <input
-                                                id="selectAllRepos"
-                                                type="checkbox"
-                                                class="h-3.5 w-3.5
-                                                       accent-cyan-400"
-                                                title="Select all"
-                                            >
+                                            <input id="selectAllRepos" type="checkbox" class="h-3.5 w-3.5
+                                                       accent-cyan-400" title="Select all">
                                         </th>
 
                                         <th class="px-2 py-2.5 whitespace-nowrap">Folder Name</th>
@@ -635,24 +532,23 @@
 
                         <!-- Footer -->
 
-                        <footer
-                            class="flex shrink-0
+                        <footer class="flex shrink-0
                                    flex-wrap items-center
                                    justify-between gap-3
-                                   border-t border-slate-800
-                                   bg-slate-900
-                                   px-3 py-2.5"
-                        >
+                                   border-t border-slate-200 dark:border-slate-800
+                                   bg-slate-50 dark:bg-slate-900
+                                   px-3 py-2.5">
 
-                            <p class="text-[11px] text-slate-500">
+                            <p class="text-[11px] text-slate-500 dark:text-slate-500">
 
                                 Showing
 
-                                <span id="repoRangeStart" class="font-medium text-slate-300">0</span>
+                                <span id="repoRangeStart"
+                                    class="font-medium text-slate-600 dark:text-slate-300">0</span>
                                 –
-                                <span id="repoRangeEnd" class="font-medium text-slate-300">0</span>
+                                <span id="repoRangeEnd" class="font-medium text-slate-600 dark:text-slate-300">0</span>
                                 of
-                                <span id="repoTotal" class="font-medium text-slate-300">0</span>
+                                <span id="repoTotal" class="font-medium text-slate-600 dark:text-slate-300">0</span>
                                 repo views
 
                             </p>
@@ -660,19 +556,15 @@
 
                             <div class="flex items-center gap-1">
 
-                                <button
-                                    id="repoPrev"
-                                    type="button"
-                                    class="min-w-7 rounded-md
-                                           border border-slate-700
+                                <button id="repoPrev" type="button" class="min-w-7 rounded-md
+                                           border border-slate-300 dark:border-slate-700
                                            px-2 py-1 text-[11px]
-                                           text-slate-400
+                                           text-slate-500 dark:text-slate-400
                                            transition
-                                           hover:bg-slate-800
-                                           hover:text-white
+                                           hover:bg-slate-200 dark:hover:bg-slate-800
+                                           hover:text-slate-900 dark:hover:text-white
                                            disabled:cursor-not-allowed
-                                           disabled:opacity-30"
-                                >
+                                           disabled:opacity-30">
                                     ‹
                                 </button>
 
@@ -680,19 +572,15 @@
                                 <div id="repoPagination" class="flex items-center gap-1"></div>
 
 
-                                <button
-                                    id="repoNext"
-                                    type="button"
-                                    class="min-w-7 rounded-md
-                                           border border-slate-700
+                                <button id="repoNext" type="button" class="min-w-7 rounded-md
+                                           border border-slate-300 dark:border-slate-700
                                            px-2 py-1 text-[11px]
-                                           text-slate-400
+                                           text-slate-500 dark:text-slate-400
                                            transition
-                                           hover:bg-slate-800
-                                           hover:text-white
+                                           hover:bg-slate-200 dark:hover:bg-slate-800
+                                           hover:text-slate-900 dark:hover:text-white
                                            disabled:cursor-not-allowed
-                                           disabled:opacity-30"
-                                >
+                                           disabled:opacity-30">
                                     ›
                                 </button>
 
@@ -715,33 +603,26 @@
          CONTEXT MENU
     ========================================================== -->
 
-    <div
-        id="contextMenu"
-        class="hidden fixed z-[1000] w-56 overflow-hidden rounded-lg border border-slate-700 bg-slate-900 shadow-2xl shadow-black/50"
-    ></div>
+    <div id="contextMenu"
+        class="hidden fixed z-[1000] w-56 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 shadow-2xl shadow-black/50">
+    </div>
 
 
     <!-- =========================================================
          MODAL
     ========================================================== -->
 
-    <div
-        id="modalBackdrop"
-        class="fixed inset-0 z-[2000]
+    <div id="modalBackdrop" class="fixed inset-0 z-[2000]
                hidden items-center justify-center
-               bg-slate-950/70 p-4
-               backdrop-blur-sm"
-    >
+               bg-slate-900/40 dark:bg-slate-950/70 p-4
+               backdrop-blur-sm">
 
-        <div
-            id="modalContent"
-            class="max-h-[85vh] w-full max-w-2xl
+        <div id="modalContent" class="max-h-[85vh] w-full max-w-2xl
                    overflow-y-auto rounded-xl
-                   border border-slate-700
-                   bg-slate-900 p-5 shadow-2xl
+                   border border-slate-200 dark:border-slate-700
+                   bg-slate-50 dark:bg-slate-900 p-5 shadow-2xl
                    scrollbar scrollbar-thin
-                   scrollbar-thumb-slate-700"
-        ></div>
+                   scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700"></div>
 
     </div>
 
@@ -749,6 +630,7 @@
     <script src="../js/repo_view/repoview.js"></script>
     <script src="../js/repo_view/rmbrv.js"></script>
     <script src="../js/nav-bar.js"></script>
+    <script src="../js/theme.js"></script>
 
 </body>
 

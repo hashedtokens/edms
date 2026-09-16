@@ -524,15 +524,14 @@
             <h2 class="mb-4 text-sm font-semibold text-white">Tags in Data</h2>
 
             <div class="flex flex-wrap gap-2">
-                ${
-                    tags.length
-                        ? tags.map(tag => `
+                ${tags.length
+                ? tags.map(tag => `
                             <span class="rounded-md border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs text-slate-300">
                                 ${escapeHtml(tag)}
                             </span>
                         `).join('')
-                        : '<span class="text-xs text-slate-600">No tags in data.</span>'
-                }
+                : '<span class="text-xs text-slate-600">No tags in data.</span>'
+            }
             </div>
 
             <div class="mt-4 flex justify-end">
@@ -1001,28 +1000,27 @@
 
         openModal(`
 
-            <h2 class="mb-4 text-sm font-semibold text-white">Create Repo View</h2>
+        <h2 class="mb-4 text-sm font-semibold text-slate-900 dark:text-white">Create Repo View</h2>
 
-            <label class="mb-1 block text-[11px] text-slate-500">Folder Name</label>
-            <input id="createName" class="mb-3 h-9 w-full rounded-md border border-slate-700 bg-slate-950 px-3 text-xs outline-none focus:border-cyan-500" placeholder="e.g. Production APIs">
+        <label class="mb-1 block text-[11px] text-slate-500 dark:text-slate-500">Folder Name</label>
+        <input id="createName" class="mb-3 h-9 w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600 outline-none focus:border-cyan-500" placeholder="e.g. Production APIs">
 
-            <label class="mb-1 block text-[11px] text-slate-500">Tags</label>
-            <input id="createTags" class="mb-3 h-9 w-full rounded-md border border-slate-700 bg-slate-950 px-3 text-xs outline-none focus:border-cyan-500" placeholder="api, production, users">
+        <label class="mb-1 block text-[11px] text-slate-500 dark:text-slate-500">Tags</label>
+        <input id="createTags" class="mb-3 h-9 w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600 outline-none focus:border-cyan-500" placeholder="api, production, users">
 
-            <label class="mb-1 block text-[11px] text-slate-500">Annotation</label>
-            <textarea id="createAnnotation" class="mb-4 h-20 w-full resize-none rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-xs outline-none focus:border-cyan-500" placeholder="Repository description..."></textarea>
+        <label class="mb-1 block text-[11px] text-slate-500 dark:text-slate-500">Annotation</label>
+        <textarea id="createAnnotation" class="mb-4 h-20 w-full resize-none rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600 outline-none focus:border-cyan-500" placeholder="Repository description..."></textarea>
 
-            <div class="flex justify-end gap-2">
-                <button type="button" data-modal-close class="rounded-md border border-slate-700 px-3 py-1.5 text-xs text-slate-400 hover:bg-slate-800">Cancel</button>
-                <button id="confirmCreate" type="button" class="rounded-md bg-cyan-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-cyan-500">Create</button>
-            </div>
+        <div class="flex justify-end gap-2">
+            <button type="button" data-modal-close class="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
+            <button id="confirmCreate" type="button" class="rounded-md bg-slate-900 dark:bg-cyan-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 dark:hover:bg-cyan-500">Create</button>
+        </div>
 
-        `);
+    `);
 
         document.getElementById('confirmCreate')?.addEventListener('click', createRepo);
 
     }
-
 
     function createRepo() {
 

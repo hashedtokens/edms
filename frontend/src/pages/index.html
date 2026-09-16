@@ -10,379 +10,394 @@
   <link href="../styles/output.css" rel="stylesheet">
 
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Flash-prevention: set theme class before first paint -->
+  <script>
+    (function () {
+      const theme = localStorage.getItem('theme') || 'dark';
+      document.documentElement.classList.toggle('dark', theme === 'dark');
+    })();
+  </script>
+
 </head>
 
-<body class="min-h-screen bg-slate-950 font-[Inter] text-slate-100" data-current-page="dashboard">
+<body class="min-h-screen overflow-hidden bg-slate-100 dark:bg-slate-950
+           font-[Inter] text-slate-800 dark:text-slate-100 transition-colors" data-current-page="dashboard">
 
-  <!-- PAGE -->
-  <div class="min-h-screen p-3 sm:p-4">
 
-    <div class="mx-auto flex min-h-[calc(100vh-1.5rem)]
-                   max-w-screen-2xl flex-col overflow-hidden
-                   rounded-xl border border-slate-800 bg-slate-900">
+  <!-- =========================================================
+         PAGE
+    ========================================================== -->
+
+  <div class="h-screen p-3 sm:p-3">
+    <div class="mx-auto flex h-full max-w-screen-2xl
+                   flex-col overflow-hidden rounded-xl
+                   border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-900">
 
       <header class="flex shrink-0 flex-wrap items-center
                        justify-between gap-3
-                       border-b border-slate-700/40
-                       bg-[#162235] px-4 py-3 sm:px-6">
+                       border-b border-slate-200 dark:border-slate-700/40
+                       bg-slate-100 dark:bg-[#162235] px-3 py-2 sm:px-4">
 
         <!-- Logo / Title -->
-        <div class="flex min-w-0 flex-col gap-0.5">
+        <a href="./index.html" class="brand
+flex
+items-center
+gap-2.5
+shrink-0
+group">
+
+
+          <span class="text-lg
+    font-bold
+    tracking-tight
+    text-slate-900 dark:text-white">
+            Logo HashedTokens EDMS
+          </span>
+
+        </a>
+
+
+        <!-- Header actions: nav + theme toggle -->
+        <div class="flex items-center gap-2">
+
+          <!-- Navigation -->
+          <nav class="navbar
+                              flex
+                              items-center
+                              gap-1
+                              rounded
+                              bg-slate-100 dark:bg-slate-800
+                              p-1">
+
+
+            <!-- Home -->
+            <button id="homenav" data-target="./index.html" data-page="home" class="nav-button
+                                     rounded
+                                     px-3.5 py-1.5
+                                     text-sm
+                                     font-medium
+                                     bg-slate-900 dark:bg-cyan-500
+                                     text-white
+                                     shadow-lg
+                                     shadow-slate-900/30 dark:shadow-cyan-500/30">
+
+              Home
 
-          <h1 class="truncate text-xl font-bold
-                               tracking-tight text-white sm:text-2xl">
-            Dashboard
-          </h1>
-
-          <p class="text-xs text-slate-400">
-            Overview of your endpoint inventory
-          </p>
-
-        </div>
-
-
-        <!-- Navigation -->
-        <nav class="navbar
-                    flex
-                    items-center
-                    bg-slate-800
-                    rounded-full
-                    gap-1
-                    p-1">
-
-          <button id="homenav" data-target="./index.html" data-page="home" class="nav-button
-                        px-3.5
-                        py-1.5
-                        rounded-lg
-                        text-sm
-                        font-medium
-                        bg-cyan-500
-                        text-white
-                        shadow-lg
-                        shadow-cyan-500/30">
-            Home
-          </button>
-
-          <button id="testnav" data-target="./testview.html" data-page="test" class="nav-button
-                        px-3.5
-                        py-1.5
-                        rounded-lg
-                        text-sm
-                        font-medium
-                        text-slate-400
-                        hover:bg-slate-700
-                        hover:text-white
-                        transition">
-            Test View
-          </button>
-
-          <button id="listnav" data-target="./listview.html" data-page="list" class="nav-button
-                        px-3.5
-                        py-1.5
-                        rounded-lg
-                        text-sm
-                        font-medium
-                        text-slate-400
-                        hover:bg-slate-700
-                        hover:text-white
-                        transition">
-            Bookmark View
-          </button>
-
-          <button id="collectionnav" data-target="./collection_view.html" data-page="collection" class="nav-button
-                        px-3.5
-                        py-1.5
-                        rounded-lg
-                        text-sm
-                        font-medium
-                        text-slate-400
-                        hover:bg-slate-700
-                        hover:text-white
-                        transition">
-            Collection View
-          </button>
-          <button id="importexportnav" data-target="./import_export.html" data-page="import_export" class="nav-button
-                        px-3.5
-                        py-1.5
-                        rounded-lg
-                        text-sm
-                        font-medium
-                        text-slate-400
-                        hover:bg-slate-700
-                        hover:text-white
-                        transition">
-            Import-Export
-          </button>
-
-          <button id="reponav" data-target="./repoview.html" data-page="repo" class="nav-button
-           px-3.5 py-1.5 rounded-lg
-           text-sm font-medium
-           text-slate-400
-           hover:bg-slate-700
-           hover:text-white
-           transition">
-            Repo View
-          </button>
-
-        </nav>
-
-      </header>
-      <main class="min-h-0 flex-1 overflow-auto p-4 sm:p-6">
-        <div class="grid grid-cols-1 gap-5 lg:grid-cols-[200px_1fr]">
-
-          <!-- HISTORY -->
-          <section class="h-fit overflow-hidden rounded-lg
-               border border-slate-800 bg-slate-900">
-            <div class="border-b border-slate-800 px-3 py-3">
-              <h3 class="text-xs font-semibold uppercase
-                       tracking-wide text-slate-400">
-                History
-              </h3>
-            </div>
-
-            <div id="historyDateList" class="max-h-64 overflow-y-auto">
-              <!-- JavaScript will add dates here -->
-            </div>
-          </section>
-
-
-          <!-- STORAGE BREAKDOWN -->
-          <section class="rounded-lg border border-slate-800
-     bg-slate-900 p-4">
-
-            <div class="mb-4 flex items-center justify-between">
-
-              <h3 class="text-xs font-semibold uppercase
-               tracking-wide text-slate-400">
-                Storage Breakdown
-              </h3>
-
-              <span class="text-sm text-slate-400">
-                Total Size:
-                <strong class="text-lg text-white">6.2 GB</strong>
-              </span>
-
-            </div>
-
-
-            <!-- Storage bar -->
-            <div class="mb-5 h-4 overflow-hidden rounded-full bg-slate-800">
-              <div class="flex h-full w-full">
-
-                <div class="h-full bg-blue-500" style="width: 76%;"></div>
-
-                <div class="h-full bg-emerald-500" style="width: 3%;"></div>
-
-                <div class="h-full bg-amber-500" style="width: 16%;"></div>
-
-                <div class="h-full bg-purple-500" style="width: 5%;"></div>
-
-              </div>
-            </div>
-            <!-- Storage Cards -->
-            <div class="grid grid-cols-1 gap-3
-            sm:grid-cols-2 xl:grid-cols-4">
-
-              <!-- Collections -->
-              <div class="rounded-lg border border-slate-800
-              bg-slate-800/50 p-3">
-
-                <p class="text-xs text-slate-400">
-                  <span class="mr-1 text-blue-400">●</span>
-                  Collections
-                </p>
-
-                <p class="mt-1 text-xl font-semibold text-slate-100">
-                  4.7 GB
-                </p>
-
-              </div>
-
-
-              <!-- Repositories -->
-              <div class="rounded-lg border border-slate-800
-              bg-slate-800/50 p-3">
-
-                <p class="text-xs text-slate-400">
-                  <span class="mr-1 text-emerald-400">●</span>
-                  Repositories
-                </p>
-
-                <p class="mt-1 text-xl font-semibold text-slate-100">
-                  200 MB
-                </p>
-
-              </div>
-
-
-              <!-- WebView Cache -->
-              <div class="rounded-lg border border-slate-800
-              bg-slate-800/50 p-3">
-
-                <p class="text-xs text-slate-400">
-                  <span class="mr-1 text-amber-400">●</span>
-                  WebView Cache
-                </p>
-
-                <p class="mt-1 text-xl font-semibold text-slate-100">
-                  1.0 GB
-                </p>
-
-              </div>
-
-
-              <!-- History Log -->
-              <div class="rounded-lg border border-slate-800
-              bg-slate-800/50 p-3">
-
-                <p class="text-xs text-slate-400">
-                  <span class="mr-1 text-purple-400">●</span>
-                  History Log
-                </p>
-
-                <p class="mt-1 text-xl font-semibold text-slate-100">
-                  300 MB
-                </p>
-
-              </div>
-
-
-              <!-- Imports -->
-              <div class="rounded-lg border border-slate-800
-              bg-slate-800/50 p-3">
-
-                <p class="text-xs text-slate-400">
-                  <span class="mr-1 text-cyan-400">●</span>
-                  Imports
-                </p>
-
-                <p class="mt-1 text-xl font-semibold text-slate-100">
-                  120 MB
-                </p>
-
-              </div>
-
-
-              <!-- Exports -->
-              <div class="rounded-lg border border-slate-800
-              bg-slate-800/50 p-3">
-
-                <p class="text-xs text-slate-400">
-                  <span class="mr-1 text-pink-400">●</span>
-                  Exports
-                </p>
-
-                <p class="mt-1 text-xl font-semibold text-slate-100">
-                  80 MB
-                </p>
-
-              </div>
-
-            </div>
-
-
-            <!-- View Statistics -->
-            <div class="mt-3 grid grid-cols-1 gap-3
-              sm:grid-cols-2 xl:grid-cols-4">
-
-              <div class="rounded-lg border border-slate-800
-                bg-slate-800/50 p-3">
-
-                <p class="text-xs text-slate-400">
-                  Web View
-                </p>
-
-                <p class="mt-1 text-xl font-semibold text-slate-100">
-                  12
-                </p>
-
-              </div>
-
-
-              <div class="rounded-lg border border-slate-800
-                bg-slate-800/50 p-3">
-
-                <p class="text-xs text-slate-400">
-                  Test View
-                </p>
-
-                <p class="mt-1 text-xl font-semibold text-slate-100">
-                  8
-                </p>
-
-              </div>
-
-
-              <div class="rounded-lg border border-slate-800
-                bg-slate-800/50 p-3">
-
-                <p class="text-xs text-slate-400">
-                  List View
-                </p>
-
-                <p class="mt-1 text-xl font-semibold text-slate-100">
-                  5
-                </p>
-
-              </div>
-              <div class="rounded-lg border border-slate-800
-                bg-slate-800/50 p-3">
-
-                <p class="text-xs text-slate-400">
-                  Repo View
-                </p>
-
-                <p class="mt-1 text-xl font-semibold text-slate-100">
-                  3
-                </p>
-
-              </div>
-
-            </div>
-
-          </section>
-        </div>
-        <section class="mt-3 rounded-lg border border-slate-800
-                          bg-slate-800/50 p-3">
-
-          <div class="flex items-center justify-between gap-4">
-
-            <div>
-              <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Orphaned EQP Data
-              </p>
-              <p class="mt-1 text-sm text-slate-300">
-                Remove EIDs that are no longer part of any list.
-              </p>
-            </div>
-
-            <button id="" type="button" class="rounded-md
-           bg-cyan-500
-           px-4 py-2
-           text-xs
-           font-semibold
-           text-slate-950
-           transition
-           hover:bg-cyan-400">
-              Purge
             </button>
 
 
+            <!-- Test View -->
+            <button id="testnav" data-target="./testview.html" data-page="test" class="nav-button
+                                     rounded
+                                     px-3.5 py-1.5
+                                     text-sm
+                                     font-medium
+                                     text-slate-500 dark:text-slate-400
+                                     transition
+                                     hover:bg-slate-200 dark:hover:bg-slate-700
+                                     hover:text-slate-900 dark:hover:text-white">
+
+              Test View
+
+            </button>
+            <!-- Bookmark View -->
+            <button id="listnav" data-target="./listview.html" data-page="list" class="nav-button
+                                     rounded
+                                     px-3.5 py-1.5
+                                     text-sm
+                                     font-medium
+                                     text-slate-500 dark:text-slate-400
+                                     transition
+                                     hover:bg-slate-200 dark:hover:bg-slate-700
+                                     hover:text-slate-900 dark:hover:text-white">
+
+              Bookmark View
+            </button>
+            <!-- Collection View -->
+            <button id="collectionnav" data-target="./collection_view.html" data-page="collection" class="nav-button
+                                     rounded
+                                     px-3.5 py-1.5
+                                     text-sm
+                                     font-medium
+                                     text-slate-500 dark:text-slate-400
+                                     transition
+                                     hover:bg-slate-200 dark:hover:bg-slate-700
+                                     hover:text-slate-900 dark:hover:text-white">
+
+              Collection View
+            </button>
+            <!-- Import / Export -->
+            <button id="importexportnav" data-target="./import_export.html" data-page="import_export" class="nav-button
+                                       px-3.5
+                          py-1.5
+                          rounded
+                          text-sm
+                          font-medium
+                          text-slate-500 dark:text-slate-400
+                          transition
+                          hover:bg-slate-200 dark:hover:bg-slate-700
+                          hover:text-slate-900 dark:hover:text-white">
+
+              Import / Export
+            </button>
+
+
+            <!-- Repo View -->
+            <button id="reponav" data-target="./repoview.html" data-page="repo" class="nav-button
+             rounded
+             px-3.5 py-1.5
+             text-sm
+             font-medium
+             text-slate-500 dark:text-slate-400
+             transition
+             hover:bg-slate-200 dark:hover:bg-slate-700
+             hover:text-slate-900 dark:hover:text-white">
+              Repo View
+            </button>
+
+          </nav>
+
+          <!-- Theme toggle -->
+          <button id="themeToggle" type="button" title="Toggle theme" class="
+              flex items-center justify-center
+              h-8 w-8
+              rounded-full
+              bg-slate-200 dark:bg-slate-700
+              text-slate-700 dark:text-slate-200
+              border border-slate-300 dark:border-slate-600
+              transition
+              hover:bg-slate-300 dark:hover:bg-slate-600
+              hover:text-slate-900 dark:hover:text-white
+              hover:border-cyan-400/50">
+
+            <svg id="iconSun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 hidden">
+              <circle cx="12" cy="12" r="4"></circle>
+              <path
+                d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41">
+              </path>
+            </svg>
+
+            <svg id="iconMoon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"></path>
+            </svg>
+          </button>
+
+        </div>
+
+      </header>
+      <main class="min-h-0 flex-1 overflow-auto p-3">
+        <div class="grid grid-cols-1 gap-2 lg:grid-cols-[200px_1fr]">
+
+          <!-- LEFT COLUMN: History + Calculate Changes stacked -->
+          <div class="flex flex-col gap-2">
+
+            <!-- HISTORY -->
+            <section class="h-fit overflow-hidden rounded-md
+           border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900">
+              <div class="border-b border-slate-200 dark:border-slate-800 px-3 py-3">
+                <h3 class="text-xs font-semibold uppercase
+                   tracking-wide text-slate-500 dark:text-slate-400">
+                  History
+                </h3>
+              </div>
+
+              <div id="historyDateList" class="max-h-64 overflow-y-auto">
+                <!-- JavaScript will add dates here -->
+              </div>
+            </section>
+
+            <!-- CALCULATE CHANGES -->
+            <section
+              class="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 p-3">
+              <button id="calculateChanges" type="button" class="w-full rounded-md
+         bg-slate-900 dark:bg-cyan-500
+         px-4 py-2
+         text-xs
+         font-semibold
+         text-white dark:text-slate-950
+         transition
+         hover:bg-slate-800 dark:hover:bg-cyan-400">
+                Calculate Changes
+              </button>
+            </section>
+
           </div>
 
+
+          <!-- STORAGE BREAKDOWN -->
+          <section class="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 p-2">
+
+            <div class="mb-2 flex items-center justify-between">
+              <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Storage Breakdown
+              </h3>
+              <span class="text-xs text-slate-500 dark:text-slate-400">
+                Total Size:
+                <strong class="text-base text-slate-900 dark:text-white">6.2 GB</strong>
+              </span>
+            </div>
+
+            <div class="mb-2 flex items-center justify-between text-[11px]">
+              <span class="text-slate-400 dark:text-slate-500">Storage Location</span>
+              <span class="font-mono text-slate-600 dark:text-slate-300">/my/path/to/edms/data</span>
+            </div>
+
+            <!-- Storage bar -->
+            <div class="mb-4 h-3 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+              <div class="flex h-full w-full">
+                <div class="h-full bg-blue-500" style="width: 76%;"></div>
+                <div class="h-full bg-emerald-500" style="width: 3%;"></div>
+                <div class="h-full bg-amber-500" style="width: 16%;"></div>
+                <div class="h-full bg-purple-500" style="width: 5%;"></div>
+              </div>
+            </div>
+
+            <!-- Storage Cards -->
+            <div class="grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:grid-cols-4">
+
+              <div
+                class="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/50 p-1.5">
+                <p class="text-[11px] text-slate-500 dark:text-slate-400">
+                  <span class="mr-1 text-blue-400">●</span>Collections
+                </p>
+                <p class="mt-0.5 text-lg font-semibold text-slate-900 dark:text-slate-100">4.7 GB</p>
+              </div>
+
+              <div
+                class="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/50 p-1.5">
+                <p class="text-[11px] text-slate-500 dark:text-slate-400">
+                  <span class="mr-1 text-emerald-400">●</span>Repositories
+                </p>
+                <p class="mt-0.5 text-lg font-semibold text-slate-900 dark:text-slate-100">200 MB</p>
+              </div>
+
+              <div
+                class="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/50 p-1.5">
+                <p class="text-[11px] text-slate-500 dark:text-slate-400">
+                  <span class="mr-1 text-amber-400">●</span>WebView
+                </p>
+                <p class="mt-0.5 text-lg font-semibold text-slate-900 dark:text-slate-100">1.0 GB</p>
+              </div>
+
+              <div
+                class="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/50 p-1.5">
+                <p class="text-[11px] text-slate-500 dark:text-slate-400">
+                  <span class="mr-1 text-purple-400">●</span>History Log
+                </p>
+                <p class="mt-0.5 text-lg font-semibold text-slate-900 dark:text-slate-100">300 MB</p>
+              </div>
+
+              <div
+                class="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/50 p-1.5">
+                <p class="text-[11px] text-slate-500 dark:text-slate-400">
+                  <span class="mr-1 text-cyan-400">●</span>Imports
+                </p>
+                <p class="mt-0.5 text-lg font-semibold text-slate-900 dark:text-slate-100">120 MB</p>
+              </div>
+
+              <div
+                class="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/50 p-1.5">
+                <p class="text-[11px] text-slate-500 dark:text-slate-400">
+                  <span class="mr-1 text-pink-400">●</span>Exports
+                </p>
+                <p class="mt-0.5 text-lg font-semibold text-slate-900 dark:text-slate-100">80 MB</p>
+              </div>
+
+              <!-- Takeout / Tmp direct sizes: populated by loadStorageBreakdown() in dashboard.js -->
+              <div id="extraStorage" class="contents"></div>
+
+            </div>
+
+            <!-- View Statistics -->
+            <div class="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2 xl:grid-cols-4">
+
+              <div
+                class="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/50 p-1.5">
+                <p class="text-[11px] text-slate-500 dark:text-slate-400">Web View</p>
+                <p class="mt-0.5 text-lg font-semibold text-slate-900 dark:text-slate-100">12</p>
+                <p class="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500"><span id="webviewSize">—</span></p>
+              </div>
+
+              <div
+                class="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/50 p-1.5">
+                <p class="text-[11px] text-slate-500 dark:text-slate-400">Test View</p>
+                <p class="mt-0.5 text-lg font-semibold text-slate-900 dark:text-slate-100">8</p>
+                <p class="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500"><span id="testviewSize">—</span></p>
+              </div>
+
+              <div
+                class="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/50 p-1.5">
+                <p class="text-[11px] text-slate-500 dark:text-slate-400">List View</p>
+                <p class="mt-0.5 text-lg font-semibold text-slate-900 dark:text-slate-100">5</p>
+                <p class="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500"><span id="listviewSize">—</span></p>
+              </div>
+
+              <div
+                class="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800/50 p-1.5">
+                <p class="text-[11px] text-slate-500 dark:text-slate-400">Repo View</p>
+                <p class="mt-0.5 text-lg font-semibold text-slate-900 dark:text-slate-100">3</p>
+                <p class="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500"><span id="repoviewSize">—</span></p>
+              </div>
+
+            </div>
+
+          </section>
+        </div>
+
+        <section class="mt-3 rounded-lg border border-slate-200 dark:border-slate-700
+                    bg-slate-100 dark:bg-slate-800/50 p-3">
+          <div class="flex items-center justify-between gap-4">
+
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Orphaned EQP Data
+              </p>
+
+            </div>
+
+            <div class="flex items-center gap-2">
+
+              <button id="purgeButton" type="button" class="rounded-md
+       bg-slate-900 dark:bg-cyan-500
+       px-8 py-2
+       text-xs
+       font-semibold
+       text-white dark:text-slate-950
+       transition
+       hover:bg-slate-800 dark:hover:bg-cyan-400">
+                Purge
+              </button>
+
+              <button id="auditButton" type="button" class="rounded-md
+       bg-slate-900 dark:bg-cyan-500
+       px-8 py-2
+       text-xs
+       font-semibold
+       text-white dark:text-slate-950
+       transition
+       hover:bg-slate-800 dark:hover:bg-cyan-400">
+                Audit
+              </button>
+
+            </div>
+
+          </div>
         </section>
 
 
 
         <section class="mt-5 rounded-lg border
-                           border-slate-800 bg-slate-900 p-4">
+                     border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 p-3">
 
-          <h3 class="text-sm font-semibold text-slate-200">
+          <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200">
             Tags Overview
           </h3>
 
 
-          <div id="tagsContainer" class="mt-3 flex flex-wrap gap-2">
+          <div id="tagsContainer" class="mt-2 flex flex-wrap gap-2">
 
             <!-- Empty tag placeholders -->
 
@@ -390,108 +405,6 @@
           </div>
 
         </section>
-        <!-- Calculate Changes Button -->
-        <div class="mt-5">
-
-          <button id="calculateChanges" type="button" class="rounded-md
-           bg-cyan-500
-           px-4 py-2
-           text-xs
-           font-semibold
-           text-slate-950
-           transition
-           hover:bg-cyan-400">
-            Calculate Changes
-          </button>
-
-        </div>
-
-        <!-- Modal -->
-        <div id="changesModal" class="fixed inset-0 z-50 hidden
-           items-center justify-center
-           bg-black/40">
-
-          <div class="w-full max-w-md
-               rounded-lg
-               bg-white
-               p-5
-               shadow-2xl">
-
-            <!-- Header -->
-            <div class="flex items-center justify-between">
-
-              <h2 class="text-base font-semibold text-slate-800">
-                Calculate Changes
-              </h2>
-
-              <button id="closeChangesModal" type="button" class="text-xl text-slate-500
-                       hover:text-slate-800">
-                ×
-              </button>
-
-            </div>
-
-
-            <!-- Date fields -->
-            <div class="mt-5 grid grid-cols-2 gap-4">
-
-              <div>
-
-                <label class="mb-1 block text-xs
-                           font-semibold text-slate-500">
-                  From
-                </label>
-
-                <input type="date" class="w-full rounded-md
-                           border border-slate-300
-                           px-2.5 py-2
-                           text-sm text-slate-700">
-
-              </div>
-
-
-              <div>
-
-                <label class="mb-1 block text-xs
-                           font-semibold text-slate-500">
-                  To
-                </label>
-
-                <input type="date" class="w-full rounded-md
-                           border border-slate-300
-                           px-2.5 py-2
-                           text-sm text-slate-700">
-
-              </div>
-
-            </div>
-
-
-            <!-- Buttons -->
-            <div class="mt-5 flex justify-end gap-2">
-
-              <button id="cancelChanges" type="button" class="rounded-md
-                       border border-slate-300
-                       bg-white
-                       px-3 py-2
-                       text-xs font-semibold
-                       text-slate-600">
-                Cancel
-              </button>
-
-              <button type="button" class="rounded-md
-                       bg-slate-500
-                       px-3 py-2
-                       text-xs font-semibold
-                       text-white">
-                Calculate Changes
-              </button>
-
-            </div>
-
-          </div>
-
-        </div>
 
         <!-- TEST VIEW -->
         <div id="testTable"></div>
@@ -507,6 +420,80 @@
 
         <!-- BOOKMARK VIEW -->
         <div id="bookmarkTable"></div>
+
+
+        <!-- CALCULATE CHANGES MODAL -->
+        <div id="changesModal" class="fixed inset-0 z-50 hidden
+     items-center justify-center
+     bg-black/40">
+
+          <div class="w-full max-w-md
+         rounded
+         bg-slate-100 dark:bg-slate-800
+         p-5
+         shadow-2xl">
+
+            <!-- Header -->
+            <div class="flex items-center justify-between">
+              <h2 class="text-base font-semibold text-slate-800 dark:text-slate-100">
+                Calculate Changes
+              </h2>
+              <button id="closeChangesModal" type="button" class="text-xl text-slate-500 dark:text-slate-400
+                 hover:text-slate-800 dark:hover:text-white">
+                ×
+              </button>
+            </div>
+
+            <!-- Date fields -->
+            <div class="mt-5 grid grid-cols-2 gap-4">
+              <div>
+                <label class="mb-1 block text-xs
+                     font-semibold text-slate-500 dark:text-slate-400">
+                  From
+                </label>
+                <input type="date" id="changesFromDate" class="w-full rounded
+                     border border-slate-300 dark:border-slate-600
+                     bg-slate-100 dark:bg-slate-700
+                     px-2.5 py-2
+                     text-sm text-slate-700 dark:text-slate-100">
+              </div>
+
+              <div>
+                <label class="mb-1 block text-xs
+                     font-semibold text-slate-500 dark:text-slate-400">
+                  To
+                </label>
+                <input type="date" id="changesToDate" class="w-full rounded
+                     border border-slate-300 dark:border-slate-600
+                     bg-slate-100 dark:bg-slate-700
+                     px-2.5 py-2
+                     text-sm text-slate-700 dark:text-slate-100">
+              </div>
+            </div>
+
+            <!-- Buttons -->
+            <div class="mt-5 flex justify-end gap-2">
+              <button id="cancelChanges" type="button" class="rounded
+                 border border-slate-300 dark:border-slate-600
+                 bg-slate-100 dark:bg-slate-700
+                 px-3 py-2
+                 text-xs font-semibold
+                 text-slate-600 dark:text-slate-300">
+                Cancel
+              </button>
+
+              <button id="submitChanges" type="button" class="rounded-md
+                 bg-slate-900 dark:bg-slate-600
+                 px-3 py-2
+                 text-xs font-semibold
+                 text-white">
+                Calculate Changes
+              </button>
+            </div>
+
+          </div>
+        </div>
+
       </main>
 
     </div>
@@ -520,6 +507,7 @@
   <script src="../js/dashboard/table.js"></script>
 
   <script src="../js/nav-bar.js"></script>
+  <script src="../js/theme.js"></script>
 
 
 </body>

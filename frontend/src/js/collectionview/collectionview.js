@@ -291,14 +291,14 @@
 
 
             nextId =
-    Math.max(
-        nextId,
-        ...folders.map(
-            folder =>
-                Number(folder.id) || 0
-        ),
-        0
-    ) + 1;
+                Math.max(
+                    nextId,
+                    ...folders.map(
+                        folder =>
+                            Number(folder.id) || 0
+                    ),
+                    0
+                ) + 1;
 
 
             /*
@@ -2759,146 +2759,68 @@
 
 
     // ============================================================
-// ACTIVE FOLDER
-// ============================================================
+    // ACTIVE FOLDER
+    // ============================================================
 
-function renderActiveFolderIndicator() {
+    function renderActiveFolderIndicator() {
 
-    const active =
-        getFolder(
-            state.activeFolderId
-        );
-
-
-    const previous =
-        getFolder(
-            state.prevActiveFolderId
-        );
+        const active =
+            getFolder(
+                state.activeFolderId
+            );
 
 
-    const activeLabel =
-        document.getElementById(
-            'activeFolderLabel'
-        );
+        const previous =
+            getFolder(
+                state.prevActiveFolderId
+            );
 
 
-    const previousLabel =
-        document.getElementById(
-            'prevActiveFolderLabel'
-        );
+        const activeLabel =
+            document.getElementById(
+                'activeFolderLabel'
+            );
 
 
-    if (activeLabel) {
+        const previousLabel =
+            document.getElementById(
+                'prevActiveFolderLabel'
+            );
 
-        activeLabel.textContent =
-            active
-                ? active.name
-                : 'None';
+
+        if (activeLabel) {
+
+            activeLabel.textContent =
+                active
+                    ? active.name
+                    : 'None';
+
+        }
+
+
+        if (previousLabel) {
+
+            previousLabel.textContent =
+                previous
+                    ? `(prev: ${previous.name})`
+                    : '';
+
+        }
 
     }
 
 
-    if (previousLabel) {
-
-        previousLabel.textContent =
-            previous
-                ? `(prev: ${previous.name})`
-                : '';
-
-    }
-
-}
-
-
-function setActiveFolder(
-    id
-) {
-
-    const folder =
-        getFolder(id);
-
-
-    if (!folder) return;
-
-
-    if (
-        state.activeFolderId !==
-        folder.id
+    function setActiveFolder(
+        id
     ) {
 
-        state.prevActiveFolderId =
-            state.activeFolderId;
+        const folder =
+            getFolder(id);
 
 
-        state.activeFolderId =
-            folder.id;
-
-    }
+        if (!folder) return;
 
 
-    render();
-
-}
-
-
-/*
- * Load the selected collection into the backend
- * Active Collection workspace.
- *
- * This is different from merely selecting a row.
- * The backend must explicitly load the collection before
- * bookmark/save operations can persist into it.
- */
-async function loadCollectionIntoActive(
-    id
-) {
-
-    const folder =
-        getFolder(id);
-
-
-    if (!folder) {
-
-        showAlert(
-            'Collection not found.'
-        );
-
-        return false;
-
-    }
-
-
-    const api =
-        getApi();
-
-
-    if (
-        !api ||
-        typeof api.loadCollection !==
-        'function'
-    ) {
-
-        showAlert(
-            'Collection loading API is not available.'
-        );
-
-        return false;
-
-    }
-
-
-    try {
-
-        await api.loadCollection(
-            folder.name
-        );
-
-
-        /*
-         * Loading succeeded, so this collection is now
-         * the collection represented by the Active Collection
-         * workspace.
-         */
         if (
             state.activeFolderId !==
             folder.id
@@ -2907,38 +2829,116 @@ async function loadCollectionIntoActive(
             state.prevActiveFolderId =
                 state.activeFolderId;
 
+
+            state.activeFolderId =
+                folder.id;
+
         }
-
-
-        state.activeFolderId =
-            folder.id;
 
 
         render();
 
-
-        return true;
-
-
-    } catch (error) {
-
-        console.error(
-            `Failed to load collection "${folder.name}" into Active Collection:`,
-            error
-        );
-
-
-        showAlert(
-            error?.message ||
-            `Failed to load collection "${folder.name}".`
-        );
-
-
-        return false;
-
     }
 
-}
+
+    /*
+     * Load the selected collection into the backend
+     * Active Collection workspace.
+     *
+     * This is different from merely selecting a row.
+     * The backend must explicitly load the collection before
+     * bookmark/save operations can persist into it.
+     */
+    async function loadCollectionIntoActive(
+        id
+    ) {
+
+        const folder =
+            getFolder(id);
+
+
+        if (!folder) {
+
+            showAlert(
+                'Collection not found.'
+            );
+
+            return false;
+
+        }
+
+
+        const api =
+            getApi();
+
+
+        if (
+            !api ||
+            typeof api.loadCollection !==
+            'function'
+        ) {
+
+            showAlert(
+                'Collection loading API is not available.'
+            );
+
+            return false;
+
+        }
+
+
+        try {
+
+            await api.loadCollection(
+                folder.name
+            );
+
+
+            /*
+             * Loading succeeded, so this collection is now
+             * the collection represented by the Active Collection
+             * workspace.
+             */
+            if (
+                state.activeFolderId !==
+                folder.id
+            ) {
+
+                state.prevActiveFolderId =
+                    state.activeFolderId;
+
+            }
+
+
+            state.activeFolderId =
+                folder.id;
+
+
+            render();
+
+
+            return true;
+
+
+        } catch (error) {
+
+            console.error(
+                `Failed to load collection "${folder.name}" into Active Collection:`,
+                error
+            );
+
+
+            showAlert(
+                error?.message ||
+                `Failed to load collection "${folder.name}".`
+            );
+
+
+            return false;
+
+        }
+
+    }
 
     // ============================================================
     // SELECTION
@@ -3913,7 +3913,7 @@ async function loadCollectionIntoActive(
 
         <h2
             class="mb-4 text-sm font-semibold
-                   text-white"
+                   text-slate-900 dark:text-white"
         >
             New Empty Folder
         </h2>
@@ -3930,9 +3930,11 @@ async function loadCollectionIntoActive(
             id="newFolderName"
             class="mb-3 h-9 w-full
                    rounded-md
-                   border border-slate-700
-                   bg-slate-950 px-3
-                   text-xs outline-none
+                   border border-slate-300 dark:border-slate-700
+                   bg-white dark:bg-slate-950 px-3
+                   text-xs text-slate-900 dark:text-slate-100
+                   placeholder:text-slate-400 dark:placeholder:text-slate-600
+                   outline-none
                    focus:border-cyan-500"
             placeholder="My New Collection"
         >
@@ -3949,9 +3951,11 @@ async function loadCollectionIntoActive(
             id="newFolderPurpose"
             class="mb-3 h-9 w-full
                    rounded-md
-                   border border-slate-700
-                   bg-slate-950 px-3
-                   text-xs outline-none"
+                   border border-slate-300 dark:border-slate-700
+                   bg-white dark:bg-slate-950 px-3
+                   text-xs text-slate-900 dark:text-slate-100
+                   outline-none
+                   focus:border-cyan-500"
         >
             <option value="importable">
                 Importable
@@ -3974,9 +3978,11 @@ async function loadCollectionIntoActive(
             id="newFolderTags"
             class="mb-3 h-9 w-full
                    rounded-md
-                   border border-slate-700
-                   bg-slate-950 px-3
-                   text-xs outline-none
+                   border border-slate-300 dark:border-slate-700
+                   bg-white dark:bg-slate-950 px-3
+                   text-xs text-slate-900 dark:text-slate-100
+                   placeholder:text-slate-400 dark:placeholder:text-slate-600
+                   outline-none
                    focus:border-cyan-500"
             placeholder="personal, draft"
         >
@@ -3993,9 +3999,11 @@ async function loadCollectionIntoActive(
             id="newFolderAnnotation"
             class="mb-4 h-20 w-full
                    resize-none rounded-md
-                   border border-slate-700
-                   bg-slate-950 px-3 py-2
-                   text-xs outline-none
+                   border border-slate-300 dark:border-slate-700
+                   bg-white dark:bg-slate-950 px-3 py-2
+                   text-xs text-slate-900 dark:text-slate-100
+                   placeholder:text-slate-400 dark:placeholder:text-slate-600
+                   outline-none
                    focus:border-cyan-500"
         ></textarea>
 
@@ -4009,10 +4017,10 @@ async function loadCollectionIntoActive(
                 type="button"
                 data-modal-close
                 class="rounded-md
-                       border border-slate-700
+                       border border-slate-300 dark:border-slate-700
                        px-3 py-1.5
-                       text-xs text-slate-400
-                       hover:bg-slate-800"
+                       text-xs text-slate-600 dark:text-slate-400
+                       hover:bg-slate-100 dark:hover:bg-slate-800"
             >
                 Cancel
             </button>
@@ -4022,11 +4030,11 @@ async function loadCollectionIntoActive(
                 id="confirmNewFolder"
                 type="button"
                 class="rounded-md
-                       bg-cyan-600
+                       bg-slate-900 dark:bg-cyan-600
                        px-3 py-1.5
                        text-xs font-medium
                        text-white
-                       hover:bg-cyan-500"
+                       hover:bg-slate-800 dark:hover:bg-cyan-500"
             >
                 Create
             </button>
@@ -4093,7 +4101,6 @@ async function loadCollectionIntoActive(
             );
 
     }
-
 
     // ============================================================
     // RENAME
@@ -5272,38 +5279,38 @@ async function loadCollectionIntoActive(
 
     window.CollectionView = {
 
-    getState:
-        () =>
-            state,
+        getState:
+            () =>
+                state,
 
-    getFolder,
+        getFolder,
 
-    setActiveFolder,
+        setActiveFolder,
 
-    loadCollectionIntoActive,
+        loadCollectionIntoActive,
 
-    duplicateFolder,
+        duplicateFolder,
 
-    openRenameModal,
+        openRenameModal,
 
-    openTagEditor,
+        openTagEditor,
 
-    openAnnotationEditor,
+        openAnnotationEditor,
 
-    openDeleteModal,
+        openDeleteModal,
 
-    openMergeModal,
+        openMergeModal,
 
-    openNewFolderModal,
+        openNewFolderModal,
 
-    openDataView,
+        openDataView,
 
-    applyFilters,
+        applyFilters,
 
-    resetFilters,
+        resetFilters,
 
-    loadFolders
+        loadFolders
 
-};
+    };
 
 })();
