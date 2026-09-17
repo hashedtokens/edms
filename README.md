@@ -4,6 +4,16 @@ _Standalone system for a team building microservices_
 ## Core Idea
 During development stages `endpoints` may not change, but the associated QP pairs keep changing. The change is not just linked to the QP schemas which might be static or in rare cases well defined, but also related to the data bound to the keys contained in the QP. So, it leads to a problem we define as `EQP Chaos`. 
 
+## Quick Start
+```bash
+git clone https://github.com/hashedtokens/edms
+git checkout -b tmp origin/tmp
+cd init 
+docker compose build
+docker compose up
+# open browser type, localhost:3911
+```
+
 ## Eliminate `EQP Chaos`
 * _Communication breaks_ when multiple servers talking to each other with evolving QP pairs per E
 * _Systemic mess_ when a simple change in either of `E, Q or P` happens
