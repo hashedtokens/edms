@@ -48,28 +48,45 @@ impl ViewCatalogOps {
         self.core.disconnect()
     }
 
-    pub fn register(&self, kind: ViewKind, name: &str, file_path: Option<&str>) -> EdmsResult<usize> {
+    pub fn register(
+        &self,
+        kind: ViewKind,
+        name: &str,
+        file_path: Option<&str>,
+        annotation: Option<&str>,
+    ) -> EdmsResult<usize> {
         let key = format!("{}_CREATE", kind.prefix());
         let query = self.queries.get_catalog_query(&key).unwrap();
-        self.core.proc(query, &[&name, &file_path])
+        self.core.proc(query, &[&name, &file_path, &annotation])
     }
 
-    pub fn list(&self, kind: ViewKind) -> EdmsResult<Vec<(String, Option<String>, String)>> {
+    pub fn list(&self, kind: ViewKind) -> EdmsResult<Vec<(String, Option<String>, String, Option<String>)>> {
         let key = format!("{}_LIST", kind.prefix());
         let query = self.queries.get_catalog_query(&key).unwrap();
         self.core
-            .cproc(query, &[], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+            .cproc(query, &[], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)))
     }
 
-    /// One catalog row by name — (name, file_path, created_at) — mainly to
-    /// look up file_path before deleting the underlying file.
-    pub fn get(&self, kind: ViewKind, name: &str) -> EdmsResult<Option<(String, Option<String>, String)>> {
+    /// One catalog row by name — (name, file_path, created_at, annotation) —
+    /// mainly to look up file_path before deleting the underlying file.
+    pub fn get(
+        &self,
+        kind: ViewKind,
+        name: &str,
+    ) -> EdmsResult<Option<(String, Option<String>, String, Option<String>)>> {
         let key = format!("{}_GET", kind.prefix());
         let query = self.queries.get_catalog_query(&key).unwrap();
         let rows = self
             .core
-            .cproc(query, &[&name], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?;
+            .cproc(query, &[&name], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)))?;
         Ok(rows.into_iter().next())
+    }
+
+    /// Sets a catalog entry's annotation, replacing whatever was there.
+    pub fn annotate(&self, kind: ViewKind, name: &str, annotation: &str) -> EdmsResult<usize> {
+        let key = format!("{}_ANNOTATE", kind.prefix());
+        let query = self.queries.get_catalog_query(&key).unwrap();
+        self.core.proc(query, &[&annotation, &name])
     }
 
     pub fn remove(&self, kind: ViewKind, name: &str) -> EdmsResult<usize> {

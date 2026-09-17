@@ -14,15 +14,19 @@ use axum::{
     Json,
 };
 use edms::ops::collection_membership_ops::CollectionMembershipOps;
+use edms::ops::tag_ops::TagOps;
 use edms::ops::view_ops::{ViewCatalogOps, ViewKind};
 use serde::Deserialize;
 use serde_json::json;
+use std::collections::HashSet;
 
 use crate::{db, state::AppState};
 
 #[derive(Debug, Deserialize)]
 pub struct RegisterViewRequest {
     pub name: String,
+    #[serde(default)]
+    pub annotation: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -82,7 +86,8 @@ async fn register_for(
         let state = state.clone();
         move || -> Result<usize, String> {
             let ops = open_catalog(&state)?;
-            ops.register(kind, &payload.name, None).map_err(|e| format!("{e:?}"))
+            ops.register(kind, &payload.name, None, payload.annotation.as_deref())
+                .map_err(|e| format!("{e:?}"))
         }
     })
     .await;
@@ -103,7 +108,7 @@ async fn register_for(
 async fn list_for(kind: ViewKind, state: AppState) -> (StatusCode, Json<serde_json::Value>) {
     let res = tokio::task::spawn_blocking({
         let state = state.clone();
-        move || -> Result<Vec<(String, Option<String>, String)>, String> {
+        move || -> Result<Vec<(String, Option<String>, String, Option<String>)>, String> {
             let ops = open_catalog(&state)?;
             ops.list(kind).map_err(|e| format!("{e:?}"))
         }
@@ -115,8 +120,8 @@ async fn list_for(kind: ViewKind, state: AppState) -> (StatusCode, Json<serde_js
             StatusCode::OK,
             Json(json!({
                 "ok": true,
-                "items": rows.into_iter().map(|(name, file_path, created_at)| json!({
-                    "name": name, "file_path": file_path, "created_at": created_at
+                "items": rows.into_iter().map(|(name, file_path, created_at, annotation)| json!({
+                    "name": name, "file_path": file_path, "created_at": created_at, "annotation": annotation
                 })).collect::<Vec<_>>()
             })),
         ),
@@ -137,6 +142,7 @@ pub async fn create_collection_entry(
     let res = tokio::task::spawn_blocking({
         let state = state.clone();
         let name = payload.name.clone();
+        let annotation = payload.annotation.clone();
         move || -> Result<(usize, String), String> {
             let path = collection_file_path(&state, &name);
 
@@ -146,7 +152,7 @@ pub async fn create_collection_entry(
 
             let catalog = open_catalog(&state)?;
             let inserted = catalog
-                .register(ViewKind::Collections, &name, Some(&path))
+                .register(ViewKind::Collections, &name, Some(&path), annotation.as_deref())
                 .map_err(|e| format!("{e:?}"))?;
             Ok((inserted, path))
         }
@@ -177,23 +183,75 @@ pub async fn get_collection_entry(
     let res = tokio::task::spawn_blocking({
         let state = state.clone();
         let name = name.clone();
-        move || -> Result<Option<(String, Option<String>, String)>, String> {
+        move || -> Result<Option<(String, Option<String>, String, Option<String>, Option<i64>)>, String> {
             let catalog = open_catalog(&state)?;
-            catalog.get(ViewKind::Collections, &name).map_err(|e| format!("{e:?}"))
+            let row = catalog.get(ViewKind::Collections, &name).map_err(|e| format!("{e:?}"))?;
+            Ok(row.map(|(name, file_path, created_at, annotation)| {
+                let count = file_path
+                    .as_deref()
+                    .and_then(|p| open_membership(p).ok())
+                    .and_then(|m| m.count().ok());
+                (name, file_path, created_at, annotation, count)
+            }))
         }
     })
     .await;
 
     match res {
-        Ok(Ok(Some((name, file_path, created_at)))) => (
+        Ok(Ok(Some((name, file_path, created_at, annotation, endpoint_count)))) => (
             StatusCode::OK,
-            Json(json!({ "ok": true, "name": name, "file_path": file_path, "created_at": created_at })),
+            Json(json!({
+                "ok": true, "name": name, "file_path": file_path,
+                "created_at": created_at, "annotation": annotation,
+                "endpoint_count": endpoint_count
+            })),
         ),
         Ok(Ok(None)) => (
             StatusCode::NOT_FOUND,
             Json(json!({ "ok": false, "error": format!("Collection '{name}' does not exist") })),
         ),
         Ok(Err(e)) => (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "error": e }))),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": e.to_string() })),
+        ),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AnnotateViewRequest {
+    pub annotation: String,
+}
+
+/// POST /collections/:name/annotation — sets a collection's annotation.
+pub async fn annotate_collection_entry(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+    Json(payload): Json<AnnotateViewRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let res = tokio::task::spawn_blocking({
+        let state = state.clone();
+        let name = name.clone();
+        let annotation = payload.annotation.clone();
+        move || -> Result<usize, String> {
+            let catalog = open_catalog(&state)?;
+            if catalog
+                .get(ViewKind::Collections, &name)
+                .map_err(|e| format!("{e:?}"))?
+                .is_none()
+            {
+                return Err(format!("Collection '{name}' does not exist"));
+            }
+            catalog
+                .annotate(ViewKind::Collections, &name, &annotation)
+                .map_err(|e| format!("{e:?}"))
+        }
+    })
+    .await;
+
+    match res {
+        Ok(Ok(rows)) => (StatusCode::OK, Json(json!({ "ok": true, "updated_rows": rows }))),
+        Ok(Err(e)) => (StatusCode::NOT_FOUND, Json(json!({ "ok": false, "error": e }))),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({ "ok": false, "error": e.to_string() })),
@@ -298,7 +356,7 @@ pub async fn delete_collection_entry(
                 .map_err(|e| format!("{e:?}"))?;
 
             let mut file_deleted = false;
-            if let Some((_, Some(file_path), _)) = existing {
+            if let Some((_, Some(file_path), _, _)) = existing {
                 if std::path::Path::new(&file_path).exists() {
                     std::fs::remove_file(&file_path).map_err(|e| e.to_string())?;
                     file_deleted = true;
@@ -395,8 +453,47 @@ pub async fn list_collection_endpoints(
     }
 }
 
+/// GET /collections/list — like the generic `list_for`, but also folds in
+/// each collection's `endpoint_count` (from its own membership file —
+/// `CollectionMembershipOps::count()` already existed, just unused here).
+/// `null` if the collection has no file yet.
 pub async fn list_collections(State(state): State<AppState>) -> (StatusCode, Json<serde_json::Value>) {
-    list_for(ViewKind::Collections, state).await
+    let res = tokio::task::spawn_blocking({
+        let state = state.clone();
+        move || -> Result<Vec<(String, Option<String>, String, Option<String>, Option<i64>)>, String> {
+            let catalog = open_catalog(&state)?;
+            let rows = catalog.list(ViewKind::Collections).map_err(|e| format!("{e:?}"))?;
+            Ok(rows
+                .into_iter()
+                .map(|(name, file_path, created_at, annotation)| {
+                    let count = file_path
+                        .as_deref()
+                        .and_then(|p| open_membership(p).ok())
+                        .and_then(|m| m.count().ok());
+                    (name, file_path, created_at, annotation, count)
+                })
+                .collect())
+        }
+    })
+    .await;
+
+    match res {
+        Ok(Ok(rows)) => (
+            StatusCode::OK,
+            Json(json!({
+                "ok": true,
+                "items": rows.into_iter().map(|(name, file_path, created_at, annotation, endpoint_count)| json!({
+                    "name": name, "file_path": file_path, "created_at": created_at,
+                    "annotation": annotation, "endpoint_count": endpoint_count
+                })).collect::<Vec<_>>()
+            })),
+        ),
+        Ok(Err(e)) => (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "error": e }))),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": e.to_string() })),
+        ),
+    }
 }
 
 pub async fn create_webview_entry(
@@ -419,4 +516,122 @@ pub async fn create_repoview_entry(
 
 pub async fn list_repoviews(State(state): State<AppState>) -> (StatusCode, Json<serde_json::Value>) {
     list_for(ViewKind::Repoview, state).await
+}
+
+// ── Tag → Collection transfer ("Add to Collection") ─────────────────────
+//
+// The central `tags` table (TagOps) stays the single source of truth for
+// an endpoint's own tags, untouched by this — it's read-only here. This
+// only writes to the destination collection's own file: adds the matched
+// endpoints as members, and — if requested — copies each one's current
+// tags into that collection's endpoint_tags table (a separate, per-
+// collection record, not a move out of the central table).
+
+const MAX_TAGS_PER_ENDPOINT: i64 = 25;
+
+#[derive(Debug, Deserialize)]
+pub struct ImportTagsRequest {
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub export_existing_tags: bool,
+}
+
+/// POST /collections/:name/tags/import
+pub async fn import_tags_into_collection(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+    Json(payload): Json<ImportTagsRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let res = tokio::task::spawn_blocking({
+        let state = state.clone();
+        let name = name.clone();
+        move || -> Result<serde_json::Value, String> {
+            let membership = open_existing_collection_membership(&state, &name)?;
+
+            let tag_ops = TagOps::new(&state.db_path.display().to_string());
+            tag_ops.initialize().map_err(|e| format!("{e:?}"))?;
+
+            let mut endpoint_ids: HashSet<String> = HashSet::new();
+            for tag in &payload.tags {
+                let ids = tag_ops.get_endpoints_by_tag(tag).map_err(|e| format!("{e:?}"))?;
+                endpoint_ids.extend(ids);
+            }
+            let endpoint_ids: Vec<String> = endpoint_ids.into_iter().collect();
+
+            let added_members = membership.add_batch(&endpoint_ids).map_err(|e| format!("{e:?}"))?;
+
+            let mut tags_exported = 0usize;
+            let mut tags_skipped_cap = 0usize;
+            if payload.export_existing_tags {
+                for eid in &endpoint_ids {
+                    let existing_tags = tag_ops.get_by_endpoint(eid).map_err(|e| format!("{e:?}"))?;
+                    let mut current_count = membership.count_tags_for_endpoint(eid).map_err(|e| format!("{e:?}"))?;
+                    for tag in existing_tags {
+                        if current_count >= MAX_TAGS_PER_ENDPOINT {
+                            tags_skipped_cap += 1;
+                            continue;
+                        }
+                        let inserted = membership.add_tag(eid, &tag).map_err(|e| format!("{e:?}"))?;
+                        if inserted > 0 {
+                            tags_exported += 1;
+                            current_count += 1;
+                        }
+                    }
+                }
+            }
+
+            Ok(json!({
+                "ok": true,
+                "endpoints_matched": endpoint_ids.len(),
+                "endpoints_added": added_members,
+                "tags_exported": tags_exported,
+                "tags_skipped_cap": tags_skipped_cap
+            }))
+        }
+    })
+    .await;
+
+    match res {
+        Ok(Ok(body)) => (StatusCode::OK, Json(body)),
+        Ok(Err(e)) => (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "error": e }))),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": e.to_string() })),
+        ),
+    }
+}
+
+/// GET /collections/:name/tags/endpoints — list every (endpoint_id, tag)
+/// pair this collection carries (from the import route above — separate
+/// from the central tags table).
+pub async fn list_collection_endpoint_tags(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let res = tokio::task::spawn_blocking({
+        let state = state.clone();
+        let name = name.clone();
+        move || -> Result<Vec<(String, String)>, String> {
+            let membership = open_existing_collection_membership(&state, &name)?;
+            membership.list_all_endpoint_tags().map_err(|e| format!("{e:?}"))
+        }
+    })
+    .await;
+
+    match res {
+        Ok(Ok(pairs)) => (
+            StatusCode::OK,
+            Json(json!({
+                "ok": true,
+                "tags": pairs.into_iter().map(|(endpoint_id, tag)| json!({
+                    "endpoint_id": endpoint_id, "tag": tag
+                })).collect::<Vec<_>>()
+            })),
+        ),
+        Ok(Err(e)) => (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "error": e }))),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": e.to_string() })),
+        ),
+    }
 }

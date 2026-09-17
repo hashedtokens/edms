@@ -17,3 +17,16 @@ links:
   github: "https://github.com/hashedtokens/edms"
   dockerhub: "https://hub.docker.com/r/hashedtokens/edms"
   wiki: "https://github.com/hashedtokens/edms/wiki"
+
+storage:
+  # Single point of configuration for the top-level EDMS data directory
+  # (Ravi, 2026-09-14). A RELATIVE path, resolved against the app's
+  # working directory. You must create this directory yourself before
+  # starting the app — it will not be created for you. It must not be
+  # inside this repo or the init/ folder.
+  #
+  # Left unset by default: the app still runs (falls back to a working
+  # location), but flags itself as unconfigured via GET /dashboard/static
+  # so the UI can show a warning. Uncomment and point it somewhere real
+  # to configure it:
+  # root: "../../edms-data"

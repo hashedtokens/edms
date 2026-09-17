@@ -74,6 +74,29 @@ pub fn get_endpoint(core: &EdmsCore, queries: &QueryMap, endpoint_id: &str) -> E
     Ok(rows.into_iter().next())
 }
 
+/// Looks up an endpoint by its exact (endpoint_str, method) pair — lets a
+/// caller check "does this already exist" before deciding whether to pass
+/// an existing endpoint_id vs. let a fresh one get allocated. Uniqueness is
+/// scoped to (endpoint_str, method), matching idx_endpoints_str_method —
+/// GET and POST against the same URL are legitimately different endpoints.
+pub fn find_endpoint_by_str_and_method(
+    core: &EdmsCore,
+    queries: &QueryMap,
+    endpoint_str: &str,
+    method: &str,
+) -> EdmsResult<Option<EndpointDto>> {
+    let q = queries.get_endpoint_query("E8").ok_or(EdmsError::UnknownError)?;
+    let rows = core.cproc(q, &[&endpoint_str, &method], |row| {
+        Ok(EndpointDto {
+            endpoint_id: row.get(0)?,
+            endpoint_str: row.get(1)?,
+            annotation: row.get(2)?,
+            method: row.get(3)?,
+        })
+    })?;
+    Ok(rows.into_iter().next())
+}
+
 pub fn update_annotation(core: &EdmsCore, queries: &QueryMap, endpoint_id: &str, annotation: &str) -> EdmsResult<usize> {
     let q = queries.get_endpoint_query("E4").ok_or(EdmsError::UnknownError)?;
     core.proc(q, &[&annotation, &endpoint_id])
@@ -118,6 +141,44 @@ pub fn insert_response_metadata(
 ) -> EdmsResult<usize> {
     let q = queries.get_response_query("RES1").ok_or(EdmsError::UnknownError)?;
     core.proc(q, &[&endpoint_id, &request_number, &file_path, &status_code, &response_time_ms])
+}
+
+/// A "QP" (request/response pair) — one test run's saved request+response,
+/// identified by `request_number`. `status_code`/`response_time_ms` are
+/// `None` when the response metadata hasn't landed yet (request written,
+/// call still in flight).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QpSummary {
+    pub request_number: i32,
+    pub method: Option<String>,
+    pub timestamp: Option<String>,
+    pub status_code: Option<i32>,
+    pub response_time_ms: Option<i32>,
+}
+
+pub fn list_qps_for_endpoint(core: &EdmsCore, queries: &QueryMap, endpoint_id: &str) -> EdmsResult<Vec<QpSummary>> {
+    let q = queries.get_request_query("R8").ok_or(EdmsError::UnknownError)?;
+    core.cproc(q, &[&endpoint_id], |row| {
+        Ok(QpSummary {
+            request_number: row.get(0)?,
+            method: row.get(1)?,
+            timestamp: row.get(2)?,
+            status_code: row.get(3)?,
+            response_time_ms: row.get(4)?,
+        })
+    })
+}
+
+/// Deletes one QP pair's metadata rows (request_metadata + response_metadata).
+/// Caller is responsible for also removing the saved JSON files on disk.
+pub fn delete_qp(core: &EdmsCore, queries: &QueryMap, endpoint_id: &str, request_number: i32) -> EdmsResult<usize> {
+    let rq = queries.get_request_query("R7").ok_or(EdmsError::UnknownError)?;
+    let req_rows = core.proc(rq, &[&endpoint_id, &request_number])?;
+
+    let resq = queries.get_response_query("RES8").ok_or(EdmsError::UnknownError)?;
+    let res_rows = core.proc(resq, &[&endpoint_id, &request_number])?;
+
+    Ok(req_rows + res_rows)
 }
 
 /* ---------------- history (queries.yaml) ---------------- */
@@ -191,6 +252,18 @@ pub fn list_bookmarked_endpoints_active(core: &EdmsCore, queries: &QueryMap) -> 
     // Returns endpoint_ids in active list
     let q = queries.get_bookmark_query("B3").ok_or(EdmsError::UnknownError)?;
     core.cproc(q, &[&ACTIVE_FOLDER], |row| row.get(0))
+}
+
+/// Same as `list_bookmarked_endpoints_active`, but also carries when each
+/// one was bookmarked — the "updated" field bookmark-view consumers expect
+/// (previously always null: it was tracked in the `bookmarks` table the
+/// whole time, just never selected past this query).
+pub fn list_bookmarked_endpoints_active_with_timestamps(
+    core: &EdmsCore,
+    queries: &QueryMap,
+) -> EdmsResult<Vec<(String, String)>> {
+    let q = queries.get_bookmark_query("B10").ok_or(EdmsError::UnknownError)?;
+    core.cproc(q, &[&ACTIVE_FOLDER], |row| Ok((row.get(0)?, row.get(1)?)))
 }
 
 /// Bookmark an endpoint into an arbitrary folder (not just `active`).

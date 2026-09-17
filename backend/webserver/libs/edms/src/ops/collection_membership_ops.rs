@@ -43,6 +43,19 @@ impl CollectionMembershipOps {
             )",
             &[],
         )?;
+        // Per-endpoint tags carried into this collection (e.g. via the
+        // "export current EQP tags" move-to-collection flow) — separate
+        // from the central tags table, which stays the source of truth
+        // for an endpoint's own tags regardless of collection membership.
+        self.core.proc(
+            "CREATE TABLE IF NOT EXISTS endpoint_tags (
+                endpoint_id TEXT NOT NULL,
+                tag         TEXT NOT NULL,
+                added_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(endpoint_id, tag)
+            )",
+            &[],
+        )?;
         Ok(())
     }
 
@@ -136,5 +149,38 @@ impl CollectionMembershipOps {
             .ok_or(crate::error::EdmsError::UnknownError)?;
         let rows: Vec<i64> = self.core.cproc(q, &[], |row| row.get(0))?;
         Ok(rows.first().copied().unwrap_or(0))
+    }
+
+    pub fn count_tags_for_endpoint(&self, endpoint_id: &str) -> EdmsResult<i64> {
+        let q = self
+            .queries
+            .get_collection_membership_query("COUNT_TAGS_FOR_ENDPOINT")
+            .ok_or(crate::error::EdmsError::UnknownError)?;
+        let rows: Vec<i64> = self.core.cproc(q, &[&endpoint_id], |row| row.get(0))?;
+        Ok(rows.first().copied().unwrap_or(0))
+    }
+
+    pub fn add_tag(&self, endpoint_id: &str, tag: &str) -> EdmsResult<usize> {
+        let q = self
+            .queries
+            .get_collection_membership_query("ADD_TAG")
+            .ok_or(crate::error::EdmsError::UnknownError)?;
+        self.core.proc(q, &[&endpoint_id, &tag])
+    }
+
+    pub fn list_tags_for_endpoint(&self, endpoint_id: &str) -> EdmsResult<Vec<String>> {
+        let q = self
+            .queries
+            .get_collection_membership_query("LIST_TAGS_FOR_ENDPOINT")
+            .ok_or(crate::error::EdmsError::UnknownError)?;
+        self.core.cproc(q, &[&endpoint_id], |row| row.get(0))
+    }
+
+    pub fn list_all_endpoint_tags(&self) -> EdmsResult<Vec<(String, String)>> {
+        let q = self
+            .queries
+            .get_collection_membership_query("LIST_ALL_ENDPOINT_TAGS")
+            .ok_or(crate::error::EdmsError::UnknownError)?;
+        self.core.cproc(q, &[], |row| Ok((row.get(0)?, row.get(1)?)))
     }
 }

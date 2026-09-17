@@ -30,12 +30,29 @@ pub struct LinksConfig {
     pub wiki: String,
 }
 
+/// Per Ravi (2026-09-14): the EDMS data directory has one single point of
+/// configuration, here — a relative path. The app does NOT create this
+/// top-level directory itself if it's missing; the user has to create it
+/// first. It must not resolve inside this repo or the `init/` folder.
+/// Omitted/absent (the shipped default) means "not configured yet" —
+/// the app still runs (falls back to a working default location) but
+/// flags itself as unconfigured via `/dashboard/static`, for the
+/// frontend to show a conspicuous warning rather than silently writing
+/// into a folder the user never chose.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct StorageConfig {
+    #[serde(default)]
+    pub root: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     pub server: ServerConfig,
     pub limits: LimitsConfig,
     pub stability: StabilityConfig,
     pub links: LinksConfig,
+    #[serde(default)]
+    pub storage: StorageConfig,
 }
 
 impl AppConfig {
@@ -73,6 +90,7 @@ impl Default for AppConfig {
                 dockerhub: "https://hub.docker.com/r/hashedtokens/edms".to_string(),
                 wiki: "https://github.com/hashedtokens/edms/wiki".to_string(),
             },
+            storage: StorageConfig::default(),
         }
     }
 }

@@ -24,6 +24,13 @@ pub struct AppState {
     pub dashboard_conn: Arc<Mutex<Connection>>,
     pub db_path: PathBuf,
     pub storage_root: PathBuf,
+    /// Whether `storage_root` came from an explicit, validated source
+    /// (EDMS_ROOT env, or config.yaml's `storage.root` pointing at a
+    /// directory that actually exists and isn't inside the repo/init/) —
+    /// as opposed to the unconfigured fallback. Surfaced via
+    /// `/dashboard/static` so the frontend can show the "parent directory
+    /// path not enabled" banner (Ravi, 2026-09-14).
+    pub storage_configured: bool,
     pub started_at: String,
     pub config: Arc<AppConfig>,
     /// Timer handles for in-flight test runs, keyed by (endpoint_id,
@@ -42,6 +49,7 @@ impl AppState {
         dashboard_conn: Connection,
         db_path: PathBuf,
         storage_root: PathBuf,
+        storage_configured: bool,
         config: Arc<AppConfig>,
     ) -> Self {
         let (events_tx, _) = broadcast::channel(256);
@@ -58,6 +66,7 @@ impl AppState {
             dashboard_conn: Arc::new(Mutex::new(dashboard_conn)),
             db_path,
             storage_root,
+            storage_configured,
             started_at: chrono::Utc::now().to_rfc3339(),
             config,
             active_timers: Arc::new(Mutex::new(HashMap::new())),

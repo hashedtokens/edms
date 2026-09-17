@@ -331,34 +331,66 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
                 "CREATE TABLE IF NOT EXISTS {table} (
                     name TEXT PRIMARY KEY,
                     file_path TEXT,
+                    annotation TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )"
             ),
             [],
         )?;
 
+        // Migration: drop the surrogate `id` column if present (older DBs),
+        // rebuilding onto `name` as the primary key — carrying `annotation`
+        // along explicitly, since a table already holding real annotation
+        // data must not lose it just because it also predates the id-drop.
         let has_cat_id: i64 = conn.query_row(
             &format!("SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name = 'id'"),
             [],
             |row| row.get(0),
         )?;
         if has_cat_id > 0 {
+            // A DB this old may predate the annotation column too (id
+            // present, no annotation yet) — SELECT-ing a column that
+            // doesn't exist would abort startup, so check first and fall
+            // back to NULL rather than assuming it's there.
+            let has_annotation_pre_rebuild: i64 = conn.query_row(
+                &format!("SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name = 'annotation'"),
+                [],
+                |row| row.get(0),
+            )?;
+            let annotation_select = if has_annotation_pre_rebuild > 0 { "annotation" } else { "NULL" };
+
             conn.execute(
                 &format!(
                     "CREATE TABLE {table}_new (
                         name TEXT PRIMARY KEY,
                         file_path TEXT,
+                        annotation TEXT,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )"
                 ),
                 [],
             )?;
             conn.execute(
-                &format!("INSERT OR IGNORE INTO {table}_new (name, file_path, created_at) SELECT name, file_path, created_at FROM {table}"),
+                &format!("INSERT OR IGNORE INTO {table}_new (name, file_path, annotation, created_at) SELECT name, file_path, {annotation_select}, created_at FROM {table}"),
                 [],
             )?;
             conn.execute(&format!("DROP TABLE {table}"), [])?;
             conn.execute(&format!("ALTER TABLE {table}_new RENAME TO {table}"), [])?;
+        }
+
+        // Migration: DBs created before `annotation` existed won't have
+        // picked it up from CREATE TABLE IF NOT EXISTS above (a no-op on an
+        // existing table) — add it explicitly if missing, same pattern as
+        // endpoints.method above. Safe to run every startup. Runs after the
+        // id-drop above so it correctly no-ops when that rebuild already
+        // carried annotation across.
+        let has_annotation: i64 = conn.query_row(
+            &format!("SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name = 'annotation'"),
+            [],
+            |row| row.get(0),
+        )?;
+        if has_annotation == 0 {
+            conn.execute(&format!("ALTER TABLE {table} ADD COLUMN annotation TEXT"), [])?;
         }
     }
 

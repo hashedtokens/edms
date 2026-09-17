@@ -39,9 +39,17 @@ pub async fn get_dashboard_snapshot(
 
 /// GET /dashboard/static
 /// Returns the hardcoded static data loaded from config.yaml at startup:
-/// application limits, stability/commit info, and external links.
+/// application limits, stability/commit info, and external links — plus
+/// `storage_configured`/`storage_path`, computed at startup (not part of
+/// the config file itself), so the frontend can show a warning banner
+/// when the user hasn't configured `storage.root` yet (Ravi, 2026-09-14).
 pub async fn get_static_data(State(state): State<AppState>) -> (StatusCode, Json<serde_json::Value>) {
-    (StatusCode::OK, Json(json!(state.config.as_ref())))
+    let mut body = json!(state.config.as_ref());
+    if let Some(obj) = body.as_object_mut() {
+        obj.insert("storage_configured".to_string(), json!(state.storage_configured));
+        obj.insert("storage_path".to_string(), json!(state.storage_root.display().to_string()));
+    }
+    (StatusCode::OK, Json(body))
 }
 
 /// GET /dashboard/snapshot/history

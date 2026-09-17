@@ -30,6 +30,10 @@ endpoints:
     help: "Get recent endpoints (ID and path only)"
     query: "SELECT endpoint_id, endpoint_str FROM endpoints ORDER BY updated_at DESC"
 
+  E8:
+    help: "Look up an endpoint by its exact (endpoint_str, method) pair — for dedup checks before allocating a new EID"
+    query: "SELECT endpoint_id, endpoint_str, annotation, method FROM endpoints WHERE endpoint_str = ? AND method = ?"
+
 requests:
   R1:
     help: "Insert request metadata"
@@ -54,6 +58,14 @@ requests:
   R6:
     help: "Get next request number for an endpoint"
     query: "SELECT MAX(request_number) FROM request_metadata WHERE endpoint_id = ?"
+
+  R7:
+    help: "Delete request metadata for one QP pair"
+    query: "DELETE FROM request_metadata WHERE endpoint_id = ? AND request_number = ?"
+
+  R8:
+    help: "List QP pairs for an endpoint — request+response metadata joined, ordered by request number"
+    query: "SELECT r.request_number, r.method, r.timestamp, p.status_code, p.response_time_ms FROM request_metadata r LEFT JOIN response_metadata p ON p.endpoint_id = r.endpoint_id AND p.request_number = r.request_number WHERE r.endpoint_id = ? ORDER BY r.request_number"
 
 responses:
   RES1:
@@ -83,6 +95,10 @@ responses:
   RES7:
     help: "Get responses by specific status code"
     query: "SELECT * FROM response_metadata WHERE status_code = ?"
+
+  RES8:
+    help: "Delete response metadata for one QP pair"
+    query: "DELETE FROM response_metadata WHERE endpoint_id = ? AND request_number = ?"
 
 tags:
   T1:
@@ -175,54 +191,67 @@ bookmarks:
     help: "Check whether an endpoint already exists in a collection (dedup guard for merge/create)"
     query: "SELECT COUNT(*) FROM bookmarks WHERE endpoint_id = ? AND folder = ?"
 
+  B10:
+    help: "List endpoint IDs + when they were bookmarked, for a specific folder, ordered by time"
+    query: "SELECT endpoint_id, timestamp FROM bookmarks WHERE folder = ? ORDER BY timestamp DESC"
+
 # Catalog tables: which collections/webviews/repoviews exist and where their
 # independent SQLite file lives (per Ravi, 2026-08-25).
 catalog:
   COLLECTIONS_CREATE:
     help: "Register a new collection in the catalog"
-    query: "INSERT INTO collections (name, file_path) VALUES (?, ?)"
+    query: "INSERT INTO collections (name, file_path, annotation) VALUES (?, ?, ?)"
   COLLECTIONS_LIST:
     help: "List all registered collections"
-    query: "SELECT name, file_path, created_at FROM collections ORDER BY name"
+    query: "SELECT name, file_path, created_at, annotation FROM collections ORDER BY name"
   COLLECTIONS_GET:
     help: "Get one collection's catalog row by name (to find its file_path)"
-    query: "SELECT name, file_path, created_at FROM collections WHERE name = ?"
+    query: "SELECT name, file_path, created_at, annotation FROM collections WHERE name = ?"
   COLLECTIONS_REMOVE:
     help: "Remove a collection's catalog entry (its file is deleted separately)"
     query: "DELETE FROM collections WHERE name = ?"
   COLLECTIONS_RENAME:
     help: "Rename a collection and repoint its file_path to match (the file itself is renamed separately on disk)"
     query: "UPDATE collections SET name = ?, file_path = ? WHERE name = ?"
+  COLLECTIONS_ANNOTATE:
+    help: "Set a collection's annotation"
+    query: "UPDATE collections SET annotation = ? WHERE name = ?"
   WEBVIEW_CREATE:
     help: "Register a new webview in the catalog"
-    query: "INSERT INTO webview (name, file_path) VALUES (?, ?)"
+    query: "INSERT INTO webview (name, file_path, annotation) VALUES (?, ?, ?)"
   WEBVIEW_LIST:
     help: "List all registered webviews"
-    query: "SELECT name, file_path, created_at FROM webview ORDER BY name"
+    query: "SELECT name, file_path, created_at, annotation FROM webview ORDER BY name"
   WEBVIEW_GET:
     help: "Get one webview's catalog row by name (to find its file_path)"
-    query: "SELECT name, file_path, created_at FROM webview WHERE name = ?"
+    query: "SELECT name, file_path, created_at, annotation FROM webview WHERE name = ?"
   WEBVIEW_REMOVE:
     help: "Remove a webview's catalog entry"
     query: "DELETE FROM webview WHERE name = ?"
   WEBVIEW_RENAME:
     help: "Rename a webview and repoint its file_path to match"
     query: "UPDATE webview SET name = ?, file_path = ? WHERE name = ?"
+  WEBVIEW_ANNOTATE:
+    help: "Set a webview's annotation"
+    query: "UPDATE webview SET annotation = ? WHERE name = ?"
   REPOVIEW_CREATE:
     help: "Register a new repoview in the catalog"
-    query: "INSERT INTO repoview (name, file_path) VALUES (?, ?)"
+    query: "INSERT INTO repoview (name, file_path, annotation) VALUES (?, ?, ?)"
   REPOVIEW_LIST:
     help: "List all registered repoviews"
-    query: "SELECT name, file_path, created_at FROM repoview ORDER BY name"
+    query: "SELECT name, file_path, created_at, annotation FROM repoview ORDER BY name"
   REPOVIEW_GET:
     help: "Get one repoview's catalog row by name (to find its file_path)"
-    query: "SELECT name, file_path, created_at FROM repoview WHERE name = ?"
+    query: "SELECT name, file_path, created_at, annotation FROM repoview WHERE name = ?"
   REPOVIEW_REMOVE:
     help: "Remove a repoview's catalog entry"
     query: "DELETE FROM repoview WHERE name = ?"
   REPOVIEW_RENAME:
     help: "Rename a repoview and repoint its file_path to match"
     query: "UPDATE repoview SET name = ?, file_path = ? WHERE name = ?"
+  REPOVIEW_ANNOTATE:
+    help: "Set a repoview's annotation"
+    query: "UPDATE repoview SET annotation = ? WHERE name = ?"
 
 # Central per-view-type tag count rollups (tagname, count) — incrementally
 # maintained counters, not a full tag entity with membership tracking.
@@ -312,3 +341,15 @@ collection_membership:
   COUNT:
     help: "Count endpoints in this collection's file"
     query: "SELECT COUNT(*) FROM membership"
+  ADD_TAG:
+    help: "Add a tag to an endpoint within this collection's file (idempotent)"
+    query: "INSERT OR IGNORE INTO endpoint_tags (endpoint_id, tag) VALUES (?, ?)"
+  COUNT_TAGS_FOR_ENDPOINT:
+    help: "Count tags an endpoint already carries in this collection's file"
+    query: "SELECT COUNT(*) FROM endpoint_tags WHERE endpoint_id = ?"
+  LIST_TAGS_FOR_ENDPOINT:
+    help: "List tags an endpoint carries in this collection's file"
+    query: "SELECT tag FROM endpoint_tags WHERE endpoint_id = ?"
+  LIST_ALL_ENDPOINT_TAGS:
+    help: "List every (endpoint_id, tag) pair carried in this collection's file"
+    query: "SELECT endpoint_id, tag FROM endpoint_tags ORDER BY endpoint_id, tag"

@@ -1,6 +1,6 @@
 ### EDMS Webserver API
 ### For use with the VS Code "REST Client" extension (or IntelliJ's built-in HTTP client).
-### Generated from routes in src/main.rs on the mathew/dashboard-sqlite branch.
+### Generated from routes in src/main.rs (67 routes, verified against main.rs on 2026-09-15).
 ###
 ### Some routes below are WebSocket-only and cannot be driven from this file — they are
 ### marked "WS ONLY" and left commented out. Use a WS client (e.g. websocat, browser
@@ -43,9 +43,44 @@ Content-Type: application/json
 # Side effect: same dashboard snapshot refresh as create, on success.
 POST {{baseUrl}}/endpoints/get-user-profile/delete
 
+### Set/replace an endpoint's annotation after creation
+# 404 if the endpoint doesn't exist. Side effects: dashboard snapshot
+# refresh + broadcasts EndpointAnnotationUpdated on the shared WS channel.
+POST {{baseUrl}}/endpoints/get-user-profile/annotation
+Content-Type: application/json
+
+{ "annotation": "Updated: now paginated" }
+
+### Look up an endpoint by exact (endpoint_str, method) — dedup check
+# before running a test, so a re-tested URL reuses its endpoint_id
+# instead of a new one getting allocated. 404 if none exists.
+GET {{baseUrl}}/endpoints/lookup?endpoint_str=https%3A%2F%2Fapi.example.com%2Fusers%2F%7Bid%7D&method=GET
+
 # ============================================================
 # Test View
 # ============================================================
+
+### Get a saved request for one test run (the "QP" for that run)
+GET {{baseUrl}}/test-view/get-user-profile/request/1
+
+### Get the saved response for one test run
+GET {{baseUrl}}/test-view/get-user-profile/response/1
+
+### Get the saved request/response headers for one test run
+# Body shape: {"request_headers": {...}, "response_headers": {...}}
+GET {{baseUrl}}/test-view/get-user-profile/headers/1
+
+### List every QP pair (test run) saved for an endpoint, oldest first
+# Each entry: {request_number, method, timestamp, status_code, response_time_ms}.
+# status_code/response_time_ms are null if the response hasn't landed yet.
+GET {{baseUrl}}/test-view/get-user-profile/qps
+
+### Delete one QP pair
+# Removes its request_metadata/response_metadata rows and the three saved
+# JSON files (request/response/headers). 404 if no such pair exists.
+# Side effect: broadcasts QpDeleted on the shared WS channel (same one
+# /test-view/run uses) so open List/Test Views know to re-fetch the list above.
+POST {{baseUrl}}/test-view/get-user-profile/qps/1/delete
 
 ### Stop the current test run
 POST {{baseUrl}}/test-view/stop
@@ -79,6 +114,7 @@ POST {{baseUrl}}/test-view/bookmark/clearall
 
 ### WS ONLY — subscribe to live endpoint list: GET /test-view/endpoints/load
 ### WS ONLY — subscribe to live bookmark list:  GET /test-view/bookmarks/load
+### Each entry now includes "updated" (when it was bookmarked, or null).
 ### WS ONLY — run a test (send {"type":"...","payload":{"endpoint_id","method","body","timeout_ms","tick_interval_ms"}}): GET /test-view/run
 ### WS ONLY — add a history entry to a bookmark folder (also triggers a
 ### dashboard snapshot refresh): GET /test-view/{bookmark}/add
@@ -120,6 +156,13 @@ POST {{baseUrl}}/bookmarks/my-collection/create
 ### WS ONLY — load a bookmark collection into the active workspace
 ### (also triggers a dashboard snapshot refresh): GET /bookmarks/{collection}/load
 
+### Save an endpoint into the active collection
+# 400 if no collection is currently active (see /dataview/{folder}/active).
+POST {{baseUrl}}/bookmarks/active/get-user-profile/save
+
+### Remove an endpoint from the active collection
+POST {{baseUrl}}/bookmarks/active/get-user-profile/unsave
+
 # ============================================================
 # Collections / Webview / Repoview
 # ============================================================
@@ -142,13 +185,73 @@ POST {{baseUrl}}/bookmarks/my-collection/create
 # (file_path on the catalog entry stays null until that exists).
 
 ### Register a new collection in the catalog
+# "annotation" is optional.
 POST {{baseUrl}}/collections/create
 Content-Type: application/json
 
-{ "name": "auth-suite" }
+{ "name": "auth-suite", "annotation": "Auth regression suite" }
 
 ### List registered collections
+# Each entry includes "annotation" (null if unset) and "endpoint_count"
+# (null if the collection has no file yet).
 GET {{baseUrl}}/collections/list
+
+### Get one collection's catalog entry
+GET {{baseUrl}}/collections/auth-suite
+
+### Set/replace a collection's annotation
+POST {{baseUrl}}/collections/auth-suite/annotation
+Content-Type: application/json
+
+{ "annotation": "Auth regression suite — updated" }
+
+### Rename a collection — moves its file on disk to match, too
+POST {{baseUrl}}/collections/auth-suite/rename
+Content-Type: application/json
+
+{ "new_name": "auth-suite-v2" }
+
+### Delete a collection's catalog entry
+POST {{baseUrl}}/collections/auth-suite-v2/delete
+
+### List endpoints that belong to a collection
+GET {{baseUrl}}/collections/auth-suite/endpoints
+
+### Add to Collection — find every endpoint carrying any of these tags,
+# add them as members, and optionally copy their current tags in too.
+# Central tags table is read-only here, never modified.
+POST {{baseUrl}}/collections/auth-suite/tags/import
+Content-Type: application/json
+
+{ "tags": ["smoke", "critical"], "export_existing_tags": true }
+
+### List (endpoint_id, tag) pairs this collection carries from the import above
+GET {{baseUrl}}/collections/auth-suite/tags/endpoints
+
+### Remove an endpoint from a collection
+POST {{baseUrl}}/collections/auth-suite/endpoints/remove
+Content-Type: application/json
+
+{ "endpoint_id": "get-user-profile" }
+
+### Add a membership tag to a collection (distinct from the catalog-wide
+### collections/tags/* counters above — these are per-collection C(T) rows)
+POST {{baseUrl}}/collections/auth-suite/membership-tags/add
+Content-Type: application/json
+
+{ "tag": "smoke" }
+
+### Remove a membership tag from a collection
+POST {{baseUrl}}/collections/auth-suite/membership-tags/remove
+Content-Type: application/json
+
+{ "tag": "smoke" }
+
+### List a collection's membership tags
+GET {{baseUrl}}/collections/auth-suite/membership-tags
+
+### List all collections that carry a given membership tag
+GET {{baseUrl}}/collections/by-tag/smoke
 
 ### Create a collections tag, or add to its count if it already exists
 # "endpoint_ids" length becomes the count increment (defaults to 1 if omitted/empty).
@@ -305,6 +408,11 @@ GET {{baseUrl}}/logs
 # Returns markdown immediately; also fires async zip export + markdown
 # generation jobs in the background (results via /internal/callback).
 GET {{baseUrl}}/repo/my-collection/export.zip/export
+
+### Import a previously exported zip back into a collection
+# Fire-and-forget: 202 immediately, looks for the zip under
+# edms_root/exports/{filename}, result via /internal/callback.
+POST {{baseUrl}}/repo/my-collection/export.zip/import
 
 # ============================================================
 # Internal (do not call from the UI — edms-child callback channel only)

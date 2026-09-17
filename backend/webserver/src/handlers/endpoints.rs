@@ -1,7 +1,13 @@
-use axum::{extract::State, http::StatusCode, Json};
+use axum::{
+    extract::{Query, State},
+    http::StatusCode,
+    Json,
+};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
 use crate::db::{self, EndpointDto};
+use crate::events::ServerEvent;
 use crate::state::AppState;
 
 const VALID_METHODS: [&str; 5] = ["GET", "POST", "PUT", "PATCH", "DELETE"];
@@ -234,4 +240,90 @@ pub async fn delete_endpoint(
             }),
         ),
     }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LookupEndpointQuery {
+    pub endpoint_str: String,
+    pub method: String,
+}
+
+/// GET /endpoints/lookup?endpoint_str=...&method=...
+///
+/// Lets a caller check whether an endpoint already exists for this exact
+/// (endpoint_str, method) pair before running a test — the fix for
+/// endpoints silently getting duplicated when the frontend's own
+/// in-memory matching fails to recognize a re-tested URL as the same
+/// endpoint. 404 (not an error) if none exists yet.
+pub async fn lookup_endpoint(
+    State(state): State<AppState>,
+    Query(params): Query<LookupEndpointQuery>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let method = match validate_method(Some(&params.method)) {
+        Ok(m) => m.unwrap_or_default(),
+        Err(message) => return (StatusCode::BAD_REQUEST, Json(json!({ "ok": false, "error": message }))),
+    };
+
+    let res = tokio::task::spawn_blocking({
+        let state = state.clone();
+        move || db::find_endpoint_by_str_and_method(&state.core, &state.queries, &params.endpoint_str, &method)
+    })
+    .await;
+
+    match res {
+        Ok(Ok(Some(ep))) => (StatusCode::OK, Json(json!({ "ok": true, "endpoint": ep }))),
+        Ok(Ok(None)) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "error": "no endpoint found for that (endpoint_str, method) pair" })),
+        ),
+        Ok(Err(e)) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": format!("{e:?}") })),
+        ),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": e.to_string() })),
+        ),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateAnnotationRequest {
+    pub annotation: String,
+}
+
+/// POST /endpoints/{endpoint_id}/annotation — sets/replaces an endpoint's
+/// annotation after creation. Annotation was previously create-time-only:
+/// this is the first route to touch it afterward (db::update_annotation
+/// already existed, unused, since before this route was added).
+pub async fn update_endpoint_annotation(
+    State(state): State<AppState>,
+    Path(endpoint_id): Path<String>,
+    Json(payload): Json<UpdateAnnotationRequest>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let rows = match db::update_annotation(&state.core, &state.queries, &endpoint_id, &payload.annotation) {
+        Ok(rows) => rows,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "ok": false, "error": format!("{e:?}") })),
+            )
+        }
+    };
+
+    if rows == 0 {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "error": format!("Endpoint '{endpoint_id}' does not exist") })),
+        );
+    }
+
+    state.refresh_dashboard_snapshot();
+    state
+        .emit(ServerEvent::EndpointAnnotationUpdated {
+            endpoint_id: endpoint_id.clone(),
+        })
+        .await;
+
+    (StatusCode::OK, Json(json!({ "ok": true })))
 }

@@ -49,7 +49,13 @@ COPY --from=webserver-builder /webserver/target/release/rust-webserver .
 # edms-child — placed where ipc.rs looks for it
 COPY --from=compute-builder /compute/target/release/edms-child ./target/release/edms-child
 
-RUN cp webserver/src/config.yml ./src/config.yml 2>/dev/null || true
+# Was `cp webserver/src/config.yml ./src/config.yml || true` — that file
+# never existed (the real one is webserver/config.yaml, no src/), so this
+# silently no-op'd on every build and the app always ran on
+# AppConfig::default() in Docker, never the real config. EDMS_CONFIG_PATH
+# defaults to "config.yaml" relative to CWD (/app here), so this is where
+# it actually needs to land.
+COPY webserver/config.yaml ./config.yaml
 
 RUN mkdir -p edms_root/endpoints/reports \
              edms_root/exports \

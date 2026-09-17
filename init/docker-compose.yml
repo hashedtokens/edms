@@ -3,19 +3,28 @@ services:
     build:
       context: ../backend
       dockerfile: webserver/Dockerfile
-    container_name: webserver
+    # Branded image/container name per Ravi (2026-09-14). The service key
+    # ("webserver") stays as-is on purpose — that's what Docker's internal
+    # DNS resolves, and nginx.conf / seed.mjs both reference it by that
+    # name; container_name is just an alias on top, doesn't change that.
+    image: hashedtokens-edms-backend:v1.0
+    container_name: hashedtokens-edms-backend
     ports:
       - "3000:3000"
     volumes:
       - ../backend/webserver/data:/app/data
       - webserver-data:/app/edms_data
-      - edms-root:/app/edms_root
+      # Where EDMS stores all its data on YOUR machine — plain YAML, no
+      # .env file (Ravi, 2026-09-15). Defaults to a folder next to this
+      # repo (../../edms-data), auto-created by Docker on first run — no
+      # manual mkdir needed — and directly visible on your PC, not hidden
+      # in a Docker volume. Want it somewhere else? Just edit the
+      # left-hand side below; whatever you set it to gets auto-created
+      # the same way.
+      - ../../edms-data:/app/edms_root
     environment:
       - RUST_LOG=info
       - EDMS_DB_PATH=/app/data/edms.db
-      # Pin the storage root to where the edms-root volume is mounted —
-      # without this the app resolves it to /edms_root at runtime and the
-      # volume below persists nothing (issue #31).
       - EDMS_ROOT=/app/edms_root
     networks:
       - hashedtokens-edms
@@ -24,7 +33,8 @@ services:
     build:
       context: ../frontend
       dockerfile: Dockerfile
-    container_name: edms-frontend
+    image: hashedtokens-edms-frontend:v1.0
+    container_name: hashedtokens-edms-frontend
     ports:
       - "3911:80"  # per the folder-schema doc — open localhost:3911 for the UI
     depends_on:
@@ -57,4 +67,3 @@ networks:
 
 volumes:
   webserver-data:
-  edms-root:

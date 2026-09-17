@@ -41,6 +41,11 @@ pub enum ServerEvent {
     },
 
     ViewTagsUpdated { view: String },
+
+    QpDeleted { endpoint_id: String, request_number: i32 },
+
+    EndpointAnnotationUpdated { endpoint_id: String },
+
     ViewRefresh { view_type: String, count: usize },
 }
 

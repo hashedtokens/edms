@@ -75,6 +75,8 @@ The only way endpoint definitions currently enter the system — Import (below) 
 |---|---|---|---|
 | POST | `/endpoints/create` | `{"endpoint_id","endpoint_str","annotation"?,"method"?}` | `method` optional — one of `GET/POST/PUT/PATCH/DELETE` if given; an endpoint created without one shows as unclassified in the CRUD Operations dashboard breakdown. Rejects a duplicate `endpoint_id` cleanly (400, not a 500) |
 | POST | `/endpoints/:endpoint_id/delete` | — | Does **not** cascade — orphaned bookmarks, collection memberships, and history/request/response data can be left behind (see Known limitations) |
+| POST | `/endpoints/:endpoint_id/annotation` | `{"annotation"}` | Sets/replaces the endpoint's annotation after creation (previously create-time-only). 404 if the endpoint doesn't exist. Broadcasts `EndpointAnnotationUpdated` on the shared WS channel (same one `/test-view/run` uses) so open List/Test Views know to re-fetch |
+| GET | `/endpoints/lookup?endpoint_str=&method=` | — | Looks up an endpoint by its exact `(endpoint_str, method)` pair — lets a caller check "does this already exist" before deciding whether to pass an existing `endpoint_id` vs. let a fresh one get allocated. 404 if none exists |
 
 ---
 
@@ -94,6 +96,8 @@ The only way endpoint definitions currently enter the system — Import (below) 
 | GET | `/test-view/:endpoint_id/request/:request_number` | REST | Fetch a saved request body |
 | GET | `/test-view/:endpoint_id/response/:request_number` | REST | Fetch a saved response body |
 | GET | `/test-view/:endpoint_id/headers/:request_number` | REST | Fetch saved headers — body is `{"request_headers":{...},"response_headers":{...}}` |
+| GET | `/test-view/:endpoint_id/qps` | REST | Lists every QP pair (test run) saved for this endpoint, oldest first: `{"ok":true,"qps":[{"request_number","method","timestamp","status_code","response_time_ms"}]}`. `status_code`/`response_time_ms` are `null` if the response hasn't landed yet |
+| POST | `/test-view/:endpoint_id/qps/:request_number/delete` | REST | Deletes one QP pair — its `request_metadata`/`response_metadata` rows and the three saved JSON files (request/response/headers). 404 if it doesn't exist. Broadcasts `QpDeleted` on the shared WS channel (same one `/test-view/run` uses) so open views know to re-fetch the list above |
 | POST | `/test-view/history/clearall` | REST | Wipes all history |
 | POST | `/test-view/bookmark/clearall` | REST | Wipes the `active` bookmark set |
 
@@ -107,7 +111,7 @@ The only way endpoint definitions currently enter the system — Import (below) 
 | POST | `/bookmarks/active/:endpoint_id/save` | REST | Persists a bookmarked endpoint's membership (EID + timestamp only) into the loaded collection. 400 if nothing's loaded, or if `:endpoint_id` isn't currently bookmarked in `active` |
 | POST | `/bookmarks/active/:endpoint_id/unsave` | REST | Drops that endpoint's membership from the loaded collection — **stays bookmarked/visible in `active`** afterward, only the collection membership is removed. 400 if nothing's loaded |
 
-`GET /test-view/bookmarks/load`'s snapshot now also carries `"active_collection": <name or null>` and, per bookmark entry, `"in_collection": true/false` (computed by cross-referencing the loaded collection's membership set — never stored redundantly).
+`GET /test-view/bookmarks/load`'s snapshot now also carries `"active_collection": <name or null>` and, per bookmark entry, `"in_collection": true/false` (computed by cross-referencing the loaded collection's membership set — never stored redundantly) and `"updated": <timestamp or null>` (when that endpoint was bookmarked into the active workspace — previously always null; the timestamp existed in the `bookmarks` table but was never selected).
 
 ---
 
@@ -117,13 +121,16 @@ Each collection is its own real file (`storage/collections/{name}.sqlite`), hold
 
 | Method | Path | Body | Notes |
 |---|---|---|---|
-| POST | `/collections/create` | `{"name"}` | Creates the catalog row + the real file, empty |
-| GET | `/collections/list` | — | All collections |
-| GET | `/collections/:name` | — | One collection's catalog row; 404 if missing |
+| POST | `/collections/create` | `{"name","annotation"?}` | Creates the catalog row + the real file, empty. `annotation` is optional |
+| GET | `/collections/list` | — | All collections, each with `annotation` (`null` if unset) and `endpoint_count` (`null` if the collection has no file yet) |
+| GET | `/collections/:name` | — | One collection's catalog row, including `annotation` and `endpoint_count`; 404 if missing |
 | POST | `/collections/:name/rename` | `{"new_name"}` | Renames the catalog entry + moves the file; rejects a name collision cleanly, no data loss |
+| POST | `/collections/:name/annotation` | `{"annotation"}` | Sets/replaces the collection's annotation. 404 if the collection doesn't exist |
 | POST | `/collections/:name/delete` | — | Removes the catalog row + deletes the file |
 | POST | `/collections/:name/endpoints/remove` | `{"endpoint_id"}` | Direct removal stays available — removal doesn't carry the same "must be deliberately curated via testing" risk as addition |
 | GET | `/collections/:name/endpoints` | — | Lists members with `added_at` |
+| POST | `/collections/:name/tags/import` | `{"tags":[...],"export_existing_tags"?}` | The "Add to Collection" move flow — finds every endpoint carrying any of the given tags (read-only against the central tags table), adds them as members of this collection, and — if `export_existing_tags` is true — copies each one's current tags into this collection's own per-endpoint tag record (capped at 25 tags/endpoint; excess is silently skipped and counted in `tags_skipped_cap`). Central tags table is never modified. Returns `{"endpoints_matched","endpoints_added","tags_exported","tags_skipped_cap"}` |
+| GET | `/collections/:name/tags/endpoints` | — | Lists every `(endpoint_id, tag)` pair this collection carries from the import route above — distinct from the central tags table and from the collection-wide tag rollups below |
 
 **Tag rollups** (global count per tag, not per-collection membership):
 
@@ -237,7 +244,7 @@ Same catalog pattern as Collections (register a name, list, per-view tag rollups
 - Bookmark actions don't validate that an endpoint exists before bookmarking it (Collections does).
 - No size limits enforced anywhere (Collections count, endpoints-per-list, History/Bookmarks caps).
 - Deleting an endpoint doesn't cascade — orphaned bookmarks, collection memberships, and history/request/response data can be left behind.
-- No query-param (QP) concept anywhere — an endpoint's URL is stored as one opaque string. No endpoint to add/count/select individual QPs yet; this is still being designed (see Ravi's 2026-09-07 email).
+- A QP (request/response pair — see Test View above) is generated automatically by every test run, not created/edited by hand. There's no route to edit a QP's saved request/response in place, only to list and delete.
 - Import (`/repo/:collection/:filename/import`) only extracts a zip to disk — it does not create/update endpoint, bookmark, or collection-membership DB rows from the imported files.
 - Webview/Repoview have no independent per-instance SQLite file yet (unlike Collections) and no endpoint-membership routes at all.
 - The session backup used by `/bookmarks/:collection/load` (`__session_backup__`) is a **single rolling slot, not per-collection**, by design (confirmed, 2026-09-08): load A, leave bookmarks unsaved, load B, load A again — A's unsaved bookmarks are gone, overwritten when B loaded. Only the most recent switch is protected.
