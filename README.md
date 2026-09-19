@@ -1,10 +1,12 @@
 # Endpoint Data Management System (EDMS)
 _Standalone system for a team building microservices_
 
-## Core Idea
-During development stages `endpoints` may not change, but the associated QP pairs keep changing. The change is not just linked to the QP schemas which might be static or in rare cases well defined, but also related to the data bound to the keys contained in the QP. So, it leads to a problem we define as `EQP Chaos`. 
 
 ## Quick Start
+* EDMS runs locally as a standalone service
+* No installation or setup necessary.
+* Need to have some Container application like Docker, Podman, Singularity etc running
+  
 ```bash
 git clone https://github.com/hashedtokens/edms
 git checkout -b tmp origin/tmp
