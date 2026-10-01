@@ -9,7 +9,7 @@ _Standalone system for a team building microservices_
   
 ```bash
 git clone https://github.com/hashedtokens/edms
-git checkout -b tmp origin/tmp
+git checkout -b latest origin/latest
 cd init 
 docker compose build
 docker compose up
