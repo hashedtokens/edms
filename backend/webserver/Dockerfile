@@ -46,6 +46,8 @@ WORKDIR /app
 # Webserver binary
 COPY --from=webserver-builder /webserver/target/release/rust-webserver .
 
+COPY --from=compute-builder /compute/target/release/synthetic-data ./synthetic-data
+
 # edms-child — placed where ipc.rs looks for it
 COPY --from=compute-builder /compute/target/release/edms-child ./target/release/edms-child
 

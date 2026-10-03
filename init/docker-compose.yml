@@ -13,7 +13,6 @@ services:
       - "3000:3000"
     volumes:
       - ../backend/webserver/data:/app/data
-      - webserver-data:/app/edms_data
       # Where EDMS stores all its data on YOUR machine — plain YAML, no
       # .env file (Ravi, 2026-09-15). Defaults to a folder next to this
       # repo (../../edms-data), auto-created by Docker on first run — no
@@ -26,6 +25,9 @@ services:
       - RUST_LOG=info
       - EDMS_DB_PATH=/app/data/edms.db
       - EDMS_ROOT=/app/edms_root
+    depends_on:
+      seed:
+        condition: service_completed_successfully
     networks:
       - hashedtokens-edms
 
@@ -42,28 +44,21 @@ services:
     networks:
       - hashedtokens-edms
 
-  # First-boot demo data. Runs once on `docker compose up`, then exits
-  # (you'll see it as "Exited (0)" in `docker compose ps` — that's
-  # expected). It's idempotent: if the backend already has endpoints it
-  # does nothing. Talks only to the API, so it never touches the DB or
-  # storage layout directly.
+  # Automatic offline initialization completes before the webserver starts.
+  # Existing storage or a database is skipped without modification.
   seed:
-    image: node:22-alpine
-    depends_on:
-      - webserver
-    environment:
-      - EDMS_BASE=http://webserver:3000
+    build:
+      context: ../backend
+      dockerfile: webserver/Dockerfile
+    image: hashedtokens-edms-backend:v1.0
     volumes:
-      - ./seed.mjs:/seed.mjs:ro
-    command: node /seed.mjs
+      - ../backend/webserver/data:/app/data
+      - ../../edms-data:/app/edms_root
+    command: ["./synthetic-data", "/app/edms_root", "/app/data/edms.db"]
+    network_mode: none
     restart: "no"
-    networks:
-      - hashedtokens-edms
 
 networks:
   hashedtokens-edms:
     name: hashedtokens-edms
     driver: bridge
-
-volumes:
-  webserver-data:

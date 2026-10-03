@@ -34,11 +34,32 @@ First run takes a few minutes (Rust release build). Once it's up:
 - **App:** http://localhost:3911
 - **Backend API:** http://localhost:3000 (see `backend/webserver/API_REFERENCE.md`)
 
-A one-shot `seed` container runs automatically the first time and
-populates ~25 real, tested endpoints with history, collections, and tags,
-so the app isn't empty on first look. It needs outbound internet (it
-tests against a public API) and only runs once — safe to leave in place
-on every `docker compose up`.
+## Sample data
+
+Adds 25 sample endpoints with 50 request/response pairs so EDMS has data
+to explore on first startup.
+
+Seeding runs automatically before the webserver starts, works offline, and
+skips existing data. The existing storage path and automatic folder creation
+stay the same.
+
+Includes sample collections, views, and import/export files.
+
+All 3 tests and Compose validation passed. I couldn't run the full Docker
+stack because the daemon wasn't available.
+
+If you choose a different storage location, update the host path in both
+services' mounts. A seed container that exits with status 0 is expected.
+The older network-based `seed.mjs` remains available for manual use.
+
+With Rust installed, you can also create an empty local folder and run:
+
+```bash
+cargo run --manifest-path backend/compute/Cargo.toml --bin synthetic-data -- /absolute/path/to/empty-data
+cargo test --manifest-path backend/compute/Cargo.toml --bin synthetic-data
+```
+
+For Docker, use the seed container so database paths point to `/app/edms_root`.
 
 ## Resetting
 
