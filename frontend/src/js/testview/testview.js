@@ -9,9 +9,11 @@ let filteredTestEndpoints = [];
 
 let selectedTestEndpoint = null;
 let selectedTestQP = null;
-
+let historyPage = 1;
+const HISTORY_PAGE_SIZE = 5;
+let lastFilterSignature = "";
 let selectedQPIds = new Set();
-
+let selectedHistoryIds = new Set();
 let activeSidebarTab = "endpoints";
 let activeTestMethod = "ALL";
 let activeTimeFilter = "all";
@@ -160,7 +162,7 @@ async function initTestView() {
     setupAddressMode();
     setupQPMenu();
     setupHistoryContextMenu();
-
+    setupHistoryMenu();
     updateMethodButtons();
     updateSidebarTabButtons();
     applyTestFilters();
@@ -605,28 +607,7 @@ async function loadEndpointTagsFromBackend() {
                 }
 
                 try {
-
-                    const [tags, qps] = await Promise.all([
-                        fetchEndpointTags(endpoint.id),
-                        fetchEndpointQPs(endpoint.id)
-                    ]);
-
-                    endpoint.tags = tags;
-
-                    if (qps.length > 0) {
-                        const localQPs = Array.isArray(endpoint.qps) ? endpoint.qps : [];
-                        endpoint.qps = qps.map(backendQp => {
-                            const localQp = localQPs.find(q => String(q.id) === String(backendQp.id));
-                            return {
-                                ...backendQp,
-                                request: localQp?.request || {},
-                                response: localQp?.response || {}
-                            };
-                        });
-                    } else if (!Array.isArray(endpoint.qps)) {
-                        endpoint.qps = [];
-                    }
-
+                    await loadTagsAndQPsInto(endpoint);
                 } catch (error) {
 
                     console.warn(
@@ -643,7 +624,7 @@ async function loadEndpointTagsFromBackend() {
                         endpoint.tags = [];
 
                     }
-                    
+
                     if (
                         !Array.isArray(
                             endpoint.qps
@@ -726,7 +707,7 @@ function loadEndpointsFromBackend() {
 
                         if (
                             message.type ===
-                                "snapshot" &&
+                            "snapshot" &&
                             Array.isArray(
                                 message.endpoints
                             )
@@ -758,7 +739,7 @@ function loadEndpointsFromBackend() {
                                 evtType === "CollectionLoaded" ||
                                 evtType === "ViewRefresh"
                             ) {
-                                try { ws.close(); } catch {}
+                                try { ws.close(); } catch { }
                                 setTimeout(() => loadEndpointsFromBackend().then(() => applyTestFilters()), 0);
                                 return;
                             }
@@ -815,75 +796,42 @@ function loadEndpointsFromBackend() {
 // ============================================================
 // NORMALIZE ENDPOINT
 // ============================================================
-
 function normalizeBackendEndpoint(endpoint) {
 
-    const id =
-        endpoint.id ??
-        endpoint.endpoint_id;
+    const id = endpoint.id ?? endpoint.endpoint_id;
 
-    const fullURL =
+    const fullURL = String(
         endpoint.endpoint_str ??
         endpoint.endpoint ??
         endpoint.url ??
-        "";
+        ""
+    ).trim().replace(/^["']+|["']+$/g, "");   // NEW: strip wrapping quotes
+    const split = splitAddress(fullURL);
 
-    let parsedURL = null;
+    const base =
+        endpoint.baseUrl ||
+        endpoint.base_url ||
+        split.prefix;
 
-    try {
-
-        parsedURL =
-            new URL(fullURL);
-
-    } catch {
-        // Keep original URL.
+    // Never let the path contain the base
+    let path = fullURL;
+    if (base && fullURL.startsWith(base)) {
+        path = fullURL.slice(base.length);
+    } else {
+        path = split.path || fullURL;
     }
 
     return {
-
         ...endpoint,
-
         id,
-
-        method:
-            String(
-                endpoint.method ||
-                "GET"
-            ).toUpperCase(),
-
-        endpoint:
-            parsedURL
-                ? parsedURL.pathname +
-                  parsedURL.search
-                : fullURL,
-
-        baseUrl:
-            endpoint.baseUrl ||
-            endpoint.base_url ||
-            (
-                parsedURL
-                    ? parsedURL.origin
-                    : ""
-            ),
-
-        endpoint_str:
-            endpoint.endpoint_str ||
-            fullURL,
-
-        qps:
-            Array.isArray(endpoint.qps)
-                ? endpoint.qps
-                : [],
-
-        tags:
-            Array.isArray(endpoint.tags)
-                ? endpoint.tags
-                : []
-
+        method: String(endpoint.method || "GET").toUpperCase(),
+        endpoint: path,
+        baseUrl: base,
+        endpoint_str: endpoint.endpoint_str || fullURL,
+        qps: Array.isArray(endpoint.qps) ? endpoint.qps : [],
+        tags: Array.isArray(endpoint.tags) ? endpoint.tags : []
     };
-
 }
-
 // ============================================================
 // BACKEND BOOKMARK SNAPSHOT
 // ============================================================
@@ -937,7 +885,7 @@ function loadBookmarksFromBackend() {
 
                         if (
                             message.type ===
-                                "snapshot" &&
+                            "snapshot" &&
                             Array.isArray(
                                 message.bookmarks
                             )
@@ -965,7 +913,7 @@ function loadBookmarksFromBackend() {
 
                             if (evtType === "ViewRefresh") {
                                 // Always reload on a view refresh.
-                                try { ws.close(); } catch {}
+                                try { ws.close(); } catch { }
                                 setTimeout(() => loadBookmarksFromBackend().then(() => applyTestFilters()), 0);
                                 return;
                             }
@@ -975,7 +923,7 @@ function loadBookmarksFromBackend() {
                                 evtCollection === collectionForThisLoad
                             ) {
                                 // Only reload if the update is for *our* collection.
-                                try { ws.close(); } catch {}
+                                try { ws.close(); } catch { }
                                 setTimeout(() => loadBookmarksFromBackend().then(() => applyTestFilters()), 0);
                                 return;
                             }
@@ -1069,7 +1017,7 @@ function loadHistoryFromBackend() {
 
                         if (
                             message.type ===
-                                "snapshot" &&
+                            "snapshot" &&
                             Array.isArray(
                                 message.history
                             )
@@ -1113,7 +1061,7 @@ function loadHistoryFromBackend() {
                                 evtType === "HistoryUpdated" ||
                                 evtType === "ViewRefresh"
                             ) {
-                                try { ws.close(); } catch {}
+                                try { ws.close(); } catch { }
                                 setTimeout(() => loadHistoryFromBackend().then(() => applyTestFilters()), 0);
                                 return;
                             }
@@ -1351,7 +1299,7 @@ function restoreLocalQPs() {
 
             const savedQPs =
                 qpStore[
-                    String(endpoint.id)
+                String(endpoint.id)
                 ];
 
             if (
@@ -1564,7 +1512,39 @@ function renderTestEndpoints() {
 
     }
 
-    filteredTestEndpoints.forEach(
+    // Go back to page 1 when the tab or a filter changes
+    const signature = [
+        activeSidebarTab,
+        activeTestMethod,
+        activeTimeFilter,
+        testSearchInput?.value,
+        urlFilter?.value
+    ].join("|");
+
+    if (signature !== lastFilterSignature) {
+        historyPage = 1;
+        lastFilterSignature = signature;
+    }
+
+    const paginate = true;
+    let visibleItems = filteredTestEndpoints;
+    let totalPages = 1;
+
+    if (paginate) {
+        totalPages = Math.max(
+            1,
+            Math.ceil(filteredTestEndpoints.length / HISTORY_PAGE_SIZE)
+        );
+        historyPage = Math.min(Math.max(historyPage, 1), totalPages);
+
+        const start = (historyPage - 1) * HISTORY_PAGE_SIZE;
+        visibleItems = filteredTestEndpoints.slice(
+            start,
+            start + HISTORY_PAGE_SIZE
+        );
+    }
+
+    visibleItems.forEach(
         item => {
 
             testEndpointList.appendChild(
@@ -1574,7 +1554,55 @@ function renderTestEndpoints() {
         }
     );
 
+    if (paginate && totalPages > 1) {
+        testEndpointList.appendChild(
+            createHistoryPager(totalPages)
+        );
+    }
+
     updateSelectedEndpointHighlight();
+
+}
+function createHistoryPager(totalPages) {
+
+    const bar = document.createElement("div");
+
+    bar.className =
+        "sticky bottom-0 flex items-center justify-between gap-2 " +
+        "border-t border-slate-800 bg-slate-950 px-3 py-2 " +
+        "text-xs text-slate-400";
+
+    bar.innerHTML = `
+        <button type="button" data-page="prev"
+            class="rounded-md border border-slate-700 px-3 py-1 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed">
+            Prev
+        </button>
+        <span>Page ${historyPage} of ${totalPages}</span>
+        <button type="button" data-page="next"
+            class="rounded-md border border-slate-700 px-3 py-1 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed">
+            Next
+        </button>
+    `;
+
+    const prev = bar.querySelector('[data-page="prev"]');
+    const next = bar.querySelector('[data-page="next"]');
+
+    prev.disabled = historyPage <= 1;
+    next.disabled = historyPage >= totalPages;
+
+    prev.addEventListener("click", () => {
+        historyPage--;
+        renderTestEndpoints();
+        testEndpointList.scrollTop = 0;
+    });
+
+    next.addEventListener("click", () => {
+        historyPage++;
+        renderTestEndpoints();
+        testEndpointList.scrollTop = 0;
+    });
+
+    return bar;
 
 }
 
@@ -1591,6 +1619,9 @@ function createTestEndpointCard(item) {
         item.endpointRef ||
         item.source ||
         item;
+
+    const isHistory =
+        item.type === "history";
 
     card.className = `
         endpoint-card
@@ -1620,30 +1651,109 @@ function createTestEndpointCard(item) {
 
         <div class="flex items-center justify-between">
 
-            <span
-                class="px-2 py-1 rounded-md text-[11px]
-                       font-semibold border
-                       ${getMethodColor(
-                           item.method ||
-                           endpoint.method
-                       )}">
-                ${escapeHTML(
-                    item.method ||
-                    endpoint.method ||
-                    ""
-                )}
-            </span>
+            <div class="flex items-center gap-2">
 
-            <span
-                class="text-[11px]
-                       text-slate-500
-                       group-hover:text-slate-300">
-                ${escapeHTML(
-                    formatEndpointDate(
-                        item.updated
-                    )
-                )}
-            </span>
+                ${isHistory
+            ? `
+                            <input
+                                type="checkbox"
+                                class="
+                                    history-checkbox
+                                    hidden
+                                    group-hover:block
+                                    h-3.5
+                                    w-3.5
+                                    accent-cyan-500
+                                    cursor-pointer
+                                "
+                                data-history-id="${escapeHTML(
+                String(
+                    item.id ??
+                    endpoint.id
+                )
+            )}"
+                            />
+                        `
+            : ""
+        }
+
+                <span
+                    class="px-2 py-1 rounded-md text-[11px]
+                           font-semibold border
+                           ${getMethodColor(
+            item.method ||
+            endpoint.method
+        )}">
+                    ${escapeHTML(
+            item.method ||
+            endpoint.method ||
+            ""
+        )}
+                </span>
+
+            </div>
+
+            <div class="flex items-center gap-2">
+
+                <span
+                    class="text-[11px]
+                           text-slate-500
+                           group-hover:text-slate-300">
+                    ${escapeHTML(
+            formatEndpointDate(
+                item.updated
+            )
+        )}
+                </span>
+
+                ${isHistory
+            ? `
+                            <button
+    type="button"
+    class="
+        history-delete
+        hidden
+        group-hover:flex
+        items-center
+        justify-center
+        w-7
+        h-7
+        rounded-md
+        text-slate-400
+        hover:text-red-400
+        hover:bg-red-500/10
+        transition
+    "
+    data-history-id="${escapeHTML(
+                String(
+                    item.id ??
+                    endpoint.id
+                )
+            )}"
+    title="Delete history"
+>
+    <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="w-4 h-4"
+    >
+        <path d="M3 6h18"></path>
+        <path d="M8 6V4h8v2"></path>
+        <path d="M19 6l-1 14H6L5 6"></path>
+        <path d="M10 11v5"></path>
+        <path d="M14 11v5"></path>
+    </svg>
+</button>
+                        `
+            : ""
+        }
+
+            </div>
 
         </div>
 
@@ -1652,30 +1762,145 @@ function createTestEndpointCard(item) {
                    text-slate-200 truncate
                    group-hover:text-white">
             ${escapeHTML(
-                item.endpoint ||
-                endpoint.endpoint ||
-                ""
-            )}
+            item.endpoint ||
+            endpoint.endpoint ||
+            ""
+        )}
         </p>
 
-        <div
-            class="mt-2 flex items-center
-                   justify-between text-[11px]
-                   text-slate-500">
+        ${isHistory
+            ? ""
+            : `
+                    <div
+                        class="mt-2 flex items-center
+                               justify-between text-[11px]
+                               text-slate-500">
 
-            <span>
-                ${escapeHTML(
-                    getItemBadge(item)
-                )}
-            </span>
+                        <span>
+                            ${escapeHTML(
+                getItemBadge(item)
+            )}
+                        </span>
 
-            <span>
-                ${getQPCountLabel(endpoint)}
-            </span>
+                        <span>
+                            ${getQPCountLabel(endpoint)}
+                        </span>
 
-        </div>
+                    </div>
+                `
+        }
     `;
+    if (isHistory) {
 
+        const checkbox =
+            card.querySelector(
+                ".history-checkbox"
+            );
+
+        if (checkbox) {
+
+            checkbox.addEventListener(
+                "click",
+                event => {
+
+                    event.stopPropagation();
+
+                }
+            );
+
+            checkbox.addEventListener(
+                "change",
+                () => {
+
+                    const historyId =
+                        String(
+                            item.id ??
+                            endpoint.id
+                        );
+
+                    if (
+                        checkbox.checked
+                    ) {
+
+                        selectedHistoryIds.add(
+                            historyId
+                        );
+
+                        card.classList.add(
+                            "ring-2",
+                            "ring-cyan-400"
+                        );
+
+                    } else {
+
+                        selectedHistoryIds.delete(
+                            historyId
+                        );
+
+                        card.classList.remove(
+                            "ring-2",
+                            "ring-cyan-400"
+                        );
+
+                    }
+
+                }
+            );
+
+        }
+
+    }
+    if (isHistory) {
+
+        const deleteButton =
+            card.querySelector(
+                ".history-delete"
+            );
+
+        if (deleteButton) {
+
+            deleteButton.addEventListener(
+                "click",
+                async event => {
+
+                    event.stopPropagation();
+
+                    const historyId =
+                        String(
+                            item.id ??
+                            endpoint.id
+                        );
+
+                    try {
+
+                        await deleteHistoryItem(
+                            historyId
+                        );
+
+                        await loadHistoryFromBackend();
+
+                        applyTestFilters();
+
+                    } catch (error) {
+
+                        console.error(
+                            "Failed to delete history:",
+                            error
+                        );
+
+                        window.alert(
+                            error?.message ||
+                            "Could not delete history."
+                        );
+
+                    }
+
+                }
+            );
+
+        }
+
+    }
     card.addEventListener(
         "click",
         () => {
@@ -1688,10 +1913,7 @@ function createTestEndpointCard(item) {
         }
     );
 
-    if (
-        item.type ===
-        "history"
-    ) {
+    if (isHistory) {
 
         card.addEventListener(
             "contextmenu",
@@ -1710,7 +1932,158 @@ function createTestEndpointCard(item) {
     return card;
 
 }
+async function deleteHistoryItem(historyId) {
 
+    if (!historyId) {
+        return;
+    }
+
+    const response =
+        await fetch(
+            `${API_BASE}/test-view/history/${encodeURIComponent(historyId)}/delete`,
+            { method: "POST" }
+        );
+
+    if (!response.ok) {
+
+        throw new Error(
+            `History delete failed: ${response.status}`
+        );
+
+    }
+
+    selectedHistoryIds.delete(
+        String(historyId)
+    );
+
+}
+// ============================================================
+// HISTORY MENU ACTION
+// ============================================================
+
+function handleHistoryMenuAction(action) {
+    switch (action) {
+        case "select-all":
+            doSelectAllHistory();
+            break;
+
+        case "invert-selection":
+            doInvertSelectionHistory();
+            break;
+
+        case "clear-selection":
+            doClearSelectionHistory();
+            break;
+
+        case "delete-selected":
+            doDeleteSelectedHistory();
+            break;
+    }
+}
+function doSelectAllHistory() {
+
+    selectedHistoryIds = new Set(
+        historyRecords.map(
+            history => String(history.id)
+        )
+    );
+
+    document
+        .querySelectorAll(".history-checkbox")
+        .forEach(checkbox => {
+
+            checkbox.checked = true;
+
+            const card =
+                checkbox.closest(".endpoint-card");
+
+            if (card) {
+                card.classList.add(
+                    "ring-2",
+                    "ring-cyan-400"
+                );
+            }
+
+        });
+
+}
+function doClearSelectionHistory() {
+
+    selectedHistoryIds = new Set();
+
+    document
+        .querySelectorAll(".history-checkbox")
+        .forEach(checkbox => {
+
+            checkbox.checked = false;
+
+            const card =
+                checkbox.closest(".endpoint-card");
+
+            if (card) {
+                card.classList.remove(
+                    "ring-2",
+                    "ring-cyan-400"
+                );
+            }
+
+        });
+
+}
+// ============================================================
+// DELETE SELECTED HISTORY
+// ============================================================
+
+async function doDeleteSelectedHistory() {
+
+    if (
+        selectedHistoryIds.size === 0
+    ) {
+
+        console.warn(
+            "No history items selected."
+        );
+
+        return;
+    }
+
+    const deletePromises = [];
+
+    for (const historyId of selectedHistoryIds) {
+
+        deletePromises.push(
+            deleteHistoryItem(
+                historyId
+            ).catch(error => {
+
+                console.error(
+                    `Error deleting history ${historyId}:`,
+                    error
+                );
+
+            })
+        );
+
+    }
+
+    if (
+        deletePromises.length > 0
+    ) {
+
+        await Promise.all(
+            deletePromises
+        );
+
+    }
+
+    selectedHistoryIds =
+        new Set();
+
+    await loadHistoryFromBackend();
+
+    applyTestFilters();
+
+}
 // ============================================================
 // HISTORY CONTEXT MENU
 // ============================================================
@@ -2160,8 +2533,8 @@ async function clearAllHistory() {
 function getMethodColor(method) {
 
     switch (
-        String(method || "")
-            .toUpperCase()
+    String(method || "")
+        .toUpperCase()
     ) {
 
         case "GET":
@@ -2213,10 +2586,7 @@ function getItemBadge(item) {
         return "Bookmarked";
 
     }
-
-    return item.saved
-        ? "Added - Bookmarked"
-        : "Added";
+    return "";
 
 }
 
@@ -2357,69 +2727,41 @@ function selectTestEndpoint(
 
 async function refreshSelectedEndpointTags() {
 
-    if (
-        !selectedTestEndpoint ||
-        selectedTestEndpoint.id === undefined ||
-        selectedTestEndpoint.id === null
-    ) {
+    const endpoint = selectedTestEndpoint;
 
+    if (!endpoint || endpoint.id === undefined || endpoint.id === null) {
         renderSelectedEndpointTags();
-
         return;
-
     }
+    const idsOf = e => getPersistedQPs(e).map(q => String(q.id)).join(",");
+    const idsBefore = (endpoint.qps || []).map(q => String(q.id)).join(",");
 
     try {
+        await loadTagsAndQPsInto(endpoint);
 
-        const [tags, qps] = await Promise.all([
-            fetchEndpointTags(selectedTestEndpoint.id),
-            fetchEndpointQPs(selectedTestEndpoint.id)
-        ]);
-
-        selectedTestEndpoint.tags = tags;
-        
-        if (qps.length > 0) {
-            const localQPs = Array.isArray(selectedTestEndpoint.qps) ? selectedTestEndpoint.qps : [];
-            selectedTestEndpoint.qps = qps.map(backendQp => {
-                const localQp = localQPs.find(q => String(q.id) === String(backendQp.id));
-                return {
-                    ...backendQp,
-                    request: localQp?.request || {},
-                    response: localQp?.response || {}
-                };
-            });
-        } else if (!Array.isArray(selectedTestEndpoint.qps)) {
-            selectedTestEndpoint.qps = [];
+        // Keep the master list in sync if it holds a different object
+        const listed = findEndpoint(endpoint.id);
+        if (listed && listed !== endpoint) {
+            listed.tags = endpoint.tags;
+            listed.qps = endpoint.qps;
         }
-
-        const endpoint =
-            findEndpoint(
-                selectedTestEndpoint.id
-            );
-
-        if (endpoint) {
-
-            endpoint.tags =
-                selectedTestEndpoint.tags;
-                
-            endpoint.qps =
-                selectedTestEndpoint.qps;
-
-        }
-
     } catch (error) {
-
-        console.warn(
-            "Could not refresh endpoint tags or QPs:",
-            error
-        );
-
+        console.warn("Could not refresh endpoint tags or QPs:", error);
     }
+
+    // The user may have selected another endpoint while we were waiting
+    if (selectedTestEndpoint !== endpoint) return;
 
     renderSelectedEndpointTags();
 
-}
+    // If the QP list changed (e.g. the backend now returns real QPs),
+    // redraw the QP buttons so the new ones show up
+    const idsAfter = idsOf(endpoint);
+    if (idsBefore !== idsAfter) {
+        renderTestQP(endpoint, selectedTestQP?.id);
+    }
 
+}
 // ============================================================
 // SELECTED ENDPOINT HIGHLIGHT
 // ============================================================
@@ -2443,7 +2785,7 @@ function updateSelectedEndpointHighlight() {
                     selectedId !== undefined &&
                     selectedId !== null &&
                     String(cardEndpointId) ===
-                        String(selectedId);
+                    String(selectedId);
 
                 card.classList.toggle(
                     "bg-sky-500/10",
@@ -2744,7 +3086,7 @@ function setupQPMenu() {
                     event.target
                 ) &&
                 event.target !==
-                    qpMenuButton
+                qpMenuButton
             ) {
 
                 qpMenu.classList.add(
@@ -2757,112 +3099,181 @@ function setupQPMenu() {
     );
 
 }
+// ============================================================
+// HISTORY MENU
+// ============================================================
 
+function setupHistoryMenu() {
+
+    const historyMenuButton =
+        document.getElementById(
+            "historyMenuButton"
+        );
+
+    const historyMenu =
+        document.getElementById(
+            "historyMenu"
+        );
+
+    if (
+        !historyMenuButton ||
+        !historyMenu
+    ) {
+        return;
+    }
+
+    historyMenuButton.addEventListener(
+        "click",
+        event => {
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            historyMenu.classList.toggle(
+                "hidden"
+            );
+
+        }
+    );
+
+    historyMenu.addEventListener(
+        "click",
+        event => {
+
+            const button =
+                event.target.closest(
+                    "[data-history-action]"
+                );
+
+            if (!button) {
+                return;
+            }
+
+            handleHistoryMenuAction(
+                button.dataset.historyAction
+            );
+
+            historyMenu.classList.add(
+                "hidden"
+            );
+
+        }
+    );
+
+    document.addEventListener(
+        "click",
+        event => {
+
+            if (
+                !historyMenu.classList.contains(
+                    "hidden"
+                ) &&
+                !historyMenu.contains(
+                    event.target
+                ) &&
+                event.target !==
+                historyMenuButton
+            ) {
+
+                historyMenu.classList.add(
+                    "hidden"
+                );
+
+            }
+
+        }
+    );
+
+}
 // ============================================================
 // QP MENU ACTION
 // ============================================================
 
 function handleQPMenuAction(action) {
-
     switch (action) {
-
-        case "create":
-            doCreateQP();
-            break;
-
-        case "select-all":
-            doSelectAllQP();
-            break;
-
-        case "clear-selection":
-            doClearSelectionQP();
-            break;
-
-        case "delete-selected":
-            doDeleteSelectedQP();
-            break;
-
+        case "select-all": doSelectAllQP(); break;
+        case "invert-selection": doInvertSelectionQP(); break;
+        case "clear-selection": doClearSelectionQP(); break;
+        case "delete-selected": doDeleteSelectedQP(); break;
     }
-
 }
-
-// ============================================================
-// CREATE QP
-// ============================================================
-
-function doCreateQP() {
-
-    if (!selectedTestEndpoint) {
-
-        console.warn(
-            "Select an endpoint first."
-        );
-
-        return;
-    }
-
-    const name =
-        window.prompt(
-            "QP name:"
-        );
+function doInvertSelectionQP() {
 
     if (
-        !name ||
-        !name.trim()
-    ) return;
-
-    if (
+        !selectedTestEndpoint ||
         !Array.isArray(
             selectedTestEndpoint.qps
         )
     ) {
-
-        selectedTestEndpoint.qps =
-            [];
-
+        return;
     }
 
-    const nextId =
-        selectedTestEndpoint.qps.reduce(
-            (max, qp) =>
-                Math.max(
-                    max,
-                    Number(qp.id) || 0
-                ),
-            0
-        ) + 1;
+    testQPPanel
+        .querySelectorAll(
+            'input[type="checkbox"]'
+        )
+        .forEach(
+            checkbox => {
 
-    selectedTestEndpoint.qps.push({
+                checkbox.checked =
+                    !checkbox.checked;
 
-        id:
-            nextId,
+                checkbox.dispatchEvent(
+                    new Event("change")
+                );
 
-        name:
-            name.trim(),
-
-        request: {
-
-            headers: {},
-
-            body: {}
-
-        },
-
-        response: {}
-
-    });
-
-    saveLocalQPs();
-
-    renderTestQP(
-        selectedTestEndpoint,
-        nextId
-    );
-
-    applyTestFilters();
+            }
+        );
 
 }
+function doInvertSelectionHistory() {
 
+    if (activeSidebarTab !== "history") {
+        return;
+    }
+
+    document
+        .querySelectorAll(".history-checkbox")
+        .forEach(checkbox => {
+
+            checkbox.checked = !checkbox.checked;
+
+            const card =
+                checkbox.closest(".endpoint-card");
+
+            const historyId =
+                checkbox.dataset.historyId;
+
+            if (checkbox.checked) {
+
+                selectedHistoryIds.add(
+                    String(historyId)
+                );
+
+                if (card) {
+                    card.classList.add(
+                        "ring-2",
+                        "ring-cyan-400"
+                    );
+                }
+
+            } else {
+
+                selectedHistoryIds.delete(
+                    String(historyId)
+                );
+
+                if (card) {
+                    card.classList.remove(
+                        "ring-2",
+                        "ring-cyan-400"
+                    );
+                }
+
+            }
+
+        });
+}
 // ============================================================
 // SELECT ALL QP
 // ============================================================
@@ -3084,13 +3495,13 @@ async function selectTestQP(
 
             if (reqRes && reqRes.ok) {
                 const text = await reqRes.text();
-                try { qp.request.body = JSON.parse(text); } 
+                try { qp.request.body = JSON.parse(text); }
                 catch { qp.request.body = text; }
             }
 
             if (resRes && resRes.ok) {
                 const text = await resRes.text();
-                try { qp.response.body = JSON.parse(text); } 
+                try { qp.response.body = JSON.parse(text); }
                 catch { qp.response.body = text; }
             }
 
@@ -3100,7 +3511,7 @@ async function selectTestQP(
                     const headersData = JSON.parse(text);
                     qp.request.headers = headersData.request_headers || {};
                     qp.response.headers = headersData.response_headers || {};
-                } catch {}
+                } catch { }
             }
 
             qp.isFullDataLoaded = true;
@@ -3139,7 +3550,7 @@ function renderCurrentRequest() {
 
     const content =
         activeRequestTab ===
-        "headers"
+            "headers"
 
             ? request.headers || {}
 
@@ -3175,7 +3586,7 @@ function renderCurrentResponse() {
 
     const content =
         activeResponseTab ===
-        "headers"
+            "headers"
 
             ? getResponseHeadersPreview(
                 response
@@ -3331,7 +3742,7 @@ function setupMethodFilters() {
 
                     activeTestMethod =
                         activeTestMethod ===
-                        method
+                            method
                             ? "ALL"
                             : method;
 
@@ -3511,9 +3922,9 @@ function applyTestFilters() {
 
                         (
                             activeTestMethod ===
-                                "ALL" ||
+                            "ALL" ||
                             item.method ===
-                                activeTestMethod
+                            activeTestMethod
                         ) &&
 
                         (
@@ -3586,7 +3997,7 @@ function matchesTimeFilter(
         now - date;
 
     switch (
-        activeTimeFilter
+    activeTimeFilter
     ) {
 
         case "today":
@@ -3603,7 +4014,7 @@ function matchesTimeFilter(
             return (
                 difference >= 0 &&
                 difference <=
-                    7 * day
+                7 * day
             );
 
         case "30days":
@@ -3611,7 +4022,7 @@ function matchesTimeFilter(
             return (
                 difference >= 0 &&
                 difference <=
-                    30 * day
+                30 * day
             );
 
         default:
@@ -3655,117 +4066,54 @@ function setupRunner() {
     const saveMenu = document.getElementById("saveMenu");
     const btnUpdateQP = document.getElementById("btnUpdateQP");
     const btnCreateQP = document.getElementById("btnCreateQP");
-
     if (saveButton && saveMenu && saveDropdownContainer) {
         saveButton.type = "button";
-        
+
         saveButton.addEventListener("click", event => {
             event.preventDefault();
             event.stopPropagation();
             saveMenu.classList.toggle("hidden");
-            
-            if (!saveMenu.classList.contains("hidden")) {
-                if (selectedTestQP) {
-                    btnUpdateQP.style.display = "flex";
-                } else {
-                    btnUpdateQP.style.display = "none";
-                }
-            }
+            if (!saveMenu.classList.contains("hidden")) refreshSaveMenuState();
         });
-        
+
         document.addEventListener("click", event => {
             if (!saveDropdownContainer.contains(event.target)) {
                 saveMenu.classList.add("hidden");
             }
         });
-        
-        btnUpdateQP.addEventListener("click", async event => {
+
+        document.getElementById("btnCreateQP")?.addEventListener("click", event => {
             event.preventDefault();
             event.stopPropagation();
             saveMenu.classList.add("hidden");
-            
-            const endpoint = selectedTestEndpoint;
-            if (!endpoint || !selectedTestQP) return;
-            
-            try {
-                const res = await fetch(`http://localhost:3000/test-view/${encodeURIComponent(endpoint.id)}/qps/${encodeURIComponent(selectedTestQP)}/update`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        request_body: requestContent.value,
-                        response_body: responseContent.value
-                    })
-                });
-                if (res.ok) {
-                    console.log("QP updated on backend successfully");
-                    const qp = endpoint.qps?.find(q => String(q.id) === String(selectedTestQP));
-                    if (qp) {
-                        if (!qp.request) qp.request = {};
-                        if (!qp.response) qp.response = {};
-                        qp.request.body = requestContent.value;
-                        qp.response.body = responseContent.value;
-                        saveLocalQPs(); // Keep local cache in sync just in case
+            runSave(saveAsNewQP);
+        });
+
+        document
+            .getElementById("btnUpdateQP")
+            ?.addEventListener(
+                "click",
+                event => {
+
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    if (
+                        event.currentTarget.disabled
+                    ) {
+                        return;
                     }
-                } else {
-                    console.error("Failed to update QP on backend");
+
+                    saveMenu.classList.add(
+                        "hidden"
+                    );
+
+                    runSave(
+                        updateExistingQP
+                    );
+
                 }
-            } catch (e) {
-                console.error("Error updating QP:", e);
-            }
-        });
-        
-        btnCreateQP.addEventListener("click", async event => {
-            event.preventDefault();
-            event.stopPropagation();
-            saveMenu.classList.add("hidden");
-            
-            const endpoint = selectedTestEndpoint;
-            if (!endpoint) return;
-            
-            try {
-                const res = await fetch(`http://localhost:3000/test-view/${encodeURIComponent(endpoint.id)}/qps/create`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        method: endpoint.method || "GET",
-                        request_body: requestContent.value,
-                        response_body: responseContent.value
-                    })
-                });
-                
-                if (res.ok) {
-                    const data = await res.json();
-                    if (!Array.isArray(endpoint.qps)) endpoint.qps = [];
-                    
-                    const newQp = {
-                        id: data.request_number,
-                        name: String(data.request_number),
-                        method: endpoint.method,
-                        timestamp: new Date().toISOString(),
-                        request: {
-                            body: requestContent.value,
-                            query: {},
-                            headers: {}
-                        },
-                        response: {
-                            body: responseContent.value,
-                            status: null
-                        }
-                    };
-                    
-                    endpoint.qps.push(newQp);
-                    saveLocalQPs(); // Keep local cache in sync
-                    
-                    renderTestQPs(endpoint);
-                    selectTestQP(newQp.id);
-                    console.log("QP created on backend successfully");
-                } else {
-                    console.error("Failed to create QP on backend");
-                }
-            } catch (e) {
-                console.error("Error creating QP:", e);
-            }
-        });
+            );
     }
 
     const runForm =
@@ -3790,38 +4138,481 @@ function setupRunner() {
     }
 
 }
+// ============================================================
+// SAVE (new QP / update QP)
+// ============================================================
+
+let saveInFlight = false;
+
+async function runSave(fn) {
+    if (saveInFlight) return;
+    saveInFlight = true;
+    try {
+        await fn();
+    } catch (error) {
+        console.error("Save failed:", error);
+        window.alert(error?.message || "Could not save.");
+    } finally {
+        saveInFlight = false;
+    }
+}
+
+function findEndpointByAddress(endpointStr, method) {
+
+    if (isCurrentInputExistingEndpoint(selectedTestEndpoint, endpointStr, method)) {
+        return selectedTestEndpoint;
+    }
+
+    const normalizedAddress = normalizeAddress(endpointStr);
+    const normalizedMethod = String(method || "GET").toUpperCase();
+
+    return endpoints.find(endpoint =>
+        normalizeAddress(endpoint.endpoint_str) === normalizedAddress &&
+        String(endpoint.method || "GET").toUpperCase() === normalizedMethod
+    ) || null;
+}
+
+function getPersistedQPs(endpoint) {
+
+    if (
+        !endpoint ||
+        !Array.isArray(endpoint.qps)
+    ) {
+        return [];
+    }
+
+    return endpoint.qps.filter(
+        qp =>
+            String(qp.id) !==
+            "default"
+    );
+
+}
+function currentAddressAndMethod() {
+
+    return {
+        endpointStr:
+            getCurrentEndpointInput(),
+
+        method:
+            String(
+                testMethod?.value ||
+                "GET"
+            ).toUpperCase()
+    };
+
+}
+
+function refreshSaveMenuState() {
+
+    const {
+        endpointStr,
+        method
+    } = currentAddressAndMethod();
+
+    const existing =
+        findEndpointByAddress(
+            endpointStr,
+            method
+        );
+
+    const canUpdate =
+        Boolean(existing) &&
+        getPersistedQPs(existing).length > 0;
+
+    const updateButton =
+        document.getElementById(
+            "btnUpdateQP"
+        );
+
+    if (!updateButton) return;
+
+    updateButton.disabled =
+        !canUpdate;
+
+    updateButton.classList.toggle(
+        "opacity-50",
+        !canUpdate
+    );
+
+    updateButton.classList.toggle(
+        "cursor-not-allowed",
+        !canUpdate
+    );
+
+    updateButton.title =
+        canUpdate
+            ? "Update an existing QP"
+            : "No saved QP exists for this endpoint";
+
+}
+
+// Request/response text exactly as the user sees it. If the Headers tab is
+// open, the textarea holds headers, so use the stored body instead.
+function getEditorPayload() {
+
+    return {
+
+        request_body:
+            requestContent?.value || "",
+
+        response_body:
+            responseContent?.value || ""
+
+    };
+
+}
+
+function parseMaybeJSON(text) {
+    try { return JSON.parse(text); } catch { return text; }
+}
+
+// [B] New endpoint. TODO: wire to the backend route that creates an
+// endpoint without running a test, and return the normalized endpoint.
+async function createEndpointOnBackend({ method, endpointStr, annotation }) {
+    throw new Error(
+        "Creating a new endpoint from Save isn't connected to the backend yet."
+    );
+}
+
+async function resolveEndpointForSave() {
+    const { endpointStr, method } = currentAddressAndMethod();
+
+    if (!endpointStr) {
+        window.alert("Enter an endpoint URL first.");
+        return null;
+    }
+
+    const existing = findEndpointByAddress(endpointStr, method);
+    if (existing) return existing;
+
+    const created = await createEndpointOnBackend({
+        method,
+        endpointStr,
+        annotation: annotationInput?.value || ""
+    });
+
+    const endpoint = normalizeBackendEndpoint(created);
+    endpoints.push(endpoint);
+    return endpoint;
+}
+async function saveAsNewQP() {
+
+    const endpoint =
+        await resolveEndpointForSave();
+
+    if (!endpoint) return;
+
+    const payload =
+        getEditorPayload();
+
+    const annotation =
+        annotationInput?.value || "";
+
+    const response =
+        await fetch(
+            `${API_BASE}/test-view/${encodeURIComponent(endpoint.id)}/qps/create`,
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type":
+                        "application/json"
+                },
+
+                body: JSON.stringify({
+
+                    method:
+                        endpoint.method || "GET",
+
+                    annotation,
+
+                    ...payload
+
+                })
+
+            }
+        );
+
+    if (!response.ok) {
+
+        throw new Error(
+            `QP creation failed: ${response.status}`
+        );
+
+    }
+
+    const data =
+        await response.json();
+
+    const requestNumber =
+        data.request_number;
+
+    if (
+        requestNumber ===
+        undefined ||
+        requestNumber ===
+        null
+    ) {
+
+        throw new Error(
+            "Backend did not return request_number."
+        );
+
+    }
+
+    const newQP = {
+
+        id:
+            requestNumber,
+
+        name:
+            String(requestNumber),
+
+        method:
+            endpoint.method,
+
+        timestamp:
+            new Date().toISOString(),
+
+        isFullDataLoaded:
+            true,
+
+        request: {
+
+            body:
+                parseMaybeJSON(
+                    payload.request_body
+                ),
+
+            headers:
+                selectedTestQP?.request
+                    ?.headers || {}
+
+        },
+
+        response: {
+
+            body:
+                parseMaybeJSON(
+                    payload.response_body
+                ),
+
+            headers: {},
+
+            status: null
+
+        }
+
+    };
+
+    if (
+        !Array.isArray(endpoint.qps)
+    ) {
+
+        endpoint.qps = [];
+
+    }
+
+    endpoint.qps = [...getPersistedQPs(endpoint), newQP];
+
+    selectedTestEndpoint =
+        endpoint;
+
+    selectedTestQP =
+        newQP;
+
+    saveLocalQPs();
+
+    renderTestQP(
+        endpoint,
+        newQP.id
+    );
+
+    applyTestFilters();
+
+    refreshSaveMenuState();
+
+}
+async function updateExistingQP() {
+
+    const {
+        endpointStr,
+        method
+    } = currentAddressAndMethod();
+
+    const endpoint =
+        findEndpointByAddress(
+            endpointStr,
+            method
+        );
+
+    if (!endpoint) {
+
+        window.alert(
+            "No existing endpoint found."
+        );
+
+        return;
+
+    }
+
+    const persisted = getPersistedQPs(endpoint);
+
+    if (persisted.length === 0) {
+        window.alert(
+            "No saved QP exists for this endpoint."
+        );
+        return;
+    }
+
+    const target =
+        await pickQPDialog(
+            persisted,
+            selectedTestQP?.id
+        );
+
+    if (!target) return;
+
+    const payload =
+        getEditorPayload();
+
+    const annotation =
+        annotationInput?.value || "";
+
+    const response =
+        await fetch(
+            `${API_BASE}/test-view/${encodeURIComponent(endpoint.id)}/qps/${encodeURIComponent(target.id)}/update`,
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type":
+                        "application/json"
+                },
+
+                body: JSON.stringify({
+
+                    annotation,
+
+                    ...payload
+
+                })
+
+            }
+        );
+
+    if (!response.ok) {
+
+        throw new Error(
+            `QP update failed: ${response.status}`
+        );
+
+    }
+
+    target.request =
+        target.request || {};
+
+    target.response =
+        target.response || {};
+
+    target.request.body =
+        parseMaybeJSON(
+            payload.request_body
+        );
+
+    target.response.body =
+        parseMaybeJSON(
+            payload.response_body
+        );
+
+    target.isFullDataLoaded =
+        true;
+
+    endpoint.annotation =
+        annotation;
+
+    selectedTestEndpoint =
+        endpoint;
+
+    selectedTestQP =
+        target;
+
+    saveLocalQPs();
+
+    renderTestQP(
+        endpoint,
+        target.id
+    );
+
+    applyTestFilters();
+
+    refreshSaveMenuState();
+
+}
+function pickQPDialog(qps, preselectedId) {
+    return new Promise(resolve => {
+        const overlay = document.createElement("div");
+        overlay.className =
+            "fixed inset-0 z-[10000] flex items-center justify-center bg-black/60";
+
+        overlay.innerHTML = `
+            <div class="w-72 rounded-xl border border-slate-700 bg-slate-900 p-4 shadow-xl">
+                <p class="mb-3 text-sm font-semibold text-slate-200">Update which QP?</p>
+                <div data-list class="grid grid-cols-4 gap-2 max-h-64 overflow-y-auto p-1"></div>
+                <button type="button" data-cancel
+                    class="mt-4 w-full rounded-md border border-slate-700 py-2 text-xs text-slate-400 hover:bg-slate-800">
+                    Cancel
+                </button>
+            </div>`;
+
+        const onKey = e => { if (e.key === "Escape") close(null); };
+        const close = value => {
+            document.removeEventListener("keydown", onKey);
+            overlay.remove();
+            resolve(value);
+        };
+
+        const list = overlay.querySelector("[data-list]");
+        qps.forEach(qp => {
+            const b = document.createElement("button");
+            b.type = "button";
+            b.textContent = qp.name || qp.id;
+            b.className =
+                "rounded-md border border-slate-700 bg-slate-800 py-2 text-xs text-slate-200 hover:bg-cyan-500 hover:text-white";
+            if (String(qp.id) === String(preselectedId)) {
+                b.classList.add("ring-2", "ring-cyan-400");
+            }
+            b.addEventListener("click", () => close(qp));
+            list.appendChild(b);
+        });
+
+        overlay.addEventListener("click", e => {
+            if (e.target === overlay || e.target.hasAttribute("data-cancel")) close(null);
+        });
+        document.addEventListener("keydown", onKey);
+        document.body.appendChild(overlay);
+    });
+}
 
 // ============================================================
 // GET CURRENT INPUT ENDPOINT
 // ============================================================
-
 function getCurrentEndpointInput() {
-
-    let endpointStr = "";
 
     if (
         addressCombinedMode &&
         urlFullInput
     ) {
 
-        endpointStr =
-            urlFullInput.value.trim();
-
-    } else {
-
-        endpointStr =
-            (
-                baseUrl?.value.trim() ||
-                ""
-            ) +
-            (
-                endpointPath?.value.trim() ||
-                ""
-            );
+        return urlFullInput.value.trim();
 
     }
 
-    return endpointStr;
+    return joinAddressParts(
+        baseUrl?.value,
+        endpointPath?.value
+    );
 
 }
 
@@ -3877,7 +4668,7 @@ function isCurrentInputExistingEndpoint(
         ).toUpperCase();
 
     return (
-        storedURL === currentURL &&
+        normalizeAddress(storedURL) === normalizeAddress(currentURL) &&
         storedMethod === currentMethod
     );
 
@@ -4032,7 +4823,7 @@ async function runTestEndpoint() {
 
         if (
             activeRequestTab ===
-                "body" &&
+            "body" &&
             requestContent
         ) {
 
@@ -4128,9 +4919,9 @@ async function runTestEndpoint() {
 
         if (
             resolvedEndpointId ===
-                undefined ||
+            undefined ||
             resolvedEndpointId ===
-                null
+            null
         ) {
 
             console.log(
@@ -4178,9 +4969,9 @@ async function runTestEndpoint() {
 
         if (
             resolvedEndpointId ===
-                undefined ||
+            undefined ||
             resolvedEndpointId ===
-                null
+            null
         ) {
 
             throw new Error(
@@ -4245,7 +5036,7 @@ async function runTestEndpoint() {
 
             if (
                 selectedTestEndpoint.qps.length ===
-                    0
+                0
             ) {
 
                 selectedTestEndpoint.qps.push(
@@ -4257,7 +5048,7 @@ async function runTestEndpoint() {
                     String(localQP.id)
                 ) &&
                 String(localQP.id) ===
-                    "default"
+                "default"
             ) {
 
                 selectedTestEndpoint.qps.unshift(
@@ -4341,9 +5132,9 @@ async function runTestEndpoint() {
 
         if (
             requestNumber ===
-                undefined ||
+            undefined ||
             requestNumber ===
-                null
+            null
         ) {
 
             throw new Error(
@@ -4686,7 +5477,7 @@ async function runTestEndpoint() {
             applyTestFilters();
 
         } catch (
-            historyReloadError
+        historyReloadError
         ) {
 
             console.warn(
@@ -4727,7 +5518,7 @@ async function runTestEndpoint() {
 
                 testWS.close();
 
-            } catch {}
+            } catch { }
 
             testWS =
                 null;
@@ -4850,9 +5641,9 @@ function handleTestStarted(event) {
 
     if (
         requestNumber !==
-            undefined &&
+        undefined &&
         requestNumber !==
-            null
+        null
     ) {
 
         activeRequestNumber =
@@ -5019,9 +5810,9 @@ function handleTestFinished(event) {
 
     if (
         requestNumber !==
-            undefined &&
+        undefined &&
         requestNumber !==
-            null
+        null
     ) {
 
         activeRequestNumber =
@@ -5122,9 +5913,9 @@ async function stopTestEndpoint() {
 
     if (
         activeRequestNumber ===
-            null ||
+        null ||
         activeRequestNumber ===
-            undefined
+        undefined
     ) {
 
         console.warn(
@@ -5137,9 +5928,9 @@ async function stopTestEndpoint() {
 
     if (
         selectedTestEndpoint.id ===
-            undefined ||
+        undefined ||
         selectedTestEndpoint.id ===
-            null
+        null
     ) {
 
         console.warn(
@@ -5190,7 +5981,7 @@ async function stopTestEndpoint() {
 
             testWS.close();
 
-        } catch {}
+        } catch { }
 
         testWS =
             null;
@@ -5238,21 +6029,21 @@ function setRunButtonState(
 
     if (isRunning) {
         runButton.className = "h-8 shrink-0 px-4 flex items-center gap-1.5 rounded-lg border border-red-500/40 bg-transparent text-red-400 font-semibold text-sm transition hover:bg-red-500/10 active:scale-95";
-        
+
         if (runIconContainer) {
             runIconContainer.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3.5 h-3.5"><rect x="4" y="4" width="16" height="16" rx="2"></rect></svg>`;
         }
-        
+
         if (runText) {
             runText.textContent = "Stop";
         }
     } else {
         runButton.className = "h-8 shrink-0 px-4 flex items-center gap-1.5 rounded-lg bg-cyan-500 text-slate-950 font-semibold text-sm transition hover:bg-cyan-400 active:scale-95 shadow-md shadow-cyan-500/20";
-        
+
         if (runIconContainer) {
             runIconContainer.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><polygon points="6 3 20 12 6 21 6 3"></polygon></svg>`;
         }
-        
+
         if (runText) {
             runText.textContent = "Run";
         }
@@ -5362,7 +6153,38 @@ function setupTags() {
 // ============================================================
 // ADD TAG
 // ============================================================
+async function loadTagsAndQPsInto(endpoint) {
 
+    const [tagsResult, qpsResult] = await Promise.allSettled([
+        fetchEndpointTags(endpoint.id),
+        fetchEndpointQPs(endpoint.id)
+    ]);
+
+    // Tags and QPs succeed or fail independently
+    if (tagsResult.status === "fulfilled") {
+        endpoint.tags = tagsResult.value;
+    } else if (!Array.isArray(endpoint.tags)) {
+        endpoint.tags = [];
+    }
+
+    if (qpsResult.status === "fulfilled" && qpsResult.value.length > 0) {
+        const localQPs = Array.isArray(endpoint.qps) ? endpoint.qps : [];
+        endpoint.qps = qpsResult.value.map(backendQp => {
+            const localQp = localQPs.find(q => String(q.id) === String(backendQp.id));
+            return {
+                ...backendQp,
+                request: localQp?.request || {},
+                response: localQp?.response || {}
+            };
+        });
+    } else if (!Array.isArray(endpoint.qps)) {
+        endpoint.qps = [];
+    }
+
+    if (qpsResult.status === "rejected") {
+        console.warn(`QPs unavailable for ${endpoint.id}:`, qpsResult.reason?.message);
+    }
+}
 async function addTestTag() {
 
     if (!selectedTestEndpoint) {
@@ -5766,7 +6588,7 @@ function updateContentTabButtons(
 
     const ids =
         panel ===
-        "request"
+            "request"
 
             ? {
                 headers:
@@ -6103,15 +6925,12 @@ function setupSidebarTab(
 // ============================================================
 // SIDEBAR TAB BUTTONS
 // ============================================================
-
 function updateSidebarTabButtons() {
 
     const tabs = {
 
         historyTab:
             "history",
-
-
 
         endpointsTab:
             "endpoints"
@@ -6150,12 +6969,41 @@ function updateSidebarTabButtons() {
         }
     );
 
+    const historyMenuButton =
+        document.getElementById(
+            "historyMenuButton"
+        );
+
+    if (historyMenuButton) {
+
+        historyMenuButton.classList.toggle(
+            "hidden",
+            activeSidebarTab !== "history"
+        );
+
+    }
+
+    const historyMenu =
+        document.getElementById(
+            "historyMenu"
+        );
+
+    if (
+        historyMenu &&
+        activeSidebarTab !== "history"
+    ) {
+
+        historyMenu.classList.add(
+            "hidden"
+        );
+
+    }
+
     requestAnimationFrame(
         updateSidebarTabUnderline
     );
 
 }
-
 // ============================================================
 // SIDEBAR TAB UNDERLINE
 // ============================================================
@@ -6271,9 +7119,8 @@ function updateSidebarTabUnderline() {
         `${activeRect.width}px`;
 
     underline.style.transform =
-        `translateX(${
-            activeRect.left -
-            parentRect.left
+        `translateX(${activeRect.left -
+        parentRect.left
         }px)`;
 
 }
@@ -6399,7 +7246,48 @@ function setupAddressMode() {
 // ============================================================
 // ADDRESS HELPERS
 // ============================================================
+function normalizeAddress(value) {
+    return String(value || "")
+        .trim()
+        .replace(/^["']+|["']+$/g, "")   // NEW: strip wrapping quotes
+        .replace(/\/+$/, "")
+        .replace(/^([a-z][a-z0-9+.-]*:\/\/[^\/?#]*)/i, m => m.toLowerCase());
+}
+function splitAddress(value) {
+    value = String(value || "").trim();
+    if (!value) return { prefix: "", path: "" };
 
+    // optional scheme (any case, any scheme) + host[:port], up to the first / ? or #
+    const match = value.match(/^((?:[a-z][a-z0-9+.-]*:\/\/)?[^\/?#]*)(.*)$/i);
+
+    return {
+        prefix: match[1],
+        path: match[2]
+    };
+}
+
+function joinAddressParts(prefix, path) {
+    prefix = String(prefix || "").trim().replace(/\/+$/, "");
+    path = String(path || "").trim();
+
+    if (!prefix) return path;
+    if (!path) return prefix;
+
+    // Path already contains the full prefix -> don't repeat it.
+    // The character after the prefix must be a boundary, so
+    // "localhost:80" doesn't wrongly match "localhost:8080/x".
+    if (
+        path.toLowerCase().startsWith(prefix.toLowerCase()) &&
+        /^([\/?#]|$)/.test(path.slice(prefix.length))
+    ) {
+        return path;
+    }
+
+    // Query or fragment attaches directly, no "/" inserted
+    if (/^[?#]/.test(path)) return prefix + path;
+
+    return prefix + "/" + path.replace(/^\/+/, "");
+}
 function syncAddressFullDisplay() {
 
     if (!urlFullInput) return;
@@ -6415,7 +7303,10 @@ function syncAddressFullDisplay() {
             : "";
 
     urlFullInput.value =
-        `${prefix}${path}`;
+        joinAddressParts(
+            prefix,
+            path
+        );
 
 }
 
@@ -6426,37 +7317,20 @@ function applyFullAddressToSplit() {
     const value =
         urlFullInput.value.trim();
 
-    const match =
-        value.match(
-            /^(https?:\/\/[^/]+)(\/.*)?$/i
-        );
+    const {
+        prefix,
+        path
+    } = splitAddress(value);
 
-    if (match) {
+    if (baseUrl) {
+        baseUrl.value = prefix;
+    }
 
-        if (baseUrl) {
-
-            baseUrl.value =
-                match[1];
-
-        }
-
-        if (endpointPath) {
-
-            endpointPath.value =
-                match[2] ||
-                "";
-
-        }
-
-    } else if (endpointPath) {
-
-        endpointPath.value =
-            value;
-
+    if (endpointPath) {
+        endpointPath.value = path;
     }
 
 }
-
 // ============================================================
 // HELPERS
 // ============================================================
@@ -6527,9 +7401,9 @@ function isEndpointBookmarked(
 
     if (
         endpointId ===
-            undefined ||
+        undefined ||
         endpointId ===
-            null
+        null
     ) {
 
         return false;
