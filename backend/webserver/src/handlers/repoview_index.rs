@@ -23,7 +23,7 @@ use edms::ops::tag_ops::TagOps;
 use edms::ops::view_ops::ViewKind;
 use serde::Deserialize;
 use serde_json::{json, Value};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::path::Path as FsPath;
 
 use crate::{
@@ -175,7 +175,12 @@ pub(crate) struct RepoviewStats {
     pub data_size_bytes: u64,
     pub crud: BTreeMap<String, usize>,
     pub data_tags: Vec<String>,
+    /// The distinct path pieces, sorted (the keys of `segment_frequency`).
     pub segments: Vec<String>,
+    /// Each path piece and how many times it occurs across the list's
+    /// endpoints' URLs (Ravi, 2026-10-07: `/a/b/c` and `/z/a/c` give
+    /// a:2, b:1, c:2, z:1). Every occurrence counts, so `/a/a` is two.
+    pub segment_frequency: BTreeMap<String, usize>,
     pub index_lists: usize,
 }
 
@@ -202,13 +207,15 @@ pub(crate) fn compute_stats(membership: &CollectionMembershipOps, dir: &FsPath) 
         .map_err(|e| format!("{e:?}"))?;
 
     let mut crud: BTreeMap<String, usize> = BTreeMap::new();
-    let mut segments: BTreeSet<String> = BTreeSet::new();
+    let mut segment_frequency: BTreeMap<String, usize> = BTreeMap::new();
     let mut sized = false;
     let mut data_size_bytes: u64 = 0;
     for (endpoint_str, method, size) in &rows {
         let method = method.as_deref().unwrap_or("UNCLASSIFIED").to_uppercase();
         *crud.entry(method).or_insert(0) += 1;
-        segments.extend(path_segments(endpoint_str));
+        for piece in path_segments(endpoint_str) {
+            *segment_frequency.entry(piece).or_insert(0) += 1;
+        }
         if let Some(size) = size {
             sized = true;
             data_size_bytes += (*size).max(0) as u64;
@@ -245,7 +252,8 @@ pub(crate) fn compute_stats(membership: &CollectionMembershipOps, dir: &FsPath) 
         data_size_bytes,
         crud,
         data_tags,
-        segments: segments.into_iter().collect(),
+        segments: segment_frequency.keys().cloned().collect(),
+        segment_frequency,
         index_lists,
     })
 }
@@ -284,6 +292,7 @@ impl RepoviewRow {
             "crud": self.stats.crud,
             "segments": self.stats.segments,
             "segmentCount": self.stats.segments.len(),
+            "segmentFrequency": self.stats.segment_frequency,
             "eidCount": self.stats.eid_count,
             "qpCount": self.stats.qp_count,
             "indexLists": self.stats.index_lists,
@@ -311,6 +320,7 @@ impl RepoviewRow {
             "crud_types": self.stats.crud,
             "segments": self.stats.segments,
             "segment_count": self.stats.segments.len(),
+            "segment_frequency": self.stats.segment_frequency,
             "index_lists": self.stats.index_lists,
             "error": self.error,
         })
@@ -677,12 +687,64 @@ mod tests {
     }
 
     #[test]
+    fn segments_come_with_how_often_each_occurs() {
+        let dir = temp_dir("segfreq");
+        let m = open(&dir);
+        // Ravi's example: /a/b/c and /z/a/c -> a:2, b:1, c:2, z:1
+        add(&m, "E0001-AAA", "https://x.com/a/b/c", "GET", Some(1), 0, &[]);
+        add(&m, "E0002-AAA", "https://x.com/z/a/c", "GET", Some(1), 0, &[]);
+        let s = compute_stats(&m, &dir).unwrap();
+        let expected: BTreeMap<String, usize> =
+            [("a", 2), ("b", 1), ("c", 2), ("z", 1)].into_iter().map(|(k, v)| (k.to_string(), v)).collect();
+        assert_eq!(s.segment_frequency, expected);
+        assert_eq!(s.segments, vec!["a", "b", "c", "z"], "the old fields keep their meaning");
+
+        // every occurrence counts, even twice in one URL; a query string or fragment is not a segment
+        add(&m, "E0003-AAA", "https://x.com/a/a?x=1", "GET", Some(1), 0, &[]);
+        let s = compute_stats(&m, &dir).unwrap();
+        assert_eq!(s.segment_frequency["a"], 4);
+
+        // 3 + 3 + 2 path pieces in all
+        assert_eq!(s.segment_frequency.values().sum::<usize>(), 8);
+        drop(m);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn both_row_shapes_carry_the_frequency_map() {
+        let mut frequency = BTreeMap::new();
+        frequency.insert("users".to_string(), 3usize);
+        frequency.insert(":id".to_string(), 1usize);
+        let row = RepoviewRow {
+            name: "v".into(),
+            file_path: None,
+            created_at: "2026-10-07 00:00:00".into(),
+            annotation: None,
+            source: None,
+            tags: vec![],
+            stats: RepoviewStats {
+                segments: vec![":id".into(), "users".into()],
+                segment_frequency: frequency,
+                ..Default::default()
+            },
+            error: None,
+        };
+        let list = row.list_json();
+        assert_eq!(list["segmentFrequency"], json!({ ":id": 1, "users": 3 }));
+        assert_eq!(list["segmentCount"], 2);
+        assert_eq!(list["segments"], json!([":id", "users"]));
+        let detail = row.detail_json();
+        assert_eq!(detail["segment_frequency"], json!({ ":id": 1, "users": 3 }));
+        assert_eq!(detail["segment_count"], 2);
+    }
+
+    #[test]
     fn an_empty_repoview_has_zero_everything() {
         let dir = temp_dir("empty");
         let m = open(&dir);
         let s = compute_stats(&m, &dir).unwrap();
         assert_eq!((s.eid_count, s.qp_count, s.data_size_bytes, s.index_lists), (0, 0, 0, 0));
-        assert!(s.segments.is_empty() && s.crud.is_empty() && s.data_tags.is_empty());
+        assert!(s.segments.is_empty() && s.segment_frequency.is_empty() && s.crud.is_empty() && s.data_tags.is_empty());
         drop(m);
         std::fs::remove_dir_all(dir).unwrap();
     }

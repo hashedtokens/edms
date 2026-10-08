@@ -2,9 +2,10 @@
 //! ("WebView will have an additional RMB (Modify Frontpage) - opens a Pop
 //! Up"). The folder holds `front-page.json` next to its SQLite index.
 //!
-//! The notes don't say what's in it, so the backend treats it as an opaque
-//! JSON object: whatever the pop-up saves is stored as is and handed back as
-//! is. (If its fields are fixed later, validate them in `save` below.)
+//! What's in it is the rich-text editor's JSON document (Shivanshu,
+//! 2026-10-07: `{"type":"doc","content":[...]}`, which the frontend turns
+//! back into editable content or into HTML). The backend only stores and
+//! returns JSON - it does not look inside, and does no HTML conversion.
 
 use axum::{
     extract::{Path, State},
@@ -24,12 +25,15 @@ use crate::{
     state::AppState,
 };
 
-/// A front page is a small settings document, not a data store.
-const MAX_FRONT_PAGE_BYTES: usize = 1024 * 1024;
+/// Largest front page accepted. An editor document can carry embedded
+/// images, so this is generous; the route's request-body limit is raised to
+/// match (axum's default is 2 MB).
+pub const MAX_FRONT_PAGE_BYTES: usize = 10 * 1024 * 1024;
 
 #[derive(Debug, Deserialize)]
 pub struct SaveFrontPageRequest {
-    /// The whole front page: a JSON object. Replaces the previous one.
+    /// The whole front page: any JSON value except `null`. Replaces the
+    /// previous one.
     pub front_page: Value,
 }
 
@@ -105,7 +109,7 @@ pub async fn get_front_page(
     respond(res)
 }
 
-/// POST /webview/:name/front-page  `{front_page: {...}}`
+/// POST /webview/:name/front-page  `{front_page: <any JSON>}`
 ///
 /// Saves it as `front-page.json`, replacing the previous one. Written to a
 /// temp file first and renamed into place, so a failed save never leaves a
@@ -117,8 +121,9 @@ pub async fn save_front_page(
     Json(payload): Json<SaveFrontPageRequest>,
 ) -> (StatusCode, Json<Value>) {
     let res = tokio::task::spawn_blocking(move || -> Result<Value, FrontPageError> {
-        if !payload.front_page.is_object() {
-            return Err(FrontPageError::Bad("`front_page` must be a JSON object".to_string()));
+        // `null` would read back as "no front page" (`front_page: null`).
+        if payload.front_page.is_null() {
+            return Err(FrontPageError::Bad("`front_page` can't be null (send any other JSON value)".to_string()));
         }
         let text = serde_json::to_string_pretty(&payload.front_page).map_err(|e| e.to_string())?;
         if text.len() > MAX_FRONT_PAGE_BYTES {
@@ -152,6 +157,11 @@ pub async fn save_front_page(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_size_limit_leaves_room_for_an_editor_document_with_images() {
+        assert!(MAX_FRONT_PAGE_BYTES >= 10 * 1024 * 1024);
+    }
 
     #[test]
     fn a_new_front_page_is_an_empty_object_and_an_existing_one_is_kept() {

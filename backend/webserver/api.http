@@ -328,11 +328,19 @@ GET {{baseUrl}}/webview/list
 ### Modify Frontpage: load (a new WebView starts with {})
 GET {{baseUrl}}/webview/wtest/front-page
 
-### Modify Frontpage: save (any JSON object; replaces the previous one)
+### Modify Frontpage: save (the editor's JSON document, any valid JSON except null; replaces the previous one; up to 10 MB)
 POST {{baseUrl}}/webview/wtest/front-page
 Content-Type: application/json
 
-{ "front_page": { "title": "Content API docs", "sections": [] } }
+{
+  "front_page": {
+    "type": "doc",
+    "content": [
+      { "type": "heading", "attrs": { "level": 1 }, "content": [{ "type": "text", "text": "About the WebView" }] },
+      { "type": "paragraph", "content": [{ "type": "text", "text": "WebView description" }] }
+    ]
+  }
+}
 
 ### Combine two WebViews
 POST {{baseUrl}}/webview/combine
