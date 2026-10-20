@@ -1,3 +1,6 @@
+<br />
+<img src="images/htlogo.png" width="80"/>
+
 # Endpoint Data Management System (EDMS)
 _Standalone system for a team building microservices_
 
