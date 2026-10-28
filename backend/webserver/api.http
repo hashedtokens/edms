@@ -111,6 +111,22 @@ POST {{baseUrl}}/test-view/get-user-profile/qps/1/delete
 ### Stop the current test run
 POST {{baseUrl}}/test-view/stop
 
+### Save a test run (one that was run over /test-view/run)
+# Run Test only runs the request: the box shows the request and response,
+# nothing is written. This saves it: creates the endpoint if
+# that URL + method isn't saved yet, adds the QP and writes the History row.
+# run_id comes from the {"type":"run_accepted","run_id"} message the socket
+# sends back. 404 if the run is unknown / timed out / stopped / already saved
+# / older than 30 minutes; 409 if its call hasn't come back yet. An identical
+# QP already saved is not added again ("saved": false, "duplicate_of").
+POST {{baseUrl}}/test-view/save/test
+Content-Type: application/json
+
+{
+  "run_id": "run-1793230796008-1",
+  "annotation": "optional - only used if this creates the endpoint"
+}
+
 ### Save a test run to history
 POST {{baseUrl}}/test-view/save/history
 Content-Type: application/json
@@ -148,6 +164,10 @@ POST {{baseUrl}}/test-view/auth-suite/bookmark/clearall
 ### bookmarked). Multiple tabs on the same collection all see the same
 ### live updates; different collections never interfere (2026-09-22).
 ### WS ONLY — run a test (send {"type":"...","payload":{"endpoint_id","method","body","timeout_ms","tick_interval_ms"}}): GET /test-view/run
+### A run saves nothing: the socket answers {"type":"run_accepted","run_id"},
+### then RunStarted / RunTick / RunFinished (or RunTimeout) events for that
+### run_id; save it afterwards with POST /test-view/save/test. Stop it with
+### POST /test-view/stop using the run_id as endpoint_id.
 ### WS ONLY — bookmark into a named collection (also triggers a dashboard
 ### snapshot refresh): GET /test-view/{collection}/add
 ### WS ONLY — remove a bookmark entirely, not just membership (also

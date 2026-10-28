@@ -9,6 +9,7 @@ mod ipc;
 mod logging;
 mod jobs;
 mod state;
+mod test_runs;
 mod timer;
 
 use axum::{
@@ -42,7 +43,7 @@ use handlers::{
     tags::{add_tag, list_tags_for_endpoint, popular_tags, remove_tag},
     test_view::{
         clear_bookmarks, clear_history, create_qp, delete_qp, get_saved_headers, get_saved_request,
-        get_saved_response, list_qps, save_bookmark, save_history, stop, update_qp,
+        get_saved_response, list_qps, save_bookmark, save_history, save_test, stop, update_qp,
         ws_add_from_history_to_bookmark, ws_delete_from_bookmark, ws_load_bookmarks,
         ws_load_endpoints, ws_load_history, ws_run,
     },
@@ -319,6 +320,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/test-view/run", get(ws_run))
         .route("/test-view/stop", post(stop))
         .route("/test-view/save/history", post(save_history))
+        .route("/test-view/save/test", post(save_test))
         .route("/test-view/save/bookmark", post(save_bookmark))
         .route("/test-view/:bookmark/add", get(ws_add_from_history_to_bookmark))
         .route("/test-view/:bookmark/delete", get(ws_delete_from_bookmark))

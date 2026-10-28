@@ -16,35 +16,34 @@ pub enum ServerEvent {
     /// different tabs (2026-09-22).
     BookmarksUpdated { collection: String, count: usize },
     FolderBecameActive { folder: String },
-    TestStarted { endpoint_id: String, request_number: i32 },
-    TestFinished {
-        endpoint_id: String,
-        request_number: i32,
+
+    // ── Test runs (Run Test) ─────────────────────────────────────────
+    // A run saves nothing and has no endpoint or QP number yet, so its
+    // events carry a `run_id`. `POST /test-view/save/test` with that
+    // `run_id` saves it.
+    RunStarted { run_id: String, endpoint_str: String, method: String },
+    RunTick { run_id: String, elapsed_ms: u64, remaining_ms: u64, limit_ms: u64 },
+    /// The call came back. Carries everything the Test View box shows, so
+    /// the page reads nothing from disk for a run that was never saved.
+    RunFinished {
+        run_id: String,
+        endpoint_str: String,
+        method: String,
         status_code: i32,
         response_time_ms: i32,
-        response_file: String,
+        request_body: serde_json::Value,
+        response_body: serde_json::Value,
+        request_headers: serde_json::Value,
+        response_headers: serde_json::Value,
     },
-    TestTimeout { endpoint_id: String, request_number: i32 },
+    RunTimeout { run_id: String },
+    RunCancelled { run_id: String },
+
     Error { message: String },
 
     ExportReady { message: String },
     ImportReady { message: String },
     CrudOperationsUpdated { computed_at: String },
-    TimerTick {
-        endpoint_id: String,
-        request_number: i32,
-        elapsed_ms: u64,
-        remaining_ms: u64,
-        limit_ms: u64,
-    },
-
-    
-    TimerCancelled {
-        endpoint_id: String,
-        request_number: i32,
-        elapsed_ms: u64,
-    },
-
     ViewTagsUpdated { view: String },
 
     /// A collection's real membership changed (save/unsave) — as opposed
@@ -59,7 +58,7 @@ pub enum ServerEvent {
 
     /// A QP's request/response body was overwritten in place via
     /// POST /test-view/:endpoint_id/qps/:request_number/update — not a real
-    /// test run, so no TestFinished/HistoryUpdated accompanies this.
+    /// test run, so no RunFinished/HistoryUpdated accompanies this.
     QpUpdated { endpoint_id: String, request_number: i32 },
 
     /// A brand-new QP was created via POST /test-view/:endpoint_id/qps/create

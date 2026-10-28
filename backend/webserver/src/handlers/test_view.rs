@@ -15,8 +15,10 @@ use crate::{
     events::ServerEvent,
     ipc,
     state::AppState,
-    timer::{self, TimerConfig},
+    test_runs::{spawn_run_timer, PendingRun, TakeError},
+    timer::TimerConfig,
 };
+use tokio_util::sync::CancellationToken;
 
 use edms::error::EdmsError;
 
@@ -60,35 +62,44 @@ pub async fn ws_run(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl
 
 #[derive(Debug, Deserialize)]
 pub struct StopRequest {
+    /// The run's `run_id`.
     pub endpoint_id: String,
+    /// Not used any more; still accepted so an existing caller's body parses.
+    #[serde(default)]
+    #[allow(dead_code)]
     pub request_number: i32,
 }
 
 /// POST /test-view/stop
 ///
-/// Cancels the app's own countdown timer for this test — the UI stops
-/// getting TimerTick/expects-a-result state for it, and a TimerCancelled
-/// event fires (same path the timer's own natural completion uses).
+/// Stops waiting for a run: pass its `run_id` as `endpoint_id` (and 0 as
+/// `request_number`). The run is dropped and `RunCancelled` is sent.
 ///
 /// Honest limitation: this does NOT kill the actual in-flight HTTP call.
 /// That's already running in a separate, detached edms-child process by
-/// the time this is called, and nothing tracks a handle to it — so a slow
-/// or hanging request keeps running in the background regardless. This
-/// only stops the app from waiting on / reporting about it.
+/// the time this is called, and nothing tracks a handle to it - so a slow
+/// or hanging request keeps running in the background regardless; its
+/// answer is simply ignored.
 pub async fn stop(
     State(state): State<AppState>,
     Json(payload): Json<StopRequest>,
 ) -> (StatusCode, Json<serde_json::Value>) {
-    let cancelled = state.cancel_timer(&payload.endpoint_id, payload.request_number);
+    let stopped = crate::test_runs::is_run_id(&payload.endpoint_id)
+        && state.pending_runs.discard(&payload.endpoint_id);
+    if stopped {
+        let _ = state.events_tx.send(ServerEvent::RunCancelled {
+            run_id: payload.endpoint_id.clone(),
+        });
+    }
     (
         StatusCode::OK,
         Json(json!({
             "ok": true,
-            "timer_cancelled": cancelled,
-            "message": if cancelled {
-                "Timer stopped. Note: the underlying HTTP call may still complete in the background."
+            "timer_cancelled": stopped,
+            "message": if stopped {
+                "Run stopped and dropped. Note: the underlying HTTP call may still complete in the background."
             } else {
-                "No running timer found for that endpoint/request — it may have already finished."
+                "No running test found for that run id - it may have already finished."
             }
         })),
     )
@@ -317,27 +328,11 @@ async fn handle_ws_run(mut socket: WebSocket, state: AppState) {
                     Some(Ok(Message::Text(text))) => {
                         match serde_json::from_str::<RunWrapper>(&text) {
                             Ok(wrapper) => {
-                                let run_msg = wrapper.payload;
-                                let st = state.clone();
-                                tokio::spawn(async move {
-                                    let timer_cfg = run_msg.timer_config();
-                                    if let Err(e) = run_test_impl(
-                                        &st,
-                                        run_msg.endpoint_id.as_deref(),
-                                        &run_msg.endpoint_str,
-                                        &run_msg.method,
-                                        run_msg.body.clone(),
-                                        run_msg.headers.clone(),
-                                        run_msg.annotation.clone(),
-                                        timer_cfg,
-                                    )
-                                    .await
-                                    {
-                                        let _ = st.events_tx.send(ServerEvent::Error {
-                                            message: format!("{e:?}"),
-                                        });
-                                    }
-                                });
+                                let resp = match start_run(&state, wrapper.payload) {
+                                    Ok(run_id) => json!({"type":"run_accepted","run_id": run_id}),
+                                    Err(e) => json!({"type":"error","message": e}),
+                                };
+                                let _ = socket.send(Message::Text(resp.to_string())).await;
                             }
                             Err(e) => {
                                 let resp = json!({"type":"error","message": format!("bad message: {e}")});
@@ -354,127 +349,283 @@ async fn handle_ws_run(mut socket: WebSocket, state: AppState) {
 }
 
 // ═════════════════════════════════════════════════════════════════════
-//  run_test_impl
+//  Run without saving
 // ═════════════════════════════════════════════════════════════════════
 
-async fn run_test_impl(
-    state: &AppState,
-    endpoint_id: Option<&str>,
-    endpoint_str: &str,
-    method: &str,
-    request_json: Value,
-    headers: std::collections::HashMap<String, String>,
-    annotation: Option<String>,
-    timer_cfg: TimerConfig,
-) -> Result<(), EdmsError> {
+/// Starts a run that saves nothing: no endpoint, no request number, no
+/// files, no History row. The same `run_test` child makes the HTTP call; it
+/// is handed the run id where an endpoint id would go and echoes it back,
+/// which is how the callback knows to keep the result in memory (see
+/// `test_runs.rs`) instead of writing it.
+fn start_run(state: &AppState, m: RunMessage) -> Result<String, String> {
+    if m.endpoint_str.trim().is_empty() {
+        return Err("endpoint_str is required".to_string());
+    }
+    if m.method.trim().is_empty() {
+        return Err("method is required".to_string());
+    }
+    let cfg = m.timer_config();
+    let method = m.method.to_uppercase();
+    let token = CancellationToken::new();
+    let run_id = state.pending_runs.begin(
+        m.endpoint_id.clone().filter(|id| !id.trim().is_empty()),
+        m.endpoint_str.clone(),
+        method.clone(),
+        m.annotation.clone(),
+        m.body.clone(),
+        token.clone(),
+    );
 
-    // 1) Get-or-create the endpoint — per Mathew (2026-09-08), an endpoint
-    //    is only created the moment it's actually tested. Re-testing an
-    //    existing endpoint_id is the common case (returned as-is); a new
-    //    or omitted id creates a fresh row here.
-    let (endpoint, was_created) = crate::handlers::endpoints::get_or_create_endpoint(
+    spawn_run_timer(
+        run_id.clone(),
+        token,
+        cfg.clone(),
+        state.events_tx.clone(),
+        state.pending_runs.clone(),
+    );
+    let _ = state.events_tx.send(ServerEvent::RunStarted {
+        run_id: run_id.clone(),
+        endpoint_str: m.endpoint_str.clone(),
+        method: method.clone(),
+    });
+
+    let started = ipc::spawn_child(
+        "run_test",
+        json!({
+            "endpoint_id":    run_id,
+            "url":            m.endpoint_str,
+            "method":         method,
+            "body":           m.body,
+            "request_number": 0,
+            "timeout_ms":     cfg.limit_ms,
+            "headers":        m.headers,
+        }),
+        3000,
+    );
+    if !started {
+        state.pending_runs.discard(&run_id);
+        return Err("could not start the test process".to_string());
+    }
+    Ok(run_id)
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SaveTestRequest {
+    pub run_id: String,
+    /// Annotation for the endpoint if saving creates it; ignored when the
+    /// endpoint already exists.
+    #[serde(default)]
+    pub annotation: Option<String>,
+}
+
+/// POST /test-view/save/test - saves a run made with `save: false`.
+///
+/// Does what a saving Run Test does, from the kept result: creates the
+/// endpoint if that URL and method aren't there already, adds the QP (request,
+/// response and headers files plus their rows) and writes the History row.
+/// An identical QP already saved is not added again: the answer says
+/// `saved: false` and which QP it matches, and no History row is written.
+///
+/// 404 if the run is unknown, timed out, was stopped, or is older than 30
+/// minutes; 409 if its HTTP call hasn't come back yet. A run saves once.
+pub async fn save_test(
+    State(state): State<AppState>,
+    Json(payload): Json<SaveTestRequest>,
+) -> (StatusCode, Json<Value>) {
+    let run = match state.pending_runs.take_finished(&payload.run_id) {
+        Ok(run) => run,
+        Err(TakeError::NotFound) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(json!({
+                    "ok": false,
+                    "error": format!("no finished run '{}' (it may have timed out, been stopped or expired)", payload.run_id)
+                })),
+            )
+        }
+        Err(TakeError::StillRunning) => {
+            return (
+                StatusCode::CONFLICT,
+                Json(json!({ "ok": false, "error": "the run hasn't finished yet" })),
+            )
+        }
+    };
+
+    match persist_run(&state, &run, payload.annotation).await {
+        Ok(body) => (StatusCode::OK, Json(body)),
+        Err((status, msg)) => {
+            // nothing was kept: the run can be saved again
+            state.pending_runs.restore(run);
+            (status, Json(json!({ "ok": false, "error": msg })))
+        }
+    }
+}
+
+fn internal<E: std::fmt::Debug>(e: E) -> (StatusCode, String) {
+    (StatusCode::INTERNAL_SERVER_ERROR, format!("{e:?}"))
+}
+
+async fn persist_run(
+    state: &AppState,
+    run: &PendingRun,
+    annotation: Option<String>,
+) -> Result<Value, (StatusCode, String)> {
+    let result = run
+        .result
+        .as_ref()
+        .ok_or((StatusCode::CONFLICT, "the run hasn't finished yet".to_string()))?;
+    let run_method = run.method.to_uppercase();
+
+    // 1) the endpoint: reused when this URL + method is already saved
+    let (endpoint, endpoint_created) = crate::handlers::endpoints::get_or_create_endpoint(
         state,
-        endpoint_id,
-        endpoint_str,
-        Some(method.to_uppercase()),
-        annotation,
+        run.endpoint_id.as_deref(),
+        &run.endpoint_str,
+        Some(run_method.clone()),
+        annotation.or_else(|| run.annotation.clone()),
     )
-    .await
-    .map_err(|(_, msg)| {
-        tracing::warn!("[run_test_impl] get_or_create_endpoint failed: {msg}");
-        EdmsError::UnknownError
-    })?;
+    .await?;
     let endpoint_id = endpoint.endpoint_id.clone();
-    if was_created {
+    if endpoint_created {
         state.refresh_dashboard_snapshot();
         let _ = state.events_tx.send(ServerEvent::CrudOperationsUpdated {
             computed_at: chrono::Utc::now().to_rfc3339(),
         });
     }
 
-    // 2) Allocate request number
+    // 2) the QP's three files' content, exactly as a saving run writes them
+    let req_content = serde_json::to_string(&run.request_body).unwrap_or_default();
+    let res_content = serde_json::to_string(&result.response_body).unwrap_or_default();
+    let hdr_content = json!({
+        "request_headers":  result.request_headers,
+        "response_headers": result.response_headers,
+    })
+    .to_string();
+
+    let qp_method = endpoint.method.clone().unwrap_or_else(|| run_method.clone());
+    let dir = state.endpoint_storage_dir(&endpoint_id);
+
     let request_number = tokio::task::spawn_blocking({
         let st = state.clone();
-        let id = endpoint_id.to_string();
+        let id = endpoint_id.clone();
         move || db::get_next_request_number(&st.core, &st.queries, &id)
     })
     .await
-    .map_err(|_| EdmsError::UnknownError)?
-    .map_err(|_| EdmsError::UnknownError)?;
+    .map_err(internal)?
+    .map_err(internal)?;
 
-    // 3) Insert request metadata into DB
-    let method_upper = method.to_uppercase();
-    // Must match the {eid}-request-{N}.json filename write_request_file
-    // actually produces (compute::endpoint_writer) — these two were out of
-    // sync before, meaning the file this points at didn't exist.
-    let request_file = state
-        .endpoint_storage_dir(&endpoint_id)
-        .join(format!("{endpoint_id}-request-{request_number}.json"))
-        .display()
-        .to_string();
+    // 3) an identical QP is saved already: don't add it again
+    if let Some(dup) = crate::qp_service::find_duplicate_qp(
+        &dir,
+        &endpoint_id,
+        &qp_method,
+        &endpoint.endpoint_str,
+        &req_content,
+        &res_content,
+        &hdr_content,
+        None,
+    )
+    .filter(|n| *n > 0)
+    {
+        let _ = state.events_tx.send(ServerEvent::DuplicateQpBlocked {
+            endpoint_id: endpoint_id.clone(),
+            request_number,
+            duplicate_of: dup,
+        });
+        return Ok(json!({
+            "ok": true,
+            "saved": false,
+            "duplicate_of": dup,
+            "endpoint_id": endpoint_id,
+            "endpoint_created": endpoint_created,
+            "request_number": dup,
+        }));
+    }
+    let qp_data = crate::qp_service::extract_qp_data(&endpoint.endpoint_str);
+    state.duplicate_store.add_if_new(&crate::qp_service::make_canonical_key(
+        &qp_method,
+        &endpoint_id,
+        &req_content,
+        &res_content,
+        &hdr_content,
+        &qp_data,
+    ));
 
-    tokio::task::spawn_blocking({
+    // 4) files, then their rows
+    let request_path = dir.join(format!("{endpoint_id}-request-{request_number}.json"));
+    let response_path = dir.join(format!("{endpoint_id}-response-{request_number}.json"));
+    let headers_path = dir.join(format!("{endpoint_id}-headers-{request_number}.json"));
+    let written = async {
+        tokio::fs::create_dir_all(&dir).await?;
+        tokio::fs::write(&request_path, &req_content).await?;
+        tokio::fs::write(&response_path, &res_content).await?;
+        tokio::fs::write(&headers_path, &hdr_content).await
+    }
+    .await;
+    if let Err(e) = written {
+        remove_qp_files(&[&request_path, &response_path, &headers_path]).await;
+        return Err((StatusCode::INTERNAL_SERVER_ERROR, format!("failed to write the QP files: {e}")));
+    }
+
+    let status_code = result.status_code;
+    let response_time_ms = result.response_time_ms;
+    let rows = tokio::task::spawn_blocking({
         let st = state.clone();
-        let eid = endpoint_id.to_string();
-        let rf = request_file.clone();
-        let m = method_upper.clone();
-        move || db::insert_request_metadata(&st.core, &st.queries, &eid, request_number, &rf, &m)
+        let eid = endpoint_id.clone();
+        let rf = request_path.display().to_string();
+        let resf = response_path.display().to_string();
+        let m = run_method.clone();
+        move || -> edms::error::EdmsResult<usize> {
+            db::insert_request_metadata(&st.core, &st.queries, &eid, request_number, &rf, &m)?;
+            db::insert_response_metadata(
+                &st.core,
+                &st.queries,
+                &eid,
+                request_number,
+                &resf,
+                Some(status_code),
+                Some(response_time_ms),
+            )?;
+            let details = format!("{status_code} in {response_time_ms}ms");
+            db::insert_history(&st.core, &st.queries, &eid, "test", Some(&details))?;
+            db::history_count(&st.core, &st.queries)
+        }
     })
     .await
-    .map_err(|_| EdmsError::UnknownError)?
-    .map_err(|_| EdmsError::UnknownError)?;
+    .map_err(internal)?;
+    let history_count = match rows {
+        Ok(count) => count,
+        Err(e) => {
+            remove_qp_files(&[&request_path, &response_path, &headers_path]).await;
+            return Err(internal(e));
+        }
+    };
 
-    // 4) Spawn edms-child to write the request file to disk
-    //    Result comes back via /internal/callback
-    ipc::spawn_child(
-        "write_request",
-        json!({
-            "repo_path":  state.endpoint_storage_dir(&endpoint_id).display().to_string(),
-            "eid":        endpoint_id,
-            "req_index":  request_number,
-            "content":    serde_json::to_string(&request_json).unwrap_or_default(),
-        }),
-        3000,
-    );
-
-    // 5) Emit TestStarted
-    let _ = state.events_tx.send(ServerEvent::TestStarted {
-        endpoint_id: endpoint_id.to_string(),
+    // 5) tell the open views
+    let _ = state.events_tx.send(ServerEvent::QpCreated {
+        endpoint_id: endpoint_id.clone(),
         request_number,
     });
-
-    // 6) Start timer — keep the handle so callback.rs can cancel it once
-    //    the real outcome (success or timeout) is known, instead of letting
-    //    it tick on its own independent schedule.
-    let timer_handle = timer::spawn_timer(
-        endpoint_id.to_string(),
-        request_number,
-        timer_cfg.clone(),
-        state.events_tx.clone(),
-    );
     state
-        .active_timers
-        .lock()
-        .unwrap()
-        .insert((endpoint_id.to_string(), request_number), timer_handle);
+        .emit(ServerEvent::HistoryUpdated { count: history_count })
+        .await;
 
-    // 7) Spawn edms-child for the actual HTTP test call
-    //    This is the original run_test task — unchanged
-    ipc::spawn_child(
-        "run_test",
-        json!({
-            "endpoint_id":    endpoint_id,
-            "url":            endpoint.endpoint_str,
-            "method":         method_upper,
-            "body":           request_json,
-            "request_number": request_number,
-            "timeout_ms":     timer_cfg.limit_ms,
-            "headers":        headers,
-        }),
-        3000,
-    );
+    Ok(json!({
+        "ok": true,
+        "saved": true,
+        "endpoint_id": endpoint_id,
+        "endpoint_created": endpoint_created,
+        "request_number": request_number,
+        "status_code": status_code,
+        "response_time_ms": response_time_ms,
+        "history_count": history_count,
+    }))
+}
 
-    Ok(())
+async fn remove_qp_files(paths: &[&std::path::Path]) {
+    for p in paths {
+        let _ = tokio::fs::remove_file(p).await;
+    }
 }
 
 // ── Subscription handlers ─────────────────────────────────────────────
@@ -703,11 +854,9 @@ async fn handle_ws_delete_from_bookmark(mut socket: WebSocket, state: AppState, 
 
 // ── Fetch a saved request/response body ─────────────────────────────────
 //
-// TestFinished only carries status_code/response_time_ms/response_file — a
-// server-side path, not the actual content. These routes are the missing
-// second half of the WS-trigger-then-REST-fetch pattern: the client uses
-// endpoint_id + request_number (already known from TestFinished) to pull
-// the real body. Deliberately NOT taking a raw path from the client —
+// A saved QP is read back through these routes: the client uses
+// endpoint_id + request_number (returned by POST /test-view/save/test) to
+// pull the real body. Deliberately NOT taking a raw path from the client —
 // that would be a path-traversal risk. The server builds the path itself,
 // the same way test_view.rs/callback.rs already do when writing it.
 
@@ -774,9 +923,8 @@ pub async fn get_saved_headers(
 // ── QP list / delete ─────────────────────────────────────────────────
 //
 // A "QP" (request/response pair) is one test run against an endpoint —
-// already persisted automatically in request_metadata/response_metadata +
-// the three saved JSON files whenever a test runs (see run_test_impl
-// above). These two routes are the missing "access all of them" / "get
+// persisted in request_metadata/response_metadata + the three saved JSON
+// files when a run is saved (see persist_run above). These two routes are the missing "access all of them" / "get
 // rid of one" pieces — everything else about a QP already existed.
 
 /// GET /test-view/{endpoint_id}/qps

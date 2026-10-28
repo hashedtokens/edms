@@ -1,10 +1,8 @@
 use crate::config::AppConfig;
 use crate::events::ServerEvent;
-use crate::timer::TimerHandle;
 use edms::core::EdmsCore;
 use edms::query_loader::QueryMap;
 use rusqlite::Connection;
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tokio::sync::{broadcast, RwLock};
@@ -27,17 +25,13 @@ pub struct AppState {
     pub storage_configured: bool,
     pub started_at: String,
     pub config: Arc<AppConfig>,
-    /// Timer handles for in-flight test runs, keyed by (endpoint_id,
-    /// request_number) — so whichever code path learns the test's real
-    /// outcome (success or timeout, in callback.rs) can cancel the app's
-    /// own independent countdown instead of letting it keep ticking or
-    /// fire a second, uncoordinated TestTimeout on its own schedule.
-    pub active_timers: Arc<Mutex<HashMap<(String, i32), TimerHandle>>>,
     pub eid_allocator: Arc<compute::eid::allocator::EidAllocator>,
     /// Long-running Import/Export work started by a request and finished by
     /// an `edms-child` callback (see `jobs.rs`).
     pub jobs: crate::jobs::JobTable,
     pub duplicate_store: crate::qp_service::DuplicateStore,
+    /// Test runs that were run but not saved (see `test_runs.rs`).
+    pub pending_runs: crate::test_runs::PendingRuns,
 }
 
 impl AppState {
@@ -66,29 +60,10 @@ impl AppState {
             storage_configured,
             started_at: chrono::Utc::now().to_rfc3339(),
             config,
-            active_timers: Arc::new(Mutex::new(HashMap::new())),
             eid_allocator,
             jobs: crate::jobs::JobTable::new(),
             duplicate_store: crate::qp_service::DuplicateStore::new(),
-        }
-    }
-
-    /// Removes and cancels the timer for (endpoint_id, request_number), if
-    /// one is still running. Call this once the test's real outcome is
-    /// known — a no-op if the timer already fired and removed itself.
-    /// Returns whether a running timer was actually found and cancelled.
-    pub fn cancel_timer(&self, endpoint_id: &str, request_number: i32) -> bool {
-        let handle = self
-            .active_timers
-            .lock()
-            .unwrap()
-            .remove(&(endpoint_id.to_string(), request_number));
-        match handle {
-            Some(handle) => {
-                handle.cancel();
-                true
-            }
-            None => false,
+            pending_runs: crate::test_runs::PendingRuns::new(),
         }
     }
 

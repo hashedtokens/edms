@@ -40,7 +40,6 @@ pub async fn ipc_callback(
 
     match callback.task.as_str() {
         "run_test"                 => handle_run_test(&state, &callback).await,
-        "write_request"            => handle_write_request(&state, &callback).await,
         "export_collection"        => handle_export_collection(&state, &callback).await,
         "import_zip"                => handle_import_zip(&state, &callback).await,
         "generate_markdown"        => handle_generate_markdown(&state, &callback).await,
@@ -101,239 +100,50 @@ async fn handle_file_conversion(state: &AppState, callback: &IpcCallback) {
 
 // ── run_test ─────────────────────────────────────────────────────────────────
 //
-// The HTTP test call completed. Spawn edms-child to persist the response file,
-// then broadcast TestFinished so WebSocket clients update.
+// The HTTP call of a Run Test came back (or timed out). A run saves nothing:
+// the result is kept in memory under its run id and sent to the page as
+// RunFinished (or RunTimeout). Save Test, POST /test-view/save/test, is what
+// writes it.
 
 async fn handle_run_test(state: &AppState, callback: &IpcCallback) {
     let r = &callback.result;
+    let run_id = r["endpoint_id"].as_str().unwrap_or("").to_string();
 
-    let endpoint_id    = r["endpoint_id"].as_str().unwrap_or("").to_string();
-    let request_number = r["request_number"].as_i64().unwrap_or(0) as i32;
-
-    // Timeout path
-    if r.get("timed_out").and_then(|v| v.as_bool()).unwrap_or(false) {
-        // Cancel the app's own independent timer — it's on the same
-        // timeout_ms but a separate schedule, so without this it can still
-        // fire its own TestTimeout a tick later (duplicate event).
-        state.cancel_timer(&endpoint_id, request_number);
-        let _ = state.events_tx.send(ServerEvent::TestTimeout {
-            endpoint_id,
-            request_number,
-        });
+    if !crate::test_runs::is_run_id(&run_id) {
+        warn!("[callback] run_test answer for '{run_id}', which is not a run id - dropped");
         return;
     }
 
-    let status_code      = r["status_code"].as_i64().unwrap_or(0) as i32;
-    let response_time_ms = r["response_time_ms"].as_i64().unwrap_or(0) as i32;
-    let response_body    = r.get("response_body").cloned().unwrap_or(serde_json::Value::Null);
+    if r.get("timed_out").and_then(|v| v.as_bool()).unwrap_or(false) {
+        if state.pending_runs.discard(&run_id) {
+            let _ = state.events_tx.send(ServerEvent::RunTimeout { run_id });
+        }
+        return;
+    }
 
-    let request_headers  = r.get("request_headers").cloned().unwrap_or(serde_json::json!({}));
-    let response_headers = r.get("response_headers").cloned().unwrap_or(serde_json::json!({}));
-    let headers_content = serde_json::json!({
-        "request_headers":  request_headers,
-        "response_headers": response_headers,
-    });
-
-    let dir = state.endpoint_storage_dir(&endpoint_id);
-    let req_file_path = dir.join(format!("{endpoint_id}-request-{request_number}.json"));
-    let req_content = tokio::fs::read_to_string(&req_file_path).await.unwrap_or_default();
-    let res_content = serde_json::to_string(&response_body).unwrap_or_default();
-    let hdr_content = headers_content.to_string();
-
-    let (method, endpoint_str) = {
-        let st = state.clone();
-        let eid = endpoint_id.clone();
-        tokio::task::spawn_blocking(move || {
-            crate::db::get_endpoint(&st.core, &st.queries, &eid)
-                .ok()
-                .flatten()
-                .map(|ep| (ep.method.unwrap_or_else(|| "GET".to_string()), ep.endpoint_str))
-        })
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or_else(|| {
-            crate::qp_service::extract_method_and_endpoint(&req_content)
-        })
+    let result = crate::test_runs::RunResult {
+        status_code: r["status_code"].as_i64().unwrap_or(0) as i32,
+        response_time_ms: r["response_time_ms"].as_i64().unwrap_or(0) as i32,
+        response_body: r.get("response_body").cloned().unwrap_or(serde_json::Value::Null),
+        request_headers: r.get("request_headers").cloned().unwrap_or(serde_json::json!({})),
+        response_headers: r.get("response_headers").cloned().unwrap_or(serde_json::json!({})),
     };
-    let qp_data = crate::qp_service::extract_qp_data(&endpoint_str);
-    let snapshot_key = crate::qp_service::make_canonical_key(
-        &method,
-        &endpoint_id,
-        &req_content,
-        &res_content,
-        &hdr_content,
-        &qp_data,
-    );
-
-    let dup_opt = crate::qp_service::find_duplicate_qp(
-        &dir,
-        &endpoint_id,
-        &method,
-        &endpoint_str,
-        &req_content,
-        &res_content,
-        &hdr_content,
-        Some(request_number),
-    );
-
-    // Only block if a matching QP actually exists on disk (prevents blocking deleted QPs as #0)
-    if let Some(dup_num) = dup_opt {
-        if dup_num > 0 {
-            tracing::warn!(
-                "[handle_run_test] Duplicate QP detected for endpoint {endpoint_id}. Discarding duplicate write to disk."
-            );
-            let _ = tokio::fs::remove_file(&req_file_path).await;
-            let st = state.clone();
-            let eid = endpoint_id.clone();
-            let _ = tokio::task::spawn_blocking(move || {
-                let rq = st.queries.get_request_query("R7").ok_or(edms::error::EdmsError::UnknownError)?;
-                st.core.proc(rq, &[&eid, &request_number])
-            }).await;
-
-            state.cancel_timer(&endpoint_id, request_number);
-            let _ = state.events_tx.send(ServerEvent::DuplicateQpBlocked {
-                endpoint_id: endpoint_id.clone(),
-                request_number,
-                duplicate_of: dup_num,
+    match state.pending_runs.finish(&run_id, result.clone()) {
+        Some(run) => {
+            let _ = state.events_tx.send(ServerEvent::RunFinished {
+                run_id,
+                endpoint_str: run.endpoint_str,
+                method: run.method,
+                status_code: result.status_code,
+                response_time_ms: result.response_time_ms,
+                request_body: run.request_body,
+                response_body: result.response_body,
+                request_headers: result.request_headers,
+                response_headers: result.response_headers,
             });
-
-            let response_file = dir
-                .join(format!("{endpoint_id}-response-{dup_num}.json"))
-                .display()
-                .to_string();
-
-            let _ = state.events_tx.send(ServerEvent::TestFinished {
-                endpoint_id,
-                request_number: dup_num,
-                status_code,
-                response_time_ms,
-                response_file,
-            });
-            return;
         }
+        None => info!("[callback] result for run '{run_id}' which is gone (timed out or stopped) - dropped"),
     }
-
-    state.duplicate_store.add_if_new(&snapshot_key);
-
-    let response_file = dir
-        .join(format!("{endpoint_id}-response-{request_number}.json"))
-        .display()
-        .to_string();
-
-    // Spawn edms-child to write the response file to disk
-    crate::ipc::spawn_child(
-        "write_response",
-        serde_json::json!({
-            "repo_path":  state.endpoint_storage_dir(&endpoint_id).display().to_string(),
-            "eid":        endpoint_id,
-            "res_index":  request_number,
-            "content":    serde_json::to_string(&response_body).unwrap_or_default(),
-        }),
-        3000,
-    );
-
-    // Headers — per Ravi (2026-09-04). compute echoes back the request
-    // headers it actually sent alongside the response's own headers, so
-    // both land in one combined file without webserver needing to
-    // remember what it asked for earlier.
-    let request_headers  = r.get("request_headers").cloned().unwrap_or(serde_json::json!({}));
-    let response_headers = r.get("response_headers").cloned().unwrap_or(serde_json::json!({}));
-    let headers_content = serde_json::json!({
-        "request_headers":  request_headers,
-        "response_headers": response_headers,
-    });
-    crate::ipc::spawn_child(
-        "write_headers",
-        serde_json::json!({
-            "repo_path": state.endpoint_storage_dir(&endpoint_id).display().to_string(),
-            "eid":       endpoint_id,
-            "index":     request_number,
-            "content":   headers_content.to_string(),
-        }),
-        3000,
-    );
-
-    // Record response metadata in the DB — without this, response_metadata
-    // stays permanently empty and QP Pairs (request+response joins) in the
-    // CRUD Operations table can never show anything but zero.
-    {
-        let st = state.clone();
-        let eid = endpoint_id.clone();
-        let rf = response_file.clone();
-        let res = tokio::task::spawn_blocking(move || {
-            crate::db::insert_response_metadata(
-                &st.core,
-                &st.queries,
-                &eid,
-                request_number,
-                &rf,
-                Some(status_code),
-                Some(response_time_ms),
-            )
-        })
-        .await;
-        match res {
-            Ok(Ok(_)) => {}
-            Ok(Err(e)) => warn!("[callback] failed to insert response_metadata: {e:?}"),
-            Err(e) => warn!("[callback] failed to join insert_response_metadata task: {e}"),
-        }
-    }
-
-    // Record this QP pair in History automatically — per Ravi's email
-    // (2026-09-03), every completed test is auto-linked into History with
-    // no manual step; only promoting one into Bookmarks is a deliberate
-    // user action. POST /test-view/save/history remains available for
-    // anything that wants to log a history entry without a real test run.
-    let history_count = {
-        let st = state.clone();
-        let eid = endpoint_id.clone();
-        let details = format!("{status_code} in {response_time_ms}ms");
-        let res = tokio::task::spawn_blocking(move || {
-            crate::db::insert_history(&st.core, &st.queries, &eid, "test", Some(&details))?;
-            crate::db::history_count(&st.core, &st.queries)
-        })
-        .await;
-        match res {
-            Ok(Ok(count)) => Some(count),
-            Ok(Err(e)) => {
-                warn!("[callback] failed to auto-record history: {e:?}");
-                None
-            }
-            Err(e) => {
-                warn!("[callback] failed to join auto-record-history task: {e}");
-                None
-            }
-        }
-    };
-    if let Some(count) = history_count {
-        state.emit(ServerEvent::HistoryUpdated { count }).await;
-    }
-
-    // Test finished for real — stop the app's own countdown so it doesn't
-    // keep emitting TimerTick after the fact.
-    state.cancel_timer(&endpoint_id, request_number);
-
-    // Broadcast TestFinished — WS clients update immediately
-    let _ = state.events_tx.send(ServerEvent::TestFinished {
-        endpoint_id,
-        request_number,
-        status_code,
-        response_time_ms,
-        response_file,
-    });
-}
-
-// ── write_request ─────────────────────────────────────────────────────────────
-//
-// edms-child finished writing the request file to disk.
-// Nothing to broadcast — this is a background persistence operation.
-
-async fn handle_write_request(_state: &AppState, callback: &IpcCallback) {
-    info!(
-        "[callback] request file written: {}",
-        callback.result["message"].as_str().unwrap_or("ok")
-    );
 }
 
 // ── export_collection ─────────────────────────────────────────────────────────
