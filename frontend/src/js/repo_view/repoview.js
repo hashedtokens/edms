@@ -116,22 +116,6 @@
                 };
             });
 
-            if (state.repos.length === 0) {
-                state.repos.push({
-                    id: nextId++,
-                    name: 'demo repoview',
-                    annotation: 'just for referencing (dummy entry)',
-                    dateCreated: new Date().toISOString().split('T')[0],
-                    dataSizeBytes: 15 * 1024 * 1024,
-                    eidCount: 5,
-                    segments: 2,
-                    dataTags: ['eqp-demo'],
-                    tags: ['demo'],
-                    qpCount: 2,
-                    indexLists: 1,
-                    crud: { GET: 2, POST: 1, PUT: 0, PATCH: 0, DELETE: 1 }
-                });
-            }
 
             nextId += state.repos.length;
 
@@ -2231,7 +2215,9 @@
 
         convertToCollection,
 
-        takeoutRepo
+        takeoutRepo,
+
+        loadData
 
     };
 

@@ -6,8 +6,8 @@
 //! `storage/repoview` / `storage/webview` are where registered RepoViews and
 //! WebViews live, so a "move" could write into one and would anyway create
 //! no catalog row, fresh EIDs or index. For RepoViews and WebViews, importing
-//! a row *is* the move: `POST /repoview/import` or `/webview/import` with its
-//! `folder` or `zip`.
+//! a row *is* the move: `POST /repoview/import`, `/webview/import` or
+//! `/collections/import` with its `folder` or `zip`.
 
 use axum::{extract::State, http::StatusCode, Json};
 use compute::table_view::{scan_imports_table, TableItem, ViewPurpose};
@@ -72,6 +72,8 @@ fn row_json(item: &TableItem) -> Option<Value> {
             (Some(ViewPurpose::RepoView), false) => json!({ "route": "/repoview/import", "folder": item.name }),
             (Some(ViewPurpose::WebView), true) => json!({ "route": "/webview/import", "zip": item.name }),
             (Some(ViewPurpose::WebView), false) => json!({ "route": "/webview/import", "folder": item.name }),
+            (Some(ViewPurpose::Collections), true) => json!({ "route": "/collections/import", "zip": item.name }),
+            (Some(ViewPurpose::Collections), false) => json!({ "route": "/collections/import", "folder": item.name }),
             _ => Value::Null,
         },
     }))
@@ -206,6 +208,18 @@ mod tests {
         assert_eq!(folder["import_with"], json!({ "route": "/webview/import", "folder": "telemetry" }));
 
         assert!(rows.iter().all(|r| r["name"] != "notes.txt"), "only zips are listed as compressed items");
+
+        // a Collections row is importable now too
+        std::fs::create_dir_all(imports.join("compressed/collections")).unwrap();
+        std::fs::create_dir_all(imports.join("uncompressed/collections/auth-suite")).unwrap();
+        std::fs::write(imports.join("compressed/collections/auth.zip"), "zip").unwrap();
+        let scan = scan_imports_table(&imports);
+        let rows: Vec<Value> = scan.compressed.iter().chain(scan.uncompressed.iter()).filter_map(row_json).collect();
+        let zip = rows.iter().find(|r| r["name"] == "auth.zip").unwrap();
+        assert_eq!(zip["purpose"], "Collections");
+        assert_eq!(zip["import_with"], json!({ "route": "/collections/import", "zip": "auth.zip" }));
+        let folder = rows.iter().find(|r| r["name"] == "auth-suite").unwrap();
+        assert_eq!(folder["import_with"], json!({ "route": "/collections/import", "folder": "auth-suite" }));
         std::fs::remove_dir_all(imports).unwrap();
     }
 

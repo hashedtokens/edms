@@ -287,6 +287,33 @@ Content-Type: application/json
 
 { "sources": ["auth-suite", "smoke-tests"], "tags": ["critical"] }
 
+### Take a Collection out (Export), as a job: copies every member's EQP data to
+### storage/takeout/{dest_name}/ with a repoview-manifest.json (kind "collection"). No SQLite.
+### 202 {job_id, endpoints, members_without_endpoint}; the result arrives as a ViewIoDone
+### event (op "takeout", view "collections") on GET /jobs/ws and on GET /jobs/:id.
+### 409 {options:["overwrite","rename"]} if that takeout folder exists.
+POST {{baseUrl}}/collections/auth-suite/takeout
+Content-Type: application/json
+
+{ "dest_name": "auth-suite-2026-10", "overwrite": false }
+
+### Import a Collection from an unzipped takeout under
+### storage/imports/uncompressed/collections/ - every endpoint gets a fresh EID and the
+### collection is created (bookmarks, membership file, catalog row, annotation, tags).
+### 409 {options:["rename"]} if the name is taken.
+POST {{baseUrl}}/collections/import
+Content-Type: application/json
+
+{ "folder": "auth-suite-2026-10", "name": "auth-suite-copy" }
+
+### Import a zipped Collection takeout from storage/imports/compressed/collections/
+### (unzipped strictly first; 409 {options:["replace"]} if already unzipped, retry with
+### "replace_extracted": true)
+POST {{baseUrl}}/collections/import
+Content-Type: application/json
+
+{ "zip": "auth-suite-2026-10.zip", "name": "auth-suite-from-zip" }
+
 ### Remove an endpoint from a collection
 POST {{baseUrl}}/collections/auth-suite/endpoints/remove
 Content-Type: application/json
@@ -569,6 +596,9 @@ GET {{baseUrl}}/repoview/by-tag/production
 # Two approaches, one active at a time (both write the same Tables-NNN.md /
 # Tables-meta.md names, so generating one replaces the other). Read from the
 # RepoView's own index. Not run automatically - call it to (re)generate.
+# Endpoint Segments columns: EID, CRUD Type, Endpoint (path, no host), Query
+# Parameter, QP, QP Count, Status Summary, Annotation, Tags, Data Size,
+# Created, Updated. Tables-meta.md also carries the view's own annotation and tags.
 # NOTE: a JSON body is always required, even if just {}.
 
 ### Approach [B] Endpoint Segments (the default), default batch size (100)
@@ -695,7 +725,8 @@ GET {{baseUrl}}/logs
 # Repo Export
 # ============================================================
 
-### Export a bookmark collection
+### Export a bookmark collection (the older route - for a real Collection export use
+### POST /collections/:name/takeout above)
 # Returns markdown immediately; also fires async zip export + markdown
 # generation jobs in the background (results via /internal/callback).
 GET {{baseUrl}}/repo/my-collection/export.zip/export

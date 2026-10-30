@@ -4,9 +4,12 @@
 //! naturally replaces whatever the other produced; `Tables-meta.md` names
 //! the approach on its first line so the folder is self-describing.
 //!
-//! - [B] Endpoint Segments — generic, no tags needed. One row per endpoint
-//!   (EID, CRUD Type, Endpoint, QP, Annotation, Tags - Ravi, 2026-10-18),
-//!   sorted by the endpoint's URL path.
+//! - [B] Endpoint Segments — generic, no tags needed. One row per endpoint,
+//!   sorted by the endpoint's URL path, with the columns of the Data View
+//!   (EID, CRUD Type, Endpoint, Query Parameter, QP, Annotation, Tags) plus
+//!   QP Count, Status Summary, Data Size, Created and Updated. The host never
+//!   appears (Ravi, 2026-10-25): a list view shows the endpoint and its query
+//!   parameter, not the domain.
 //! - [A] Sorted Tags — a tag -> segment-count pivot: one line per tag,
 //!   listing every distinct segment under it with how many endpoints have
 //!   that (tag, segment) pair. An endpoint with several tags counts once
@@ -35,6 +38,7 @@ use crate::{
     handlers::{
         repoview_combine::read_index,
         view_catalog::{open_catalog, open_existing_membership, repoview_dir, validate_repoview_name},
+        view_flavor::Flavor,
     },
     state::AppState,
 };
@@ -85,7 +89,7 @@ impl Approach {
     fn table_header(self) -> &'static str {
         match self {
             Self::EndpointSegments => {
-                "| EID | CRUD Type | Endpoint | QP | Annotation | Tags |\n|---|---|---|---|---|---|\n"
+                "| EID | CRUD Type | Endpoint | Query Parameter | QP | QP Count | Status Summary | Annotation | Tags | Data Size | Created | Updated |\n|---|---|---|---|---|---|---|---|---|---|---|---|\n"
             }
             Self::SortedTags => "| Tag | Endpoint Segments |\n|---|---|\n",
         }
@@ -112,13 +116,18 @@ struct QpInfo {
 struct MemberRow {
     /// Only for sorting and for the meta table's first/last labels.
     segment_path: String,
-    /// The full URL, as shown in the Endpoint column.
-    endpoint_str: String,
+    /// The Endpoint column: the URL's path, no host.
+    endpoint_path: String,
+    /// The Query Parameter column: what follows the `?`, if anything.
+    query_param: String,
     endpoint_id: String,
     method: String,
     annotation: Option<String>,
     tags: Vec<String>,
     qps: Vec<QpInfo>,
+    data_size_bytes: Option<i64>,
+    created_at: Option<String>,
+    updated_at: Option<String>,
 }
 
 /// The QP column: each saved QP as `number: status time`, e.g.
@@ -138,17 +147,63 @@ fn qp_cell(qps: &[QpInfo]) -> String {
         .join(", ")
 }
 
-/// One Endpoint Segments row, columns in the order Ravi asked for (the
-/// same as Data View): EID, CRUD Type, Endpoint, QP, Annotation, Tags.
+/// The Status Summary column: how many QPs landed in each class of status
+/// code, `2xx: 3, 4xx: 1`, lowest class first, QPs that never got a response
+/// last as `no response: n`. `-` if there are no QPs.
+fn status_summary(qps: &[QpInfo]) -> String {
+    if qps.is_empty() {
+        return "-".to_string();
+    }
+    let mut by_class: BTreeMap<String, usize> = BTreeMap::new();
+    let mut no_response = 0usize;
+    for q in qps {
+        match q.status_code {
+            Some(code) if (100..600).contains(&code) => *by_class.entry(format!("{}xx", code / 100)).or_insert(0) += 1,
+            Some(_) => *by_class.entry("other".to_string()).or_insert(0) += 1,
+            None => no_response += 1,
+        }
+    }
+    let mut parts: Vec<String> = by_class.into_iter().map(|(class, n)| format!("{class}: {n}")).collect();
+    if no_response > 0 {
+        parts.push(format!("no response: {no_response}"));
+    }
+    parts.join(", ")
+}
+
+/// The Data Size column: how big the endpoint's QP files were when the view
+/// was made. `-` if that was never measured.
+fn size_cell(bytes: Option<i64>) -> String {
+    match bytes {
+        Some(b) if b >= 0 => compute::table_view::format_size(b as u64),
+        _ => "-".to_string(),
+    }
+}
+
+/// The Query Parameter, Created and Updated columns: the value, or `-`.
+fn or_dash(value: Option<&str>) -> String {
+    match value.map(str::trim) {
+        Some(v) if !v.is_empty() => v.to_string(),
+        _ => "-".to_string(),
+    }
+}
+
+/// One Endpoint Segments row, in the Data View's column order (Ravi,
+/// 2026-10-18 and 2026-10-25) with the extra columns after it.
 fn endpoint_row(m: &MemberRow) -> String {
     format!(
-        "| {} | {} | {} | {} | {} | {} |",
+        "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |",
         m.endpoint_id,
         md_cell(&m.method),
-        md_cell(&m.endpoint_str),
+        md_cell(&m.endpoint_path),
+        md_cell(&or_dash(Some(&m.query_param))),
         md_cell(&qp_cell(&m.qps)),
+        m.qps.len(),
+        md_cell(&status_summary(&m.qps)),
         md_cell(m.annotation.as_deref().unwrap_or("")),
         md_cell(&m.tags.join(", ")),
+        size_cell(m.data_size_bytes),
+        md_cell(&or_dash(m.created_at.as_deref())),
+        md_cell(&or_dash(m.updated_at.as_deref())),
     )
 }
 
@@ -175,6 +230,20 @@ pub(crate) fn segment_path(endpoint_str: &str) -> String {
     } else {
         path.to_string()
     }
+}
+
+/// A URL as a list view stores it: the endpoint (the path, no scheme or host)
+/// and the query parameter (what follows the `?`, no fragment) in two parts.
+/// `https://x.com/posts?limit=3` gives `("/posts", "limit=3")`; a URL with no
+/// query gives an empty second part. Anything that isn't a URL keeps its text
+/// before the `?` as the endpoint, like `segment_path`.
+pub(crate) fn split_endpoint(endpoint_str: &str) -> (String, String) {
+    let without_fragment = endpoint_str.split('#').next().unwrap_or(endpoint_str);
+    let (before_query, query) = match without_fragment.split_once('?') {
+        Some((before, query)) => (before, query),
+        None => (without_fragment, ""),
+    };
+    (segment_path(before_query), query.to_string())
 }
 
 /// The individual path components of an endpoint's URL - what the UI calls
@@ -233,16 +302,51 @@ struct Item {
     row: String,
 }
 
-/// Deletes every existing `Tables-*.md` in `dir`, then writes fresh
-/// `Tables-NNN.md` batches of `batch_size` items plus a `Tables-meta.md`.
-/// Returns the file names written. Replacing (not patching) is deliberate -
-/// the batch count can shrink or grow as membership changes, so a stale
-/// file from a larger previous run must never be left behind.
+/// What `Tables-meta.md` says about the view itself, besides how its Tables
+/// were made: the view's annotation and its own tags (Ravi, 2026-10-25 -
+/// annotation and tags at the endpoint level are columns of the Tables, and
+/// at the level of the whole view they go in the meta file).
+#[derive(Debug, Default, Clone)]
+pub(crate) struct ViewInfo {
+    pub(crate) annotation: Option<String>,
+    pub(crate) tags: Vec<String>,
+}
+
+/// `Annotation:` and `Tags:` lines, each on one line (`-` when empty).
+fn view_lines(view: &ViewInfo) -> String {
+    let annotation = view
+        .annotation
+        .as_deref()
+        .map(|a| a.split_whitespace().collect::<Vec<_>>().join(" "))
+        .filter(|a| !a.is_empty())
+        .unwrap_or_else(|| "-".to_string());
+    let mut tags: Vec<&str> = view.tags.iter().map(|t| t.trim()).filter(|t| !t.is_empty()).collect();
+    tags.sort();
+    let tags = if tags.is_empty() { "-".to_string() } else { tags.join(", ") };
+    format!("Annotation: {annotation}\nTags: {tags}\n\n")
+}
+
+#[cfg(test)]
 fn write_batches(
     dir: &FsPath,
     approach: Approach,
     items: &[Item],
     batch_size: usize,
+) -> Result<Vec<String>, String> {
+    write_batches_for(dir, approach, items, batch_size, &ViewInfo::default())
+}
+
+/// Deletes every existing `Tables-*.md` in `dir`, then writes fresh
+/// `Tables-NNN.md` batches of `batch_size` items plus a `Tables-meta.md`.
+/// Returns the file names written. Replacing (not patching) is deliberate -
+/// the batch count can shrink or grow as membership changes, so a stale
+/// file from a larger previous run must never be left behind.
+fn write_batches_for(
+    dir: &FsPath,
+    approach: Approach,
+    items: &[Item],
+    batch_size: usize,
+    view: &ViewInfo,
 ) -> Result<Vec<String>, String> {
     for entry in std::fs::read_dir(dir).map_err(|e| e.to_string())? {
         let entry = entry.map_err(|e| e.to_string())?;
@@ -253,7 +357,7 @@ fn write_batches(
         }
     }
 
-    let approach_line = format!("Approach: {}\n\n", approach.label());
+    let approach_line = format!("Approach: {}\n\n{}", approach.label(), view_lines(view));
 
     if items.is_empty() {
         std::fs::write(
@@ -329,16 +433,34 @@ pub(crate) fn generate_tables_blocking(
         .endpoints
         .iter()
         .filter(|(eid, _)| index.members.contains(*eid))
-        .map(|(eid, row)| MemberRow {
-            segment_path: segment_path(&row.endpoint_str),
-            endpoint_str: row.endpoint_str.clone(),
-            endpoint_id: eid.clone(),
-            method: row.method.clone().unwrap_or_else(|| "UNCLASSIFIED".to_string()),
-            annotation: row.annotation.clone(),
-            tags: tags_by_eid.remove(eid.as_str()).unwrap_or_default(),
-            qps: qps_by_eid.remove(eid.as_str()).unwrap_or_default(),
+        .map(|(eid, row)| {
+            // an index made before the split columns existed is filled in when
+            // it is opened, but fall back to splitting the URL all the same
+            let (split_path, split_query) = split_endpoint(&row.endpoint_str);
+            MemberRow {
+                segment_path: segment_path(&row.endpoint_str),
+                endpoint_path: row.endpoint_path.clone().unwrap_or(split_path),
+                query_param: row.query_param.clone().unwrap_or(split_query),
+                endpoint_id: eid.clone(),
+                method: row.method.clone().unwrap_or_else(|| "UNCLASSIFIED".to_string()),
+                annotation: row.annotation.clone(),
+                tags: tags_by_eid.remove(eid.as_str()).unwrap_or_default(),
+                qps: qps_by_eid.remove(eid.as_str()).unwrap_or_default(),
+                data_size_bytes: row.data_size_bytes,
+                created_at: row.created_at.clone(),
+                updated_at: row.updated_at.clone(),
+            }
         })
         .collect();
+
+    // The view's own annotation and tags, for Tables-meta.md.
+    let view = ViewInfo {
+        annotation: open_catalog(state)?
+            .get(ViewKind::Repoview, name)
+            .map_err(|e| format!("{e:?}"))?
+            .and_then(|row| row.3),
+        tags: Flavor::Repo.row_tag_ops(state)?.list(name).map_err(|e| format!("{e:?}"))?,
+    };
 
     let dir = repoview_dir(&state, &name);
     if !dir.is_dir() {
@@ -382,7 +504,7 @@ pub(crate) fn generate_tables_blocking(
         }
     };
 
-    let files_written = write_batches(&dir, approach, &items, batch_size)?;
+    let files_written = write_batches_for(&dir, approach, &items, batch_size, &view)?;
 
     Ok(json!({
         "ok": true,
@@ -662,24 +784,32 @@ mod tests {
     }
 
     fn member(eid: &str, method: &str, url: &str) -> MemberRow {
+        let (endpoint_path, query_param) = split_endpoint(url);
         MemberRow {
             segment_path: segment_path(url),
-            endpoint_str: url.to_string(),
+            endpoint_path,
+            query_param,
             endpoint_id: eid.to_string(),
             method: method.to_string(),
             annotation: None,
             tags: vec![],
             qps: vec![],
+            data_size_bytes: None,
+            created_at: None,
+            updated_at: None,
         }
     }
 
     #[test]
-    fn the_endpoint_table_has_ravis_columns_in_ravis_order() {
+    fn the_endpoint_table_has_the_data_view_columns_then_the_extra_ones() {
         let header = Approach::EndpointSegments.table_header();
         assert!(
-            header.starts_with("| EID | CRUD Type | Endpoint | QP | Annotation | Tags |\n"),
+            header.starts_with(
+                "| EID | CRUD Type | Endpoint | Query Parameter | QP | QP Count | Status Summary | Annotation | Tags | Data Size | Created | Updated |\n"
+            ),
             "{header}"
         );
+        assert!(!header.contains("Host"), "a list view never shows the host");
         assert!(!header.contains("Segment Path"), "the column is called Endpoint now");
         // header and separator have the same number of columns as a row
         let mut lines = header.lines();
@@ -689,18 +819,79 @@ mod tests {
     }
 
     #[test]
-    fn a_row_shows_the_full_url_its_qps_annotation_and_tags() {
-        let mut m = member("E0001-AAA", "GET", "https://api.example.com/posts/1");
+    fn a_row_shows_the_endpoint_and_query_apart_with_no_host() {
+        let mut m = member("E0001-AAA", "GET", "https://api.example.com/posts/1?expand=author");
         m.annotation = Some("Fetch one post".to_string());
         m.tags = vec!["read-only".to_string(), "stable".to_string()];
         m.qps = vec![
             QpInfo { number: 1, status_code: Some(200), response_time_ms: Some(297) },
             QpInfo { number: 2, status_code: Some(404), response_time_ms: Some(120) },
         ];
+        m.data_size_bytes = Some(2048);
+        m.created_at = Some("2026-10-01 09:00:00".to_string());
+        m.updated_at = Some("2026-10-05 12:30:00".to_string());
+        let row = endpoint_row(&m);
         assert_eq!(
-            endpoint_row(&m),
-            "| E0001-AAA | GET | https://api.example.com/posts/1 | 1: 200 297ms, 2: 404 120ms | Fetch one post | read-only, stable |"
+            row,
+            "| E0001-AAA | GET | /posts/1 | expand=author | 1: 200 297ms, 2: 404 120ms | 2 | 2xx: 1, 4xx: 1 | Fetch one post | read-only, stable | 2.00 KB | 2026-10-01 09:00:00 | 2026-10-05 12:30:00 |"
         );
+        assert!(!row.contains("api.example.com"), "{row}");
+    }
+
+    #[test]
+    fn a_status_summary_counts_each_class_and_the_qps_with_no_response() {
+        let qp = |n, code: Option<i32>| QpInfo { number: n, status_code: code, response_time_ms: None };
+        assert_eq!(status_summary(&[]), "-");
+        assert_eq!(status_summary(&[qp(1, Some(200)), qp(2, Some(201)), qp(3, Some(404))]), "2xx: 2, 4xx: 1");
+        assert_eq!(status_summary(&[qp(1, Some(503)), qp(2, Some(200))]), "2xx: 1, 5xx: 1", "lowest class first");
+        assert_eq!(status_summary(&[qp(1, None), qp(2, Some(302))]), "3xx: 1, no response: 1", "no response last");
+        assert_eq!(status_summary(&[qp(1, Some(0)), qp(2, Some(999))]), "other: 2");
+    }
+
+    #[test]
+    fn a_url_splits_into_endpoint_and_query_parameter() {
+        let split = |u: &str| split_endpoint(u);
+        assert_eq!(split("https://x.com/posts?limit=3"), ("/posts".to_string(), "limit=3".to_string()));
+        assert_eq!(split("https://x.com/posts?limit=3&skip=0"), ("/posts".to_string(), "limit=3&skip=0".to_string()));
+        assert_eq!(split("https://x.com/posts"), ("/posts".to_string(), String::new()));
+        assert_eq!(split("https://x.com"), ("/".to_string(), String::new()));
+        assert_eq!(split("https://x.com?a=1"), ("/".to_string(), "a=1".to_string()));
+        assert_eq!(split("https://x.com/a?"), ("/a".to_string(), String::new()), "an empty query is no query");
+        assert_eq!(split("https://x.com/a#top"), ("/a".to_string(), String::new()), "a fragment isn't a query");
+        assert_eq!(split("https://x.com/a?x=1#top"), ("/a".to_string(), "x=1".to_string()));
+        assert_eq!(split("/users/:id?x=1"), ("/users/:id".to_string(), "x=1".to_string()), "not a full URL");
+        assert_eq!(split("https://x.com/users/{id}/orders"), ("/users/{id}/orders".to_string(), String::new()));
+    }
+
+    #[test]
+    fn sizes_dates_and_empty_cells_read_cleanly() {
+        assert_eq!(size_cell(None), "-");
+        assert_eq!(size_cell(Some(0)), "0 B");
+        assert_eq!(size_cell(Some(1536)), "1.50 KB");
+        assert_eq!(or_dash(None), "-");
+        assert_eq!(or_dash(Some("  ")), "-");
+        assert_eq!(or_dash(Some("2026-10-01 09:00:00")), "2026-10-01 09:00:00");
+    }
+
+    #[test]
+    fn the_meta_file_carries_the_views_own_annotation_and_tags() {
+        let dir = temp_dir("viewinfo");
+        let view = ViewInfo { annotation: Some("The blog API,\nevery CRUD method.".to_string()), tags: vec!["zeta".into(), "alpha".into()] };
+        write_batches_for(&dir, Approach::EndpointSegments, &[item("a")], 10, &view).unwrap();
+        let meta = std::fs::read_to_string(dir.join("Tables-meta.md")).unwrap();
+        assert!(meta.contains("Annotation: The blog API, every CRUD method.\n"), "one line: {meta}");
+        assert!(meta.contains("Tags: alpha, zeta\n"), "sorted: {meta}");
+        assert_eq!(parse_approach_line(&meta), Some("endpoint_segments"), "the approach line still reads back");
+
+        // a view with neither says so instead of leaving a blank
+        write_batches_for(&dir, Approach::SortedTags, &[item("a")], 10, &ViewInfo::default()).unwrap();
+        let meta = std::fs::read_to_string(dir.join("Tables-meta.md")).unwrap();
+        assert!(meta.contains("Annotation: -\nTags: -\n"), "{meta}");
+        // and so does an empty view
+        write_batches_for(&dir, Approach::EndpointSegments, &[], 10, &view).unwrap();
+        let meta = std::fs::read_to_string(dir.join("Tables-meta.md")).unwrap();
+        assert!(meta.contains("Tags: alpha, zeta") && meta.contains("No endpoints in this RepoView yet."), "{meta}");
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]
@@ -721,14 +912,14 @@ mod tests {
         assert!(row.contains("a \\| b second line"), "{row}");
         assert!(row.contains("x\\|y"), "{row}");
         assert!(!row.contains('\n'));
-        // still exactly six cells: the escaped pipes aren't separators
-        assert_eq!(row.replace("\\|", "").matches('|').count(), 7);
+        // still exactly twelve cells: the escaped pipes aren't separators
+        assert_eq!(row.replace("\\|", "").matches('|').count(), 13);
     }
 
     #[test]
     fn an_endpoint_without_annotation_or_tags_leaves_those_cells_empty() {
         let row = endpoint_row(&member("E0002-AAA", "DELETE", "https://x.com/a"));
-        assert_eq!(row, "| E0002-AAA | DELETE | https://x.com/a | - |  |  |");
+        assert_eq!(row, "| E0002-AAA | DELETE | /a | - | - | 0 | - |  |  | - | - | - |");
     }
 
     #[test]

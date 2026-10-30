@@ -2733,6 +2733,198 @@
   }
 
   // ============================================================
+  // REPO VIEW
+  // ============================================================
+
+  function openRepoViewModal(id) {
+    const folder = getFolder(id);
+
+    if (!folder) {
+      return;
+    }
+
+    openModal(`
+        <h2
+            class=" text-sm font-semibold
+                   text-slate-900 dark:text-white"
+        >
+            Create Repo View
+        </h2>
+        <h3 class="text-sm dark:text-blue-400 text-blue-600 mb-3 font-bold">
+          ${folder.name}
+        </h3>
+
+        <label
+            for="repoViewNameInput"
+            class="mb-1 block
+                   text-[11px] text-slate-500"
+        >
+            RepoView Name
+        </label>
+
+        <input
+            id="repoViewNameInput"
+            type="text"
+            autocomplete="off"
+            class="mb-4 h-9 w-full
+                   rounded-md
+                   border border-slate-300 dark:border-slate-700
+                   bg-white dark:bg-slate-950 px-3
+                   text-xs text-slate-900 dark:text-slate-100
+                   placeholder:text-slate-400 dark:placeholder:text-slate-600
+                   outline-none
+                   focus:border-cyan-500"
+            placeholder="RepoView Name"
+            value="${folder.name}-repoview"
+        >
+
+        <div
+            class="flex justify-end
+                   gap-2"
+        >
+            <button
+                type="button"
+                data-modal-close
+                class="rounded-md
+                       border border-slate-300 dark:border-slate-700
+                       px-3 py-1.5
+                       text-xs text-slate-600 dark:text-slate-400
+                       hover:bg-slate-100 dark:hover:bg-slate-800"
+            >
+                Cancel
+            </button>
+
+            <button
+                id="confirmCreateRepoView"
+                type="button"
+                class="rounded-md
+                       bg-slate-900 dark:bg-cyan-600
+                       px-3 py-1.5
+                       text-xs font-medium
+                       text-white
+                       hover:bg-slate-800 dark:hover:bg-cyan-500"
+            >
+                Create
+            </button>
+        </div>
+    `);
+
+    const input = document.getElementById("repoViewNameInput");
+    const createBtn = document.getElementById("confirmCreateRepoView");
+
+    input?.focus();
+
+    async function handleCreate() {
+      const name = input?.value?.trim() || "";
+
+      if (!name) {
+        showAlert("RepoView name cannot be empty.");
+        input?.focus();
+        return;
+      }
+
+      const api = getApi();
+      if (!api || typeof api.createRepoview !== "function") {
+        showAlert("Repo View API is not available.");
+        return;
+      }
+
+      createBtn.disabled = true;
+      const originalText = createBtn.textContent;
+      createBtn.textContent = "Creating…";
+
+      try {
+        if (typeof api.listRepoviews === "function") {
+          try {
+            const listRes = await api.listRepoviews();
+            const items = Array.isArray(listRes?.data?.items)
+              ? listRes.data.items
+              : Array.isArray(listRes?.data)
+              ? listRes.data
+              : [];
+            if (
+              items.some(
+                (repo) => (repo.name || "").toLowerCase() === name.toLowerCase()
+              )
+            ) {
+              showAlert(`A Repo View named "${name}" already exists.`);
+              createBtn.disabled = false;
+              createBtn.textContent = originalText;
+              input?.focus();
+              return;
+            }
+          } catch (e) {
+            // Server check will still enforce uniqueness
+          }
+        }
+
+        const res = await api.createRepoview({
+          name,
+          source_collection: folder.name,
+        });
+
+        if (!res || !res.ok) {
+          const errMsg =
+            res?.data?.error ||
+            res?.data?.message ||
+            (typeof res?.data === "string" ? res.data : "") ||
+            `Failed to create Repo View (HTTP ${res?.status ?? "unknown"})`;
+          showAlert(errMsg);
+          createBtn.disabled = false;
+          createBtn.textContent = originalText;
+          input?.focus();
+          return;
+        }
+
+        closeModal();
+        showAlert(`Repo View "${name}" created successfully.`);
+
+        if (window.RepoView && typeof window.RepoView.loadData === "function") {
+          try {
+            await window.RepoView.loadData();
+            if (typeof window.RepoView.renderSidebar === "function") {
+              window.RepoView.renderSidebar();
+            }
+            if (typeof window.RepoView.applyFilters === "function") {
+              window.RepoView.applyFilters();
+            }
+          } catch (e) {
+            console.warn("Failed to refresh Repo View listing:", e);
+          }
+        }
+
+        if (typeof loadFolders === "function") {
+          try {
+            await loadFolders();
+            if (typeof renderSidebar === "function") {
+              renderSidebar();
+            }
+            if (typeof applyFilters === "function") {
+              applyFilters();
+            }
+          } catch (e) {
+            console.warn("Failed to refresh collections:", e);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to create Repo View:", error);
+        showAlert(`Error creating repo view: ${error.message || error}`);
+        createBtn.disabled = false;
+        createBtn.textContent = originalText;
+      }
+    }
+
+    createBtn?.addEventListener("click", handleCreate);
+
+    input?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleCreate();
+      }
+    });
+  }
+
+  // ============================================================
   // NEW FOLDER
   // ============================================================
 
@@ -3733,6 +3925,8 @@ bg-slate-100 dark:bg-slate-950/60 p-3"
     openNewFolderModal,
 
     openDataView,
+
+    openRepoViewModal,
 
     applyFilters,
 

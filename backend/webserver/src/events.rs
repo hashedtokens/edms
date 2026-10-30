@@ -66,6 +66,13 @@ pub enum ServerEvent {
     /// without running a real HTTP test (per Shivanshu, 2026-09-29).
     QpCreated { endpoint_id: String, request_number: i32 },
 
+    /// A QP run or create was blocked because an identical request snapshot already exists.
+    DuplicateQpBlocked {
+        endpoint_id: String,
+        request_number: i32,
+        duplicate_of: i32,
+    },
+
     EndpointAnnotationUpdated { endpoint_id: String },
 
     ViewRefresh { view_type: String, count: usize },

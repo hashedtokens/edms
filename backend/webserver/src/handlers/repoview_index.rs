@@ -29,7 +29,7 @@ use std::path::Path as FsPath;
 use crate::{
     db,
     handlers::{
-        repoview_tables::{is_table_file_name, path_segments},
+        repoview_tables::{is_table_file_name, path_segments, split_endpoint},
         view_flavor::Flavor,
         view_catalog::{
             collection_file_path, open_catalog, open_existing_membership, open_membership,
@@ -47,7 +47,11 @@ const SNAPSHOT_DDL: [&str; 2] = [
         endpoint_str     TEXT NOT NULL,
         method           TEXT,
         annotation       TEXT,
-        data_size_bytes  INTEGER
+        data_size_bytes  INTEGER,
+        endpoint_path    TEXT,
+        query_param      TEXT,
+        created_at       TEXT,
+        updated_at       TEXT
     )",
     "CREATE TABLE IF NOT EXISTS qp_snapshot (
         endpoint_id      TEXT NOT NULL,
@@ -59,21 +63,56 @@ const SNAPSHOT_DDL: [&str; 2] = [
     )",
 ];
 
-/// Idempotent. Also upgrades an index created before `data_size_bytes`
-/// existed (the 2026-10-04 snapshot tables) by adding the column.
+/// Columns `endpoint_snapshot` gained after it first shipped, oldest first.
+const LATER_COLUMNS: [(&str, &str); 5] = [
+    ("data_size_bytes", "INTEGER"), // 2026-10-04
+    ("endpoint_path", "TEXT"),      // 2026-10-25: the URL without its host...
+    ("query_param", "TEXT"),        // ...and its query string, in their own columns
+    ("created_at", "TEXT"),
+    ("updated_at", "TEXT"),
+];
+
+/// Idempotent. Also upgrades an index created before the later columns
+/// existed by adding them, and fills in `endpoint_path` / `query_param` for
+/// the rows that predate them (they come from `endpoint_str`, which every row
+/// has). The two dates can't be recovered from the index, so those rows keep
+/// none and show `-` until the view is created again.
 pub(crate) fn init_snapshot_tables(membership: &CollectionMembershipOps) -> Result<(), String> {
     for ddl in SNAPSHOT_DDL {
         membership.core.proc(ddl, &[]).map_err(|e| format!("{e:?}"))?;
     }
-    let has_size = scalar(
-        membership,
-        "SELECT COUNT(*) FROM pragma_table_info('endpoint_snapshot') WHERE name = 'data_size_bytes'",
-    )?;
-    if has_size == 0 {
-        membership
+    for (column, kind) in LATER_COLUMNS {
+        let present = scalar(
+            membership,
+            &format!("SELECT COUNT(*) FROM pragma_table_info('endpoint_snapshot') WHERE name = '{column}'"),
+        )?;
+        if present == 0 {
+            membership
+                .core
+                .proc(&format!("ALTER TABLE endpoint_snapshot ADD COLUMN {column} {kind}"), &[])
+                .map_err(|e| format!("{e:?}"))?;
+        }
+    }
+
+    if scalar(membership, "SELECT COUNT(*) FROM endpoint_snapshot WHERE endpoint_path IS NULL")? > 0 {
+        let rows: Vec<(String, String)> = membership
             .core
-            .proc("ALTER TABLE endpoint_snapshot ADD COLUMN data_size_bytes INTEGER", &[])
+            .cproc(
+                "SELECT endpoint_id, endpoint_str FROM endpoint_snapshot WHERE endpoint_path IS NULL",
+                &[],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
             .map_err(|e| format!("{e:?}"))?;
+        for (eid, endpoint_str) in rows {
+            let (path, query) = split_endpoint(&endpoint_str);
+            membership
+                .core
+                .proc(
+                    "UPDATE endpoint_snapshot SET endpoint_path = ?, query_param = ? WHERE endpoint_id = ?",
+                    &[&path, &query, &eid],
+                )
+                .map_err(|e| format!("{e:?}"))?;
+        }
     }
     Ok(())
 }
@@ -123,11 +162,29 @@ pub(crate) fn build_index(
         stats.data_size_bytes += size;
 
         if let Some(ep) = db::get_endpoint(&state.core, &state.queries, eid).map_err(|e| format!("{e:?}"))? {
+            // The URL is kept whole (the takeout manifest needs the host to
+            // rebuild the endpoint on import) and also split, so the Tables
+            // and lists can show the endpoint and its query parameter on
+            // their own, without the host.
+            let (path, query) = split_endpoint(&ep.endpoint_str);
+            let (created_at, updated_at) = db::get_endpoint_dates(&state.core, eid)
+                .map_err(|e| format!("{e:?}"))?
+                .unwrap_or((None, None));
             membership
                 .core
                 .proc(
-                    "INSERT OR REPLACE INTO endpoint_snapshot (endpoint_id, endpoint_str, method, annotation, data_size_bytes) VALUES (?, ?, ?, ?, ?)",
-                    &[&ep.endpoint_id, &ep.endpoint_str, &ep.method, &ep.annotation, &(size as i64)],
+                    "INSERT OR REPLACE INTO endpoint_snapshot (endpoint_id, endpoint_str, method, annotation, data_size_bytes, endpoint_path, query_param, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    &[
+                        &ep.endpoint_id,
+                        &ep.endpoint_str,
+                        &ep.method,
+                        &ep.annotation,
+                        &(size as i64),
+                        &path,
+                        &query,
+                        &created_at,
+                        &updated_at,
+                    ],
                 )
                 .map_err(|e| format!("{e:?}"))?;
         }
@@ -784,6 +841,56 @@ mod tests {
             scalar(&ops, "SELECT COUNT(*) FROM pragma_table_info('endpoint_snapshot') WHERE name = 'data_size_bytes'").unwrap(),
             1
         );
+        drop(ops);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn an_older_index_gains_the_split_and_date_columns_and_its_urls_are_split() {
+        let dir = temp_dir("migrate-split");
+        let ops = CollectionMembershipOps::new(&dir.join("repoview.sqlite").display().to_string());
+        ops.initialize().unwrap();
+        // the shape of an index made before the endpoint/query split and the dates
+        ops.core
+            .proc(
+                "CREATE TABLE endpoint_snapshot (endpoint_id TEXT PRIMARY KEY, endpoint_str TEXT NOT NULL, method TEXT, annotation TEXT, data_size_bytes INTEGER)",
+                &[],
+            )
+            .unwrap();
+        for (eid, url) in [("E0001-AAA", "https://api.x.com/posts?limit=3&skip=0"), ("E0002-AAA", "https://api.x.com/users/1"), ("E0003-AAA", "not-a-url")] {
+            ops.core
+                .proc(
+                    "INSERT INTO endpoint_snapshot (endpoint_id, endpoint_str, method, annotation, data_size_bytes) VALUES (?, ?, 'GET', NULL, 10)",
+                    &[&eid, &url],
+                )
+                .unwrap();
+        }
+
+        init_snapshot_tables(&ops).unwrap();
+        init_snapshot_tables(&ops).unwrap(); // idempotent
+
+        for column in ["endpoint_path", "query_param", "created_at", "updated_at"] {
+            assert_eq!(
+                scalar(&ops, &format!("SELECT COUNT(*) FROM pragma_table_info('endpoint_snapshot') WHERE name = '{column}'")).unwrap(),
+                1,
+                "{column}"
+            );
+        }
+        let row = |eid: &str| -> (Option<String>, Option<String>, Option<String>, String) {
+            ops.core
+                .cproc(
+                    "SELECT endpoint_path, query_param, created_at, endpoint_str FROM endpoint_snapshot WHERE endpoint_id = ?",
+                    &[&eid],
+                    |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+                )
+                .unwrap()
+                .remove(0)
+        };
+        assert_eq!(row("E0001-AAA"), (Some("/posts".into()), Some("limit=3&skip=0".into()), None, "https://api.x.com/posts?limit=3&skip=0".into()));
+        assert_eq!(row("E0002-AAA"), (Some("/users/1".into()), Some(String::new()), None, "https://api.x.com/users/1".into()));
+        assert_eq!(row("E0003-AAA").0, Some("not-a-url".into()), "something that isn't a URL still gets a path");
+        // the full URL is untouched: the takeout manifest needs it
+        assert_eq!(row("E0001-AAA").3, "https://api.x.com/posts?limit=3&skip=0");
         drop(ops);
         std::fs::remove_dir_all(dir).unwrap();
     }

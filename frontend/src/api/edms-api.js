@@ -11,6 +11,33 @@
     // CONFIG
     // ============================================================
 
+    if (typeof window.showToast !== 'function') {
+        window.showToast = function(message, type = 'info') {
+            let container = document.getElementById('edms-toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'edms-toast-container';
+                container.style.cssText = 'position:fixed;top:24px;right:24px;z-index:999999;display:flex;flex-direction:column;gap:10px;pointer-events:none;';
+                document.body.appendChild(container);
+            }
+            const toast = document.createElement('div');
+            const bg = type === 'warning' ? '#d97706' : (type === 'error' ? '#dc2626' : '#2563eb');
+            const icon = type === 'warning' ? '⚠️ ' : (type === 'error' ? '❌ ' : 'ℹ️ ');
+            toast.style.cssText = `background:${bg};color:#ffffff;padding:12px 20px;border-radius:8px;font-size:14px;font-family:sans-serif;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,0.35);opacity:0;transform:translateY(-12px);transition:all 0.3s cubic-bezier(0.16, 1, 0.3, 1);pointer-events:auto;display:flex;align-items:center;gap:10px;`;
+            toast.textContent = `${icon}${message}`;
+            container.appendChild(toast);
+            requestAnimationFrame(() => {
+                toast.style.opacity = '1';
+                toast.style.transform = 'translateY(0)';
+            });
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-12px)';
+                setTimeout(() => toast.remove(), 350);
+            }, 4500);
+        };
+    }
+
     const API_BASE = 'http://localhost:3000';
     const WS_BASE = 'ws://localhost:3000';
 
@@ -442,6 +469,21 @@
                         // ----------------------------------------
                         // Test Started
                         // ----------------------------------------
+
+                        if (
+                            event.type ===
+                            'DuplicateQpBlocked'
+                        ) {
+                            console.warn(
+                                '%c[DUPLICATE DETECTED] Duplicate request detected! Backend skipped saving redundant copy to disk.',
+                                'color: #ff9800; font-weight: bold; font-size: 14px;',
+                                event
+                            );
+                            const origQp = event.payload?.duplicate_of ?? event.payload?.request_number ?? event.duplicate_of ?? event.request_number ?? 1;
+                            if (typeof window.showToast === 'function') {
+                                window.showToast(`Duplicate request detected. Existing QP #${origQp} selected.`, 'warning');
+                            }
+                        }
 
                         if (
                             event.type ===

@@ -16,7 +16,7 @@ endpoints:
 
   E4:
     help: "Update endpoint annotation"
-    query: "UPDATE endpoints SET annotation = ? WHERE endpoint_id = ?"
+    query: "UPDATE endpoints SET annotation = ?, updated_at = CURRENT_TIMESTAMP WHERE endpoint_id = ?"
 
   E5:
     help: "Delete endpoint by ID"
@@ -65,7 +65,7 @@ requests:
 
   R8:
     help: "List QP pairs for an endpoint — request+response metadata joined, ordered by request number"
-    query: "SELECT r.request_number, r.method, r.timestamp, p.status_code, p.response_time_ms FROM request_metadata r LEFT JOIN response_metadata p ON p.endpoint_id = r.endpoint_id AND p.request_number = r.request_number WHERE r.endpoint_id = ? ORDER BY r.request_number"
+    query: "SELECT r.request_number, r.method, r.timestamp, p.status_code, p.response_time_ms FROM request_metadata r LEFT JOIN response_metadata p ON p.endpoint_id = r.endpoint_id AND p.request_number = r.request_number WHERE r.endpoint_id = ? GROUP BY r.request_number ORDER BY r.request_number"
 
   R9:
     help: "Check whether a specific QP pair (request_metadata row) exists"

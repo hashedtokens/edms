@@ -1,6 +1,7 @@
 mod config;
 mod dashboard_db;
 mod date_watcher;
+mod qp_service;
 mod db;
 mod events;
 mod handlers;
@@ -26,6 +27,7 @@ use std::{net::SocketAddr, sync::Arc};
 use handlers::{
     bookmarks::{remove_from_collection, save_to_collection, ws_load_collection},
     callback::ipc_callback,
+    collection_ie::{import_collection_takeout, takeout_collection},
     collection_merge::merge_collections,
     dashboard::{
         compare_daily_snapshots, execute_purge_orphaned, get_crud_operations, get_dashboard_snapshot,
@@ -352,6 +354,8 @@ async fn main() -> anyhow::Result<()> {
         .route("/collections/:name/annotation", post(annotate_collection_entry))
         .route("/collections/:name/delete", post(delete_collection_entry))
         .route("/collections/:name/merge", post(merge_collections))
+        .route("/collections/:name/takeout", post(takeout_collection))
+        .route("/collections/import", post(import_collection_takeout))
         .route("/collections/:name/endpoints/remove", post(remove_endpoint_from_collection))
         .route("/collections/:name/endpoints", get(list_collection_endpoints))
         .route("/collections/:name/tags/import", post(import_tags_into_collection))
@@ -390,11 +394,26 @@ async fn main() -> anyhow::Result<()> {
         .route("/logs", get(get_logs))
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
-        .with_state(state);
+        .with_state(state.clone());
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     info!("Listening on http://{addr}");
     let listener = tokio::net::TcpListener::bind(addr).await?;
+
+    // Index existing request snapshots into duplicate store with endpoint metadata
+    let storage_root_str = state.storage_root.clone();
+    let store_clone = state.duplicate_store.clone();
+    let core_clone = state.core.clone();
+    let queries_clone = state.queries.clone();
+    tokio::task::spawn_blocking(move || {
+        let ep_map: std::collections::HashMap<String, (String, String)> =
+            crate::db::list_endpoints(&core_clone, &queries_clone)
+                .unwrap_or_default()
+                .into_iter()
+                .map(|ep| (ep.endpoint_id, (ep.method.unwrap_or_else(|| "GET".to_string()), ep.endpoint_str)))
+                .collect();
+        store_clone.rebuild_from_storage(&storage_root_str, &ep_map);
+    });
 
     // CRUD Operations: global, one-time processing on launch (Ravi's [1]
     // approach) — spun up via the compute service, same as the Refresh

@@ -37,6 +37,7 @@ pub struct AppState {
     /// Long-running Import/Export work started by a request and finished by
     /// an `edms-child` callback (see `jobs.rs`).
     pub jobs: crate::jobs::JobTable,
+    pub duplicate_store: crate::qp_service::DuplicateStore,
 }
 
 impl AppState {
@@ -68,6 +69,7 @@ impl AppState {
             active_timers: Arc::new(Mutex::new(HashMap::new())),
             eid_allocator,
             jobs: crate::jobs::JobTable::new(),
+            duplicate_store: crate::qp_service::DuplicateStore::new(),
         }
     }
 

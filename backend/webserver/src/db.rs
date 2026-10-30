@@ -77,6 +77,31 @@ pub fn get_endpoint(core: &EdmsCore, queries: &QueryMap, endpoint_id: &str) -> E
     Ok(rows.into_iter().next())
 }
 
+/// When an endpoint was created and when it last changed, for the RepoView
+/// index and the takeout manifest. The central `updated_at` only moves when
+/// the endpoint's own row is written (creating it, or editing its annotation),
+/// so "last changed" is the newest of that, its newest QP and its newest tag:
+/// what a person would call the last time anyone touched it. `None` if there
+/// is no such endpoint.
+pub fn get_endpoint_dates(
+    core: &EdmsCore,
+    endpoint_id: &str,
+) -> EdmsResult<Option<(Option<String>, Option<String>)>> {
+    let rows = core.cproc(
+        "SELECT e.created_at,
+                MAX(COALESCE(e.updated_at, e.created_at, ''),
+                    COALESCE((SELECT MAX(timestamp) FROM request_metadata WHERE endpoint_id = e.endpoint_id), ''),
+                    COALESCE((SELECT MAX(created_at) FROM tags WHERE endpoint_id = e.endpoint_id), ''))
+         FROM endpoints e WHERE e.endpoint_id = ?",
+        &[&endpoint_id],
+        |row| Ok((row.get::<_, Option<String>>(0)?, row.get::<_, Option<String>>(1)?)),
+    )?;
+    Ok(rows
+        .into_iter()
+        .next()
+        .map(|(created, updated)| (created, updated.filter(|u| !u.is_empty()))))
+}
+
 /// Looks up an endpoint by its exact (endpoint_str, method) pair — lets a
 /// caller check "does this already exist" before deciding whether to pass
 /// an existing endpoint_id vs. let a fresh one get allocated. Uniqueness is
@@ -107,7 +132,38 @@ pub fn update_annotation(core: &EdmsCore, queries: &QueryMap, endpoint_id: &str,
 
 pub fn delete_endpoint(core: &EdmsCore, queries: &QueryMap, endpoint_id: &str) -> EdmsResult<usize> {
     let q = queries.get_endpoint_query("E5").ok_or(EdmsError::UnknownError)?;
-    core.proc(q, &[&endpoint_id])
+    let rows = core.proc(q, &[&endpoint_id])?;
+    if rows > 0 {
+        let _ = delete_endpoint_data(core, endpoint_id);
+    }
+    Ok(rows)
+}
+
+/// Cascade for endpoint deletion: removes all QP metadata rows (request_metadata,
+/// response_metadata), history rows, tags, and summary metadata so that a recycled EID starts fresh without
+/// phantom QPs or stale history.
+pub fn delete_endpoint_data(core: &EdmsCore, endpoint_id: &str) -> EdmsResult<()> {
+    let _ = core.proc(
+        "DELETE FROM request_metadata WHERE endpoint_id = ?",
+        &[&endpoint_id],
+    );
+    let _ = core.proc(
+        "DELETE FROM response_metadata WHERE endpoint_id = ?",
+        &[&endpoint_id],
+    );
+    let _ = core.proc(
+        "DELETE FROM history WHERE endpoint_id = ?",
+        &[&endpoint_id],
+    );
+    let _ = core.proc(
+        "DELETE FROM tags WHERE endpoint_id = ?",
+        &[&endpoint_id],
+    );
+    let _ = core.proc(
+        "DELETE FROM metadata WHERE endpoint_id = ?",
+        &[&endpoint_id],
+    );
+    Ok(())
 }
 
 /* ---------------- request/response metadata (queries.yaml) ---------------- */
@@ -142,6 +198,10 @@ pub fn insert_response_metadata(
     status_code: Option<i32>,
     response_time_ms: Option<i32>,
 ) -> EdmsResult<usize> {
+    let _ = core.proc(
+        "DELETE FROM response_metadata WHERE endpoint_id = ? AND request_number = ?",
+        &[&endpoint_id, &request_number],
+    );
     let q = queries.get_response_query("RES1").ok_or(EdmsError::UnknownError)?;
     core.proc(q, &[&endpoint_id, &request_number, &file_path, &status_code, &response_time_ms])
 }
@@ -379,4 +439,43 @@ pub fn endpoints_for_ids(core: &EdmsCore, _queries: &QueryMap, ids: &[String]) -
     }
 
     Ok(result)
+}
+pub fn reassign_qp_numbers(
+    core: &EdmsCore,
+    endpoint_id: &str,
+    storage_dir: &str,
+) -> EdmsResult<usize> {
+    let existing: Vec<i32> = core.cproc(
+        "SELECT DISTINCT request_number FROM request_metadata WHERE endpoint_id = ? ORDER BY request_number ASC",
+        &[&endpoint_id],
+        |row| row.get(0),
+    )?;
+
+    let mut renamed = 0usize;
+
+    for (zero_idx, old_n) in existing.iter().enumerate() {
+        let new_n = (zero_idx as i32) + 1;
+        if *old_n == new_n {
+            continue;
+        }
+
+        let new_req_path = format!("{}/{}-request-{}.json", storage_dir, endpoint_id, new_n);
+        let new_res_path = format!("{}/{}-response-{}.json", storage_dir, endpoint_id, new_n);
+        let req_str: &str = &new_req_path;
+        let res_str: &str = &new_res_path;
+
+        core.proc(
+            "UPDATE request_metadata SET request_number = ?, file_path = ? WHERE endpoint_id = ? AND request_number = ?",
+            &[&new_n, &req_str, &endpoint_id, old_n],
+        )?;
+
+        core.proc(
+            "UPDATE response_metadata SET request_number = ?, file_path = ? WHERE endpoint_id = ? AND request_number = ?",
+            &[&new_n, &res_str, &endpoint_id, old_n],
+        )?;
+
+        renamed += 1;
+    }
+
+    Ok(renamed)
 }

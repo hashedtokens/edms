@@ -99,8 +99,8 @@
             <!-- WEB VIEW -->
             <!-- ============================================ -->
 
-            ${isSingle ? menuItem("webview", iconGlobe(), "Web View") : ""}
-            ${isSingle ? menuItem("repoview", iconRepo(), "Repo View") : ""}
+            ${isSingle ? menuItem("webview", iconGlobe(), "Create Web View") : ""}
+            ${isSingle ? menuItem("repoview", iconRepo(), "Create Repo View") : ""}
             
             <!-- ============================================ -->
             <!-- CREATE TEST VIEW -->
@@ -264,6 +264,17 @@
              * pre-scoped to the right-clicked collection.
              */
             window.CollectionView.openTestView(targetIds[0]);
+          }
+
+          break;
+
+        // --------------------------------------------
+        // REPO VIEW
+        // --------------------------------------------
+
+        case "repoview":
+          if (targetIds.length === 1) {
+            window.CollectionView.openRepoViewModal(targetIds[0]);
           }
 
           break;

@@ -86,8 +86,11 @@ pub struct ViewTakeoutRequest {
     /// Echoed back in the result so the webserver can find its job.
     pub job_id: String,
     /// The view's own folder (index + generated files / front page). Copied
-    /// with every SQLite file stripped.
-    pub view_dir: String,
+    /// with every SQLite file stripped. A Collection has no folder (it is one
+    /// SQLite file plus rows in the central tables), so it sends none and the
+    /// takeout starts out empty.
+    #[serde(default)]
+    pub view_dir: Option<String>,
     /// `storage/takeout/{dest_name}/` is the destination.
     pub dest_name: String,
     /// The `storage` directory (its `takeout` folder holds the takeouts).
@@ -197,13 +200,18 @@ pub fn write_takeout_meta(dest: &Path, create_if_missing: bool, eqp_files: usize
 /// here: the webserver checks it first (so the caller gets an immediate 409),
 /// this only catches a takeout that appeared in between.
 pub fn run_takeout(req: &ViewTakeoutRequest, progress: &mut dyn FnMut(Value)) -> Result<Value, String> {
-    let result = takeout_item(
-        Path::new(&req.view_dir),
-        &req.dest_name,
-        Path::new(&req.storage_dir),
-        req.overwrite,
-    )
-    .map_err(|e| e.to_string())?;
+    // No view folder: copy an empty one, so the collision check, the
+    // overwrite and the destination come out exactly as for any other view.
+    let no_view_dir;
+    let source_dir: &Path = match req.view_dir.as_deref() {
+        Some(dir) => Path::new(dir),
+        None => {
+            no_view_dir = tempfile::tempdir().map_err(|e| format!("couldn't make a scratch folder: {e}"))?;
+            no_view_dir.path()
+        }
+    };
+    let result = takeout_item(source_dir, &req.dest_name, Path::new(&req.storage_dir), req.overwrite)
+        .map_err(|e| e.to_string())?;
     if result.collision {
         return Err(format!("a takeout named '{}' already exists", req.dest_name));
     }
@@ -559,7 +567,7 @@ mod tests {
     fn request(root: &Path, dest: &str, overwrite: bool) -> ViewTakeoutRequest {
         ViewTakeoutRequest {
             job_id: "job-1".into(),
-            view_dir: root.join("view").display().to_string(),
+            view_dir: Some(root.join("view").display().to_string()),
             dest_name: dest.into(),
             storage_dir: root.join("storage").display().to_string(),
             overwrite,
@@ -923,6 +931,41 @@ mod tests {
         assert!(err.contains("not a valid zip"), "{err}");
         assert!(leftovers(&root).is_empty());
         std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_takeout_with_no_view_folder_is_just_the_data_and_the_manifest() {
+        // what a Collection sends: it has no folder of its own
+        let root = fixture("no-view-dir");
+        let mut req = request(&root, "tk-col", false);
+        req.view_dir = None;
+        let out = run_takeout(&req, &mut |_| {}).unwrap();
+
+        let dest = root.join("storage").join("takeout").join("tk-col");
+        assert!(dest.join("repoview-manifest.json").is_file());
+        assert!(dest.join("globalEQPData/E0001-AAA/E0001-AAA-request-1.json").is_file());
+        assert!(!dest.join("Tables-001.md").exists(), "nothing from the fixture's view folder");
+        assert_eq!(out["index_files_stripped"], 0);
+        assert_eq!(out["eqp_folders_copied"], 1);
+        assert_eq!(out["missing_eqp_data"], json!(["E0003-AAA"]));
+        assert_eq!(out["tables_meta_written"], false);
+
+        // the same collision rules apply
+        let err = run_takeout(&req, &mut |_| {}).unwrap_err();
+        assert!(err.contains("already exists"), "{err}");
+        req.overwrite = true;
+        run_takeout(&req, &mut |_| {}).unwrap();
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_request_without_a_view_dir_still_deserializes() {
+        let req: ViewTakeoutRequest = serde_json::from_value(json!({
+            "job_id": "j", "dest_name": "d", "storage_dir": "/s", "overwrite": false,
+            "eqp_root": "/e", "endpoints": [], "manifest": {}, "manifest_file": "m.json"
+        }))
+        .unwrap();
+        assert!(req.view_dir.is_none());
     }
 
     #[test]

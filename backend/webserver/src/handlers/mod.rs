@@ -4,6 +4,7 @@ pub mod echo;
 pub mod endpoints;
 pub mod bookmarks;
 pub mod callback;
+pub mod collection_ie;
 pub mod collection_merge;
 pub mod dashboard;
 pub mod dataview;

@@ -31,6 +31,11 @@ pub(crate) struct EndpointRow {
     pub method: Option<String>,
     pub annotation: Option<String>,
     pub data_size_bytes: Option<i64>,
+    /// The URL's path and its query string, split apart (no host).
+    pub endpoint_path: Option<String>,
+    pub query_param: Option<String>,
+    pub created_at: Option<String>,
+    pub updated_at: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -79,7 +84,8 @@ pub(crate) fn read_index(membership: &CollectionMembershipOps) -> Result<IndexDa
     let endpoints: Vec<(String, EndpointRow)> = membership
         .core
         .cproc(
-            "SELECT endpoint_id, endpoint_str, method, annotation, data_size_bytes FROM endpoint_snapshot
+            "SELECT endpoint_id, endpoint_str, method, annotation, data_size_bytes,
+                    endpoint_path, query_param, created_at, updated_at FROM endpoint_snapshot
              WHERE endpoint_id IN (SELECT endpoint_id FROM membership)",
             &[],
             |r| {
@@ -90,6 +96,10 @@ pub(crate) fn read_index(membership: &CollectionMembershipOps) -> Result<IndexDa
                         method: r.get(2)?,
                         annotation: r.get(3)?,
                         data_size_bytes: r.get(4)?,
+                        endpoint_path: r.get(5)?,
+                        query_param: r.get(6)?,
+                        created_at: r.get(7)?,
+                        updated_at: r.get(8)?,
                     },
                 ))
             },
@@ -147,8 +157,18 @@ pub(crate) fn write_index(target: &CollectionMembershipOps, data: &IndexData) ->
             target
                 .core
                 .proc(
-                    "INSERT OR IGNORE INTO endpoint_snapshot (endpoint_id, endpoint_str, method, annotation, data_size_bytes) VALUES (?, ?, ?, ?, ?)",
-                    &[eid, &row.endpoint_str, &row.method, &row.annotation, &row.data_size_bytes],
+                    "INSERT OR IGNORE INTO endpoint_snapshot (endpoint_id, endpoint_str, method, annotation, data_size_bytes, endpoint_path, query_param, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    &[
+                        eid,
+                        &row.endpoint_str,
+                        &row.method,
+                        &row.annotation,
+                        &row.data_size_bytes,
+                        &row.endpoint_path,
+                        &row.query_param,
+                        &row.created_at,
+                        &row.updated_at,
+                    ],
                 )
                 .map_err(err)?;
         }
@@ -544,7 +564,16 @@ mod tests {
         bad.members.insert("E0003-AAA".into());
         bad.endpoints.insert(
             "E0002-AAA".into(),
-            EndpointRow { endpoint_str: "https://x.com/ok".into(), method: None, annotation: None, data_size_bytes: None },
+            EndpointRow {
+                endpoint_str: "https://x.com/ok".into(),
+                method: None,
+                annotation: None,
+                data_size_bytes: None,
+                endpoint_path: None,
+                query_param: None,
+                created_at: None,
+                updated_at: None,
+            },
         );
         target
             .core

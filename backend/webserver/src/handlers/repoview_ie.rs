@@ -47,8 +47,8 @@ use crate::{
 
 pub(crate) const FRONT_PAGE_FILE: &str = "front-page.json";
 pub(crate) const MANIFEST_FILE: &str = "repoview-manifest.json";
-const MANIFEST_FORMAT: &str = "edms-repoview";
-const MANIFEST_VERSION: u32 = 1;
+pub(crate) const MANIFEST_FORMAT: &str = "edms-repoview";
+pub(crate) const MANIFEST_VERSION: u32 = 1;
 const EQP_DIR: &str = "globalEQPData";
 
 // ── The manifest ─────────────────────────────────────────────────────────
@@ -86,6 +86,13 @@ pub(crate) struct ManifestEndpoint {
     pub annotation: Option<String>,
     pub tags: Vec<String>,
     pub qps: Vec<ManifestQp>,
+    /// When the endpoint was created, and last changed, where the takeout
+    /// came from. Optional: a takeout made before these were recorded has
+    /// none, and an import gives its endpoints the dates of the import.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -103,14 +110,14 @@ pub(crate) fn build_manifest(
 ) -> Result<Manifest, String> {
     init_snapshot_tables(membership)?;
 
-    let rows: Vec<(String, String, Option<String>, Option<String>)> = membership
+    let rows: Vec<(String, String, Option<String>, Option<String>, Option<String>, Option<String>)> = membership
         .core
         .cproc(
-            "SELECT s.endpoint_id, s.endpoint_str, s.method, s.annotation
+            "SELECT s.endpoint_id, s.endpoint_str, s.method, s.annotation, s.created_at, s.updated_at
              FROM endpoint_snapshot s JOIN membership m ON m.endpoint_id = s.endpoint_id
              ORDER BY s.endpoint_id",
             &[],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)),
         )
         .map_err(|e| format!("{e:?}"))?;
 
@@ -154,13 +161,15 @@ pub(crate) fn build_manifest(
 
     let endpoints = rows
         .into_iter()
-        .map(|(eid, endpoint_str, method, annotation)| ManifestEndpoint {
+        .map(|(eid, endpoint_str, method, annotation, created_at, updated_at)| ManifestEndpoint {
             tags: tags.remove(&eid).unwrap_or_default(),
             qps: qps.remove(&eid).unwrap_or_default(),
             eid,
             endpoint_str,
             method,
             annotation,
+            created_at,
+            updated_at,
         })
         .collect();
 
@@ -204,7 +213,7 @@ pub(crate) fn validate_manifest(m: &Manifest) -> Result<(), String> {
 
 // ── EID-aware file copying ───────────────────────────────────────────────
 
-fn takeout_root(state: &AppState) -> PathBuf {
+pub(crate) fn takeout_root(state: &AppState) -> PathBuf {
     state.storage_root.join("storage")
 }
 
@@ -229,7 +238,7 @@ pub struct TakeoutRequest {
     pub overwrite: bool,
 }
 
-enum IeError {
+pub(crate) enum IeError {
     Conflict { message: String, options: Vec<&'static str> },
     Bad(String),
 }
@@ -240,7 +249,7 @@ impl From<String> for IeError {
     }
 }
 
-fn respond(
+pub(crate) fn respond(
     state: &AppState,
     ok_status: StatusCode,
     res: Result<Result<Value, IeError>, tokio::task::JoinError>,
@@ -424,20 +433,21 @@ pub async fn import_repoview(
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct PlanItem {
-    old: String,
-    new: String,
+pub(crate) struct PlanItem {
+    pub(crate) old: String,
+    pub(crate) new: String,
 }
 
 /// What part 3 needs, kept in the job while the child copies.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct ImportContext {
-    flavor: String,
-    name: String,
-    src: String,
-    manifest: Manifest,
-    plan: Vec<PlanItem>,
-    skipped: Vec<Value>,
+pub(crate) struct ImportContext {
+    /// `repoview`, `webview` or `collection`.
+    pub(crate) flavor: String,
+    pub(crate) name: String,
+    pub(crate) src: String,
+    pub(crate) manifest: Manifest,
+    pub(crate) plan: Vec<PlanItem>,
+    pub(crate) skipped: Vec<Value>,
 }
 
 fn flavor_from_route(route: &str) -> Option<Flavor> {
@@ -446,7 +456,7 @@ fn flavor_from_route(route: &str) -> Option<Flavor> {
 
 /// Undoes one endpoint's partial import so a failure never leaves a
 /// half-written endpoint behind.
-fn rollback_endpoint(state: &AppState, new_eid: &str) {
+pub(crate) fn rollback_endpoint(state: &AppState, new_eid: &str) {
     let _ = db::delete_endpoint(&state.core, &state.queries, new_eid);
     let _ = std::fs::remove_dir_all(state.endpoint_storage_dir(new_eid));
     let _ = state.eid_allocator.release(new_eid);
@@ -459,54 +469,37 @@ fn release_eid(state: &AppState, new_eid: &str) {
     let _ = state.eid_allocator.release(new_eid);
 }
 
-/// Part 1.
-fn import_blocking(
-    flavor: Flavor,
-    state: &AppState,
-    folder: &str,
-    name_override: Option<&str>,
-    // A zip import has a job already (it started with the unzip).
-    existing_job: Option<&str>,
-) -> Result<Value, IeError> {
-    validate_folder_name(folder, "Folder name")?;
-    let src = imports_dir(flavor, state).join(folder);
-    if !src.is_dir() {
-        return Err(IeError::Bad(format!(
-            "'{folder}' was not found under storage/imports/uncompressed/{}/",
-            flavor.import_folder()
-        )));
+/// Where to send someone who picked the wrong kind of import.
+fn import_route(kind: &str) -> String {
+    match kind {
+        "collection" => "/collections/import".to_string(),
+        other => format!("/{other}/import"),
     }
+}
 
+/// Reads and checks a takeout folder's manifest. `expected_kind` is
+/// `repoview`, `webview` or `collection`: a takeout of the other kind is
+/// refused, with a pointer to the route that does take it.
+pub(crate) fn load_manifest(folder: &str, src: &std::path::Path, expected_kind: &str) -> Result<Manifest, IeError> {
     let manifest_text = std::fs::read_to_string(src.join(MANIFEST_FILE))
         .map_err(|e| IeError::Bad(format!("can't read {MANIFEST_FILE} in '{folder}': {e}")))?;
     let manifest: Manifest = serde_json::from_str(&manifest_text)
         .map_err(|e| IeError::Bad(format!("{MANIFEST_FILE} in '{folder}' is not valid: {e}")))?;
     validate_manifest(&manifest)?;
-    if manifest.repoview.kind != flavor.route() {
+    if manifest.repoview.kind != expected_kind {
         return Err(IeError::Bad(format!(
-            "'{folder}' is a {} takeout, not a {} - import it through /{}/import",
+            "'{folder}' is a {} takeout, not a {expected_kind} - import it through {}",
             manifest.repoview.kind,
-            flavor.route(),
-            manifest.repoview.kind
+            import_route(&manifest.repoview.kind)
         )));
     }
+    Ok(manifest)
+}
 
-    let name = name_override
-        .map(str::trim)
-        .filter(|n| !n.is_empty())
-        .unwrap_or(&manifest.repoview.name)
-        .to_string();
-    flavor.validate_name(&name)?;
-    let catalog = open_catalog(state)?;
-    if catalog.get(flavor.kind(), &name).map_err(|e| format!("{e:?}"))?.is_some() {
-        return Err(IeError::Conflict {
-            message: format!("{} '{name}' already exists", flavor.label()),
-            options: vec!["rename"],
-        });
-    }
-
-    // Every endpoint gets a fresh EID, allocated now so the child can name
-    // the copied files. The central rows wait until the files are in place.
+/// Every endpoint gets a fresh EID, allocated now so the child can name the
+/// copied files. The central rows wait until the files are in place. Returns
+/// the plan and the endpoints that couldn't get an EID; refuses if none did.
+pub(crate) fn plan_new_eids(state: &AppState, manifest: &Manifest) -> Result<(Vec<PlanItem>, Vec<Value>), IeError> {
     let mut plan: Vec<PlanItem> = Vec::new();
     let mut skipped: Vec<Value> = Vec::new();
     for endpoint in &manifest.endpoints {
@@ -528,18 +521,35 @@ fn import_blocking(
     if plan.is_empty() {
         return Err(IeError::Bad("none of the endpoints in this takeout could be imported".to_string()));
     }
+    Ok((plan, skipped))
+}
 
+/// Creates (or continues) the import's job, keeps what part 3 needs in it and
+/// starts the child that copies the EQP files. If the child can't start, the
+/// EIDs are given back and the job fails. Returns the job's id.
+pub(crate) fn begin_copy_job(
+    state: &AppState,
+    view: &str,
+    kind: &str,
+    name: &str,
+    // A zip import has a job already (it started with the unzip).
+    existing_job: Option<&str>,
+    src: &std::path::Path,
+    manifest: &Manifest,
+    plan: &[PlanItem],
+    skipped: &[Value],
+) -> Result<String, IeError> {
     let job_id = match existing_job {
         Some(id) => id.to_string(),
-        None => state.jobs.create("import", Some(flavor.route()), Some(&name)),
+        None => state.jobs.create("import", Some(view), Some(name)),
     };
     let context = ImportContext {
-        flavor: flavor.route().to_string(),
-        name: name.clone(),
+        flavor: kind.to_string(),
+        name: name.to_string(),
         src: src.display().to_string(),
         manifest: manifest.clone(),
-        plan: plan.clone(),
-        skipped: skipped.clone(),
+        plan: plan.to_vec(),
+        skipped: skipped.to_vec(),
     };
     state.jobs.set_context(&job_id, serde_json::to_value(&context).map_err(|e| e.to_string())?);
 
@@ -554,7 +564,7 @@ fn import_blocking(
         3000,
     );
     if !started {
-        for item in &plan {
+        for item in plan {
             release_eid(state, &item.new);
         }
         state.jobs.take_context(&job_id);
@@ -564,6 +574,45 @@ fn import_blocking(
         }
         return Err(IeError::Bad(error));
     }
+    Ok(job_id)
+}
+
+/// Part 1.
+fn import_blocking(
+    flavor: Flavor,
+    state: &AppState,
+    folder: &str,
+    name_override: Option<&str>,
+    // A zip import has a job already (it started with the unzip).
+    existing_job: Option<&str>,
+) -> Result<Value, IeError> {
+    validate_folder_name(folder, "Folder name")?;
+    let src = imports_dir(flavor, state).join(folder);
+    if !src.is_dir() {
+        return Err(IeError::Bad(format!(
+            "'{folder}' was not found under storage/imports/uncompressed/{}/",
+            flavor.import_folder()
+        )));
+    }
+
+    let manifest = load_manifest(folder, &src, flavor.route())?;
+
+    let name = name_override
+        .map(str::trim)
+        .filter(|n| !n.is_empty())
+        .unwrap_or(&manifest.repoview.name)
+        .to_string();
+    flavor.validate_name(&name)?;
+    let catalog = open_catalog(state)?;
+    if catalog.get(flavor.kind(), &name).map_err(|e| format!("{e:?}"))?.is_some() {
+        return Err(IeError::Conflict {
+            message: format!("{} '{name}' already exists", flavor.label()),
+            options: vec!["rename"],
+        });
+    }
+
+    let (plan, skipped) = plan_new_eids(state, &manifest)?;
+    let job_id = begin_copy_job(state, flavor.route(), flavor.route(), &name, existing_job, &src, &manifest, &plan, &skipped)?;
 
     Ok(json!({
         "ok": true,
@@ -577,11 +626,12 @@ fn import_blocking(
 
 /// What a zip import keeps while the child unzips.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct UnzipContext {
-    kind: String,
-    flavor: String,
-    folder: String,
-    name: Option<String>,
+pub(crate) struct UnzipContext {
+    pub(crate) kind: String,
+    /// `repoview`, `webview` or `collection`.
+    pub(crate) flavor: String,
+    pub(crate) folder: String,
+    pub(crate) name: Option<String>,
 }
 
 /// `import` with a `zip`: the same job, with an unzip in front. The child
@@ -676,11 +726,16 @@ pub async fn continue_after_unzip(state: &AppState, callback: &IpcCallback) {
         let outcome = serde_json::from_value::<UnzipContext>(context)
             .map_err(|e| format!("lost the import's plan: {e}"))
             .and_then(|context| {
-                let flavor = flavor_from_route(&context.flavor).ok_or_else(|| format!("unknown view kind '{}'", context.flavor))?;
-                import_blocking(flavor, &state, &context.folder, context.name.as_deref(), Some(&job_id)).map_err(|e| match e {
+                let to_text = |e: IeError| match e {
                     IeError::Bad(why) => why,
                     IeError::Conflict { message, .. } => format!("{message} - import again with another `name`"),
-                })
+                };
+                if context.flavor == crate::handlers::collection_ie::KIND {
+                    return crate::handlers::collection_ie::import_blocking(&state, &context.folder, context.name.as_deref(), Some(&job_id))
+                        .map_err(to_text);
+                }
+                let flavor = flavor_from_route(&context.flavor).ok_or_else(|| format!("unknown view kind '{}'", context.flavor))?;
+                import_blocking(flavor, &state, &context.folder, context.name.as_deref(), Some(&job_id)).map_err(to_text)
             });
         if let Err(error) = outcome {
             if let Some(job) = state.jobs.fail(&job_id, error) {
@@ -729,12 +784,22 @@ pub async fn finish_import(state: &AppState, callback: &IpcCallback) {
     .await;
 }
 
-fn finish_import_blocking(state: &AppState, context: &ImportContext, copy_result: &Value) -> Result<Value, String> {
-    let flavor = flavor_from_route(&context.flavor).ok_or_else(|| format!("unknown view kind '{}'", context.flavor))?;
-    let name = &context.name;
-    let src = PathBuf::from(&context.src);
-    let manifest = &context.manifest;
+/// What part 3 produced for the endpoints themselves.
+pub(crate) struct ImportedEndpoints {
+    pub(crate) mapping: Vec<Value>,
+    pub(crate) new_eids: Vec<String>,
+    pub(crate) skipped: Vec<Value>,
+}
 
+/// Part 3, the half every kind of import shares: for each endpoint the child
+/// copied, write its central row, QP rows and tags. An endpoint that fails is
+/// rolled back and reported in `skipped`; if none is left, the import fails.
+pub(crate) fn write_imported_endpoints(
+    state: &AppState,
+    context: &ImportContext,
+    copy_result: &Value,
+) -> Result<ImportedEndpoints, String> {
+    let manifest = &context.manifest;
     // What the child says about each endpoint's files, by new EID.
     let copied: BTreeMap<String, (usize, Option<String>)> = copy_result["items"]
         .as_array()
@@ -843,6 +908,26 @@ fn finish_import_blocking(state: &AppState, context: &ImportContext, copy_result
     if new_eids.is_empty() {
         return Err("none of the endpoints in this takeout could be imported".to_string());
     }
+
+    Ok(ImportedEndpoints { mapping, new_eids, skipped })
+}
+
+fn finish_import_blocking(state: &AppState, context: &ImportContext, copy_result: &Value) -> Result<Value, String> {
+    let is_collection = context.flavor == crate::handlers::collection_ie::KIND;
+    // Refuse an unknown kind before anything is written.
+    let flavor = if is_collection {
+        None
+    } else {
+        Some(flavor_from_route(&context.flavor).ok_or_else(|| format!("unknown view kind '{}'", context.flavor))?)
+    };
+    let imported = write_imported_endpoints(state, context, copy_result)?;
+    let Some(flavor) = flavor else {
+        return crate::handlers::collection_ie::finish_blocking(state, context, imported);
+    };
+    let name = &context.name;
+    let src = PathBuf::from(&context.src);
+    let manifest = &context.manifest;
+    let ImportedEndpoints { mapping, new_eids, skipped } = imported;
 
     // Build the view's index from what was just written - the same code
     // Create uses, so an imported view is indistinguishable from a created
@@ -954,6 +1039,8 @@ mod tests {
                     status_code: Some(200),
                     response_time_ms: Some(12),
                 }],
+                created_at: Some("2026-10-01 09:00:00".into()),
+                updated_at: Some("2026-10-05 12:30:00".into()),
             }],
         }
     }
