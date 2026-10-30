@@ -1409,6 +1409,7 @@ function getActiveSidebarItems() {
                             "",
 
                         updated:
+                            bookmark.updated ??
                             bookmark.bookmarkedAt ??
                             bookmark.bookmarked_at,
 
@@ -1565,6 +1566,13 @@ function createListPager(totalPages) {
 
     return bar;
 }
+
+
+function getTagCountLabel(endpoint) {
+    const count = Array.isArray(endpoint?.tags) ? endpoint.tags.length : 0;
+    return `${count} Tag${count === 1 ? "" : "s"}`;
+}
+
 // ============================================================
 // ENDPOINT CARD
 // ============================================================
@@ -1602,6 +1610,24 @@ function createTestEndpointCard(item) {
     card.dataset.id = item.id ?? endpoint.id;
     card.dataset.endpointId = item.endpointId ?? endpoint.id;
 
+    // 1. Method (GET, POST, etc.)
+    const method = escapeHTML(item.method || endpoint.method || "");
+    // 2. Date (Time)
+    const dateStr = escapeHTML(formatEndpointDate(item.updated || endpoint.updated));
+    // 3. QP Count 
+    const qpLabel = escapeHTML(getQPCountLabel(endpoint));
+    // 4. Tag Count
+    const tagLabel = escapeHTML(getTagCountLabel(endpoint));
+    // 5. Base URL 
+    const baseUrl = escapeHTML(
+        endpoint.baseUrl ||
+        (endpoint.endpoint_str && endpoint.endpoint_str.startsWith("http")
+            ? new URL(endpoint.endpoint_str).origin
+            : "")
+    );
+    // 6. Path 
+    const path = escapeHTML(item.endpoint || endpoint.endpoint || "");
+
     card.innerHTML = `
 
         <div class="flex items-center justify-between">
@@ -1620,8 +1646,8 @@ function createTestEndpointCard(item) {
                 <span
                     class="px-2 py-1 rounded-md text-[11px]
                            font-semibold border
-                           ${getMethodColor(item.method || endpoint.method)}">
-                    ${escapeHTML(item.method || endpoint.method || "")}
+                           ${getMethodColor(method)}">
+                    ${method}
                 </span>
 
             </div>
@@ -1631,13 +1657,37 @@ function createTestEndpointCard(item) {
                 <span
                     class="text-[11px] text-slate-500
                            group-hover:text-slate-700 dark:group-hover:text-slate-300">
-                    ${escapeHTML(formatEndpointDate(item.updated))}
+                    ${dateStr}
+                </span>
+
+
+            </div>
+
+            <div
+            class=" flex items-center
+                   justify-between text-[11px]
+                   text-slate-500">
+
+                <span></span>
+                <span>
+                    ${qpLabel}
+                </span>
+
+            </div>
+
+            <div
+            class=" flex items-center
+                   justify-between text-[11px]
+                   text-slate-500">
+
+                <span>
+                    ${tagLabel}
                 </span>
 
                 ${isHistory ? `
                     <button
                         type="button"
-                        class="history-delete hidden group-hover:flex items-center justify-center
+                        class="history-delete hidden group-hover:flex items-center ml-2 justify-center
                                w-7 h-7 rounded-md text-slate-400
                                hover:text-red-500 hover:bg-red-500/10 transition"
                         data-history-id="${escapeHTML(itemId)}"
@@ -1658,6 +1708,12 @@ function createTestEndpointCard(item) {
 
         </div>
 
+        ${item.type === "history" && baseUrl ? `
+                <div class="mt-2.5 text-xs text-slate-400 font-mono truncate">
+                    ${baseUrl}
+                </div>
+                ` : ""}
+
         <p
             class="mt-2 text-sm font-medium
                    text-slate-800 dark:text-slate-200 truncate
@@ -1665,17 +1721,7 @@ function createTestEndpointCard(item) {
             ${escapeHTML(item.endpoint || endpoint.endpoint || "")}
         </p>
 
-        <div
-            class="mt-2 flex items-center
-                   justify-between text-[11px]
-                   text-slate-500">
-
-            <span></span>
-<span>
-    ${getQPCountLabel(endpoint)}
-</span>
-
-        </div>
+        
     `;
 
     if (isHistory) {
