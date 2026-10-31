@@ -65,8 +65,8 @@
     if (typeof TagManager !== "undefined") {
       TagManager.init({
         view: "collectionview",
-        getItems: () => state.selected.size > 0 
-          ? state.folders.filter(f => state.selected.has(Number(f.id))) 
+        getItems: () => state.selected.size > 0
+          ? state.folders.filter(f => state.selected.has(Number(f.id)))
           : state.folders,
         getTags: folder => Array.isArray(folder.tags) ? folder.tags : [],
         setTags: (folder, tags) => {
@@ -774,11 +774,11 @@
       "folder-row",
       "group",
       "border-b",
-      "border-slate-800",
+      "border-slate-200", "dark:border-slate-800",
       "transition-colors",
       "duration-100",
       "cursor-pointer",
-      "hover:bg-slate-800/60",
+      "hover:bg-slate-100", "dark:hover:bg-slate-800/60",
 
       isSelected ? "bg-cyan-500/[0.045]" : "",
     ]
@@ -802,7 +802,7 @@
 
         <td
             class="px-2 py-2
-                   font-medium text-slate-200"
+                   font-medium text-slate-800 dark:text-slate-200"
         >
 
             <div
@@ -961,16 +961,19 @@
 
                 <button
                     type="button"
-                    class="folder-tag
-                           inline-flex
-                           rounded
-                           bg-sky-900/40
-                           px-1.5 py-0.5
-                           text-[10px]
-                           text-sky-300
-                           transition
-                           hover:bg-sky-500/20
-                           hover:text-sky-200"
+                   class="folder-tag
+       inline-flex
+       rounded
+       border border-transparent
+       bg-slate-200 dark:bg-slate-800
+       px-1.5 py-0.5
+       text-[10px]
+       text-sky-600 dark:text-sky-300
+       transition
+       hover:border-blue-500 dark:hover:border-blue-400
+       hover:bg-sky-100 dark:hover:bg-sky-500/20
+       hover:text-blue-700 dark:hover:text-sky-200
+       hover:ring-1 hover:ring-blue-400/50"
                     data-tag="${escapeAttr(tag)}"
                 >
                     ${escapeHtml(tag)}
@@ -988,7 +991,7 @@
             class="inline-flex min-w-6
                    items-center
                    justify-center
-                   rounded-md bg-slate-800
+                   rounded-md bg-slate-200 dark:bg-slate-800
                    px-1.5 py-0.5
                    text-[10px]
                    ${color}"
@@ -1084,9 +1087,9 @@
       button.className =
         page === state.page
           ? `
-                        min-w-7 rounded-md
-                        bg-cyan-500 px-2 py-1
-                        text-[11px] text-white
+                         min-w-7 rounded-md
+      bg-slate-900 dark:bg-cyan-500 px-2 py-1
+      text-[11px] text-white
                       `
           : `
                         min-w-7 rounded-md
@@ -1176,7 +1179,7 @@
     state.sidebarCollapsed = !state.sidebarCollapsed;
 
     if (state.sidebarCollapsed) {
-      sidebar?.classList.remove("w-48");
+      sidebar?.classList.remove("w-64");
 
       sidebar?.classList.add("w-10");
 
@@ -1192,7 +1195,7 @@
     } else {
       sidebar?.classList.remove("w-10");
 
-      sidebar?.classList.add("w-48");
+      sidebar?.classList.add("w-64");
 
       content?.classList.remove("hidden");
 
@@ -1588,6 +1591,12 @@
       ?.addEventListener("click", clearSelection);
 
     document
+      .getElementById("mergeCollectionsBtn")
+      ?.addEventListener("click", () => {
+        openMergeModal([...state.selected]);
+      });
+
+    document
       .getElementById("selectAllFolders")
       ?.addEventListener("change", (event) => {
         currentPageItems().forEach((folder) => {
@@ -1629,6 +1638,19 @@
 
     if (count) {
       count.textContent = `${selected.length} selected`;
+    }
+
+    const mergeBtn = document.getElementById("mergeCollectionsBtn");
+    if (mergeBtn) {
+      if (selected.length >= 2) {
+        mergeBtn.disabled = false;
+        mergeBtn.classList.remove("opacity-40", "cursor-not-allowed");
+        mergeBtn.title = `Merge ${selected.length} selected collections`;
+      } else {
+        mergeBtn.disabled = true;
+        mergeBtn.classList.add("opacity-40", "cursor-not-allowed");
+        mergeBtn.title = "Select at least 2 collections to merge";
+      }
     }
 
     if (list) {
@@ -1989,22 +2011,689 @@
   // ============================================================
 
   function openMergeModal(ids) {
-    const uniqueIds = [...new Set(ids.map(Number))];
-
+    const targetIds = (ids && ids.length) ? ids : [...state.selected];
+    const uniqueIds = [...new Set(targetIds.map(Number))];
     const sourceFolders = uniqueIds.map(getFolder).filter(Boolean);
 
     if (sourceFolders.length < 2) {
-      showAlert("Select at least two folders to merge.");
-
+      showAlert("Select at least two collections to merge.");
       return;
     }
 
-    /*
-     * There is no backend merge endpoint in the supplied API.
-     * Do not create a fake local collection because the backend
-     * is the source of truth.
-     */
-    showAlert("Merge is not available through the backend API yet.");
+    let mergeMode = "collection"; // "collection" | "tag"
+    const tagSelections = {};
+    const availableTagsMap = {};
+
+    sourceFolders.forEach((f) => {
+      const initialTags = Array.isArray(f.tags) ? [...f.tags] : [];
+      if (Array.isArray(f.endpoints)) {
+        f.endpoints.forEach((ep) => {
+          if (Array.isArray(ep.tags)) {
+            ep.tags.forEach((t) => {
+              if (t && typeof t === "string") initialTags.push(t.trim());
+              else if (t?.name) initialTags.push(String(t.name).trim());
+            });
+          }
+        });
+      }
+      availableTagsMap[f.name] = [...new Set(initialTags.filter(Boolean))];
+      tagSelections[f.name] = new Set();
+    });
+
+    openModal(`
+      <div class="space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div>
+            <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+              <svg class="h-4 w-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M8 7v10M16 7v10M8 12h8" />
+              </svg>
+              Merge Collections
+            </h2>
+            <p class="mt-0.5 text-[11px] text-slate-400">
+              Combine endpoints from selected collections into a target collection.
+            </p>
+          </div>
+          <button
+            type="button"
+            data-modal-close
+            class="rounded-md p-1 text-slate-500 hover:bg-slate-800 hover:text-white"
+            title="Close"
+          >
+            ${iconClose()}
+          </button>
+        </div>
+
+        <!-- Mode Segmented Control -->
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="block text-xs font-medium text-slate-300">
+              Merge Mode
+            </label>
+            <span id="mergeModeHint" class="text-[11px] text-slate-400">
+              Merge all endpoints from source collections
+            </span>
+          </div>
+          <div class="grid grid-cols-2 gap-1 rounded-lg bg-slate-900 p-1 border border-slate-800 text-xs">
+            <button
+              type="button"
+              id="modeBtnCollection"
+              class="flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition text-white bg-slate-800 shadow-sm border border-slate-700/60"
+            >
+              <svg class="h-3.5 w-3.5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+              Collection Mode
+            </button>
+            <button
+              type="button"
+              id="modeBtnTag"
+              class="flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition text-slate-400 hover:text-slate-200 border border-transparent"
+            >
+              <svg class="h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+              </svg>
+              Tag Mode
+            </button>
+          </div>
+        </div>
+
+        <!-- Collection Mode Section -->
+        <div id="mergeCollectionModeSection">
+          <label class="mb-1.5 block text-xs font-medium text-slate-300">
+            Selected Collections (${sourceFolders.length})
+          </label>
+          <div class="max-h-36 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950/70 p-2 space-y-1.5 scrollbar-thin scrollbar-thumb-slate-800">
+            ${sourceFolders
+              .map(
+                (f) => `
+                <div class="flex items-center justify-between rounded px-2.5 py-1.5 bg-slate-900/80 border border-slate-800/80">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <span class="inline-block h-2 w-2 rounded-full bg-cyan-400"></span>
+                    <span class="text-xs font-mono font-medium text-slate-200 truncate">${escapeHtml(f.name)}</span>
+                    ${f.annotation ? `<span class="text-[10px] text-slate-400 truncate">(${escapeHtml(f.annotation)})</span>` : ""}
+                  </div>
+                  <span class="shrink-0 text-[10px] text-cyan-400/80 font-mono">
+                    ${Array.isArray(f.endpoints) ? f.endpoints.length : (f.endpoint_count ?? 0)} endpoints
+                  </span>
+                </div>
+              `,
+              )
+              .join("")}
+          </div>
+        </div>
+
+        <!-- Tag Mode Section -->
+        <div id="mergeTagModeSection" class="hidden space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="block text-xs font-medium text-slate-300">
+              Filter Endpoints by Tag
+            </label>
+            <span class="text-[10px] text-slate-400">
+              Only matching endpoints will merge into target
+            </span>
+          </div>
+          <div id="mergeTagSourcesList" class="max-h-56 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950/70 p-2 space-y-2.5 scrollbar-thin scrollbar-thumb-slate-800">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- Primary / Target Collection Section -->
+        <div>
+          <label class="mb-1.5 block text-xs font-medium text-slate-300">
+            Primary / Target Collection <span class="text-rose-400">*</span>
+          </label>
+          <select
+            id="mergeTargetSelect"
+            class="mb-2 h-9 w-full rounded-md border border-slate-700 bg-slate-950 px-3 text-xs text-slate-200 outline-none focus:border-cyan-500"
+          >
+            ${sourceFolders
+              .map(
+                (f, idx) => `
+                <option value="${escapeAttr(f.name)}" ${idx === 0 ? "selected" : ""}>
+                  ${escapeHtml(f.name)} (Merge sources into this collection)
+                </option>
+              `,
+              )
+              .join("")}
+            <option value="__custom__">+ Enter custom / new target collection name...</option>
+          </select>
+          <input
+            id="customMergeTargetInput"
+            type="text"
+            placeholder="Enter target collection name"
+            class="hidden h-9 w-full rounded-md border border-slate-700 bg-slate-950 px-3 text-xs text-slate-200 outline-none focus:border-cyan-500"
+          />
+        </div>
+
+        <div id="mergeStatusArea" class="hidden rounded-lg border px-3 py-2 text-xs"></div>
+
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+          <button
+            type="button"
+            id="cancelMergeBtn"
+            data-modal-close
+            class="rounded-md border border-slate-700 px-3 py-1.5 text-xs text-slate-400 hover:bg-slate-800"
+          >
+            Cancel
+          </button>
+          <button
+            id="confirmMergeBtn"
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-md bg-cyan-600 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-cyan-500 transition shadow-sm"
+          >
+            <span id="mergeBtnSpinner" class="hidden">
+              <svg class="h-3.5 w-3.5 animate-spin text-white" viewBox="0 0 24 24" fill="none">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+              </svg>
+            </span>
+            <span id="mergeBtnText">Merge Collections</span>
+          </button>
+        </div>
+      </div>
+    `);
+
+    const modeBtnCollection = document.getElementById("modeBtnCollection");
+    const modeBtnTag = document.getElementById("modeBtnTag");
+    const collectionModeSection = document.getElementById("mergeCollectionModeSection");
+    const tagModeSection = document.getElementById("mergeTagModeSection");
+    const tagSourcesList = document.getElementById("mergeTagSourcesList");
+    const modeHint = document.getElementById("mergeModeHint");
+    const targetSelect = document.getElementById("mergeTargetSelect");
+    const customInput = document.getElementById("customMergeTargetInput");
+    const confirmBtn = document.getElementById("confirmMergeBtn");
+    const cancelBtn = document.getElementById("cancelMergeBtn");
+    const statusArea = document.getElementById("mergeStatusArea");
+    const spinner = document.getElementById("mergeBtnSpinner");
+    const btnText = document.getElementById("mergeBtnText");
+
+    function getSelectedTargetName() {
+      if (!targetSelect) return "";
+      if (targetSelect.value === "__custom__") {
+        return customInput?.value.trim() || "";
+      }
+      return targetSelect.value;
+    }
+
+    function renderTagSourcesList() {
+      if (!tagSourcesList) return;
+
+      const currentTarget = getSelectedTargetName();
+      const activeSources = sourceFolders.filter((f) => f.name !== currentTarget);
+
+      if (activeSources.length === 0) {
+        tagSourcesList.innerHTML = `
+          <div class="py-4 text-center text-xs text-slate-500">
+            No source collections available for the current target.
+          </div>
+        `;
+        return;
+      }
+
+      tagSourcesList.innerHTML = activeSources
+        .map((f) => {
+          const selected = tagSelections[f.name] || new Set();
+          const available = availableTagsMap[f.name] || [];
+          const unselectedAvail = available.filter((t) => !selected.has(t));
+
+          const selectedChips = Array.from(selected)
+            .map(
+              (tag) => `
+              <span class="inline-flex items-center gap-1 rounded bg-cyan-950/80 border border-cyan-700/60 px-2 py-0.5 text-[11px] font-mono text-cyan-300">
+                <span>${escapeHtml(tag)}</span>
+                <button
+                  type="button"
+                  data-remove-tag="${escapeAttr(tag)}"
+                  data-col="${escapeAttr(f.name)}"
+                  class="text-cyan-400 hover:text-cyan-100 hover:bg-cyan-800/50 rounded p-0.5 ml-0.5 transition"
+                  title="Remove tag"
+                >
+                  <svg class="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              </span>
+            `,
+            )
+            .join("");
+
+          const availPills = unselectedAvail
+            .map(
+              (tag) => `
+              <button
+                type="button"
+                data-add-tag="${escapeAttr(tag)}"
+                data-col="${escapeAttr(f.name)}"
+                class="inline-flex items-center rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-1.5 py-0.5 text-[10px] font-mono transition border border-slate-700/60"
+                title="Add tag ${escapeAttr(tag)}"
+              >
+                + ${escapeHtml(tag)}
+              </button>
+            `,
+            )
+            .join("");
+
+          return `
+            <div class="rounded-md border border-slate-800/80 bg-slate-900/80 p-2.5 space-y-2">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-1.5 min-w-0">
+                  <span class="inline-block h-2 w-2 rounded-full bg-cyan-400"></span>
+                  <span class="text-xs font-mono font-medium text-slate-200 truncate">${escapeHtml(f.name)}</span>
+                  <span class="text-[10px] text-cyan-400/80 font-mono">
+                    (${Array.isArray(f.endpoints) ? f.endpoints.length : (f.endpoint_count ?? 0)} eps)
+                  </span>
+                </div>
+                <div class="flex items-center gap-2">
+                  ${
+                    unselectedAvail.length > 0
+                      ? `
+                    <button
+                      type="button"
+                      data-select-all-tags="${escapeAttr(f.name)}"
+                      class="text-[10px] text-cyan-400 hover:text-cyan-300 underline font-mono"
+                    >
+                      Add all (${unselectedAvail.length})
+                    </button>
+                  `
+                      : ""
+                  }
+                  <span class="text-[10px] font-mono ${selected.size === 0 ? "text-amber-400 font-semibold" : "text-slate-400"}">
+                    ${selected.size === 0 ? "0 tags (required)" : `${selected.size} selected`}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Selected Tag Chips -->
+              <div class="flex flex-wrap items-center gap-1.5 min-h-[26px] p-1 rounded bg-slate-950/70 border ${selected.size === 0 ? "border-amber-500/30" : "border-slate-800"}">
+                ${
+                  selected.size > 0
+                    ? selectedChips
+                    : `<span class="text-[11px] text-amber-400/70 italic px-1">No tags selected. Click an available tag below or type custom tag.</span>`
+                }
+              </div>
+
+              <!-- Available & custom tag input -->
+              <div class="flex flex-wrap items-center gap-1.5 pt-0.5">
+                ${availPills}
+                <div class="inline-flex items-center gap-1 ml-auto">
+                  <input
+                    type="text"
+                    data-tag-input-for="${escapeAttr(f.name)}"
+                    placeholder="+ custom tag"
+                    class="h-6 w-24 rounded border border-slate-700 bg-slate-950 px-2 text-[11px] text-slate-200 outline-none focus:border-cyan-500 focus:w-32 transition-all"
+                  />
+                  <button
+                    type="button"
+                    data-tag-btn-for="${escapeAttr(f.name)}"
+                    class="h-6 px-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold border border-slate-700"
+                    title="Add tag"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        })
+        .join("");
+    }
+
+    tagSourcesList?.addEventListener("click", (e) => {
+      const removeBtn = e.target.closest("[data-remove-tag]");
+      if (removeBtn) {
+        const col = removeBtn.getAttribute("data-col");
+        const tag = removeBtn.getAttribute("data-remove-tag");
+        if (col && tag && tagSelections[col]) {
+          tagSelections[col].delete(tag);
+          renderTagSourcesList();
+        }
+        return;
+      }
+
+      const addBtn = e.target.closest("[data-add-tag]");
+      if (addBtn) {
+        const col = addBtn.getAttribute("data-col");
+        const tag = addBtn.getAttribute("data-add-tag");
+        if (col && tag) {
+          if (!tagSelections[col]) tagSelections[col] = new Set();
+          tagSelections[col].add(tag);
+          renderTagSourcesList();
+        }
+        return;
+      }
+
+      const selectAllBtn = e.target.closest("[data-select-all-tags]");
+      if (selectAllBtn) {
+        const col = selectAllBtn.getAttribute("data-select-all-tags");
+        if (col && availableTagsMap[col]) {
+          if (!tagSelections[col]) tagSelections[col] = new Set();
+          availableTagsMap[col].forEach((t) => tagSelections[col].add(t));
+          renderTagSourcesList();
+        }
+        return;
+      }
+
+      const customBtn = e.target.closest("[data-tag-btn-for]");
+      if (customBtn) {
+        const col = customBtn.getAttribute("data-tag-btn-for");
+        const inputs = Array.from(tagSourcesList.querySelectorAll("[data-tag-input-for]"));
+        const input = inputs.find((el) => el.getAttribute("data-tag-input-for") === col);
+        if (col && input && input.value.trim()) {
+          const val = input.value.trim();
+          if (!tagSelections[col]) tagSelections[col] = new Set();
+          tagSelections[col].add(val);
+          if (!availableTagsMap[col]) availableTagsMap[col] = [];
+          if (!availableTagsMap[col].includes(val)) availableTagsMap[col].push(val);
+          renderTagSourcesList();
+        }
+        return;
+      }
+    });
+
+    tagSourcesList?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && e.target.matches("[data-tag-input-for]")) {
+        e.preventDefault();
+        const input = e.target;
+        const col = input.getAttribute("data-tag-input-for");
+        if (col && input.value.trim()) {
+          const val = input.value.trim();
+          if (!tagSelections[col]) tagSelections[col] = new Set();
+          tagSelections[col].add(val);
+          if (!availableTagsMap[col]) availableTagsMap[col] = [];
+          if (!availableTagsMap[col].includes(val)) availableTagsMap[col].push(val);
+          renderTagSourcesList();
+        }
+      }
+    });
+
+    async function fetchMissingTags() {
+      const api = getApi();
+      if (!api || typeof api.listMembershipTags !== "function") return;
+
+      for (const folder of sourceFolders) {
+        if (!availableTagsMap[folder.name] || availableTagsMap[folder.name].length === 0) {
+          try {
+            const resp = await api.listMembershipTags(folder.name);
+            const data = getApiData(resp);
+            const tags = Array.isArray(data)
+              ? data
+              : Array.isArray(data?.tags)
+                ? data.tags
+                : Array.isArray(data?.items)
+                  ? data.items
+                  : [];
+            const parsed = tags
+              .map((t) => (typeof t === "string" ? t : String(t?.name ?? t?.tag ?? "")))
+              .map((t) => t.trim())
+              .filter(Boolean);
+            if (parsed.length > 0) {
+              const current = availableTagsMap[folder.name] || [];
+              availableTagsMap[folder.name] = [...new Set([...current, ...parsed])];
+              if (mergeMode === "tag") {
+                renderTagSourcesList();
+              }
+            }
+          } catch (err) {
+            console.warn(`Could not load tags for ${folder.name}:`, err);
+          }
+        }
+      }
+    }
+
+    function setMode(mode) {
+      mergeMode = mode;
+      if (mode === "collection") {
+        modeBtnCollection.className =
+          "flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition text-white bg-slate-800 shadow-sm border border-slate-700/60";
+        modeBtnTag.className =
+          "flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition text-slate-400 hover:text-slate-200 border border-transparent";
+        collectionModeSection?.classList.remove("hidden");
+        tagModeSection?.classList.add("hidden");
+        if (modeHint) modeHint.textContent = "Merge all endpoints from source collections";
+      } else {
+        modeBtnTag.className =
+          "flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition text-white bg-slate-800 shadow-sm border border-slate-700/60";
+        modeBtnCollection.className =
+          "flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition text-slate-400 hover:text-slate-200 border border-transparent";
+        collectionModeSection?.classList.add("hidden");
+        tagModeSection?.classList.remove("hidden");
+        if (modeHint) modeHint.textContent = "Merge only endpoints matching selected tags";
+        renderTagSourcesList();
+        fetchMissingTags();
+      }
+    }
+
+    modeBtnCollection?.addEventListener("click", () => setMode("collection"));
+    modeBtnTag?.addEventListener("click", () => setMode("tag"));
+
+    targetSelect?.addEventListener("change", () => {
+      if (targetSelect.value === "__custom__") {
+        customInput?.classList.remove("hidden");
+        customInput?.focus();
+      } else {
+        customInput?.classList.add("hidden");
+      }
+      if (mergeMode === "tag") {
+        renderTagSourcesList();
+      }
+    });
+
+    customInput?.addEventListener("input", () => {
+      if (mergeMode === "tag") {
+        renderTagSourcesList();
+      }
+    });
+
+    confirmBtn?.addEventListener("click", async () => {
+      let targetName = "";
+      if (targetSelect.value === "__custom__") {
+        targetName = customInput?.value.trim() || "";
+        if (!targetName) {
+          showMergeStatus("Target collection name is required.", "error");
+          return;
+        }
+      } else {
+        targetName = targetSelect.value;
+      }
+
+      const activeSources = sourceFolders
+        .map((f) => f.name)
+        .filter((name) => name !== targetName);
+
+      if (activeSources.length === 0) {
+        showMergeStatus("At least one distinct source collection is required to merge.", "error");
+        return;
+      }
+
+      let payload;
+      if (mergeMode === "collection") {
+        payload = { sources: activeSources };
+      } else {
+        const missingTags = activeSources.filter(
+          (name) => !tagSelections[name] || tagSelections[name].size === 0,
+        );
+
+        if (missingTags.length > 0) {
+          showMergeStatus(
+            `Please select or enter at least one tag for "${missingTags[0]}".`,
+            "error",
+          );
+          return;
+        }
+
+        payload = {
+          sources: activeSources.map((name) => ({
+            collection: name,
+            tags: Array.from(tagSelections[name]),
+          })),
+        };
+      }
+
+      setMergeLoading(true);
+      showMergeStatus(`Initiating merge into "${targetName}"...`, "info");
+
+      const api = getApi();
+      if (!api || typeof api.mergeDataViewFolder !== "function") {
+        showMergeStatus("Merge API is not available.", "error");
+        setMergeLoading(false);
+        return;
+      }
+
+      try {
+        const response = await api.mergeDataViewFolder(targetName, payload);
+
+        if (response?.ok === false && response?.status !== 202) {
+          const httpCode = response?.status ?? "unknown";
+          const errMsg =
+            response?.data?.error ||
+            response?.data?.message ||
+            `Merge failed (HTTP ${httpCode}).`;
+          showMergeStatus(`[${httpCode}] ${errMsg}`, "error");
+          setMergeLoading(false);
+          return;
+        }
+
+        // Response is 202 Accepted
+        clearSelection();
+
+        // Extract the job_id returned by the server so we can match the
+        // specific ViewIoDone event rather than accepting any merge event.
+        const jobId = response?.data?.job_id || response?.data?.id || null;
+
+        showMergeStatus(
+          `Merge accepted (job ${jobId ?? "—"}). Waiting for completion...`,
+          "success",
+        );
+
+        let wsFinished = false;
+
+        const onMergeComplete = async (eventData) => {
+          if (wsFinished) return;
+          wsFinished = true;
+          listenerHandle?.cancel?.();
+
+          clearSelection();
+          closeModal();
+          await loadFolders();
+          renderSidebar();
+          applyFilters();
+
+          const res = eventData?.result || eventData?.data || eventData;
+          let successMsg = `Successfully merged collections into "${targetName}".`;
+          if (res && typeof res === "object") {
+            const added = res.added ?? res.endpoints_added ?? res.added_count;
+            const created = res.created;
+            const after = res.after ?? res.endpoints_after;
+
+            const details = [];
+            if (added !== undefined) {
+              details.push(`${added} endpoint${added === 1 ? "" : "s"} added`);
+            }
+            if (created) {
+              details.push("created new collection");
+            } else if (after !== undefined) {
+              details.push(`${after} total endpoints`);
+            }
+
+            if (details.length > 0) {
+              successMsg = `Merge into "${targetName}" complete (${details.join(", ")}).`;
+            }
+          }
+          showAlert(successMsg);
+        };
+
+        const onMergeFailed = (eventData) => {
+          if (wsFinished) return;
+          wsFinished = true;
+          listenerHandle?.cancel?.();
+
+          const reason =
+            eventData?.error ||
+            eventData?.message ||
+            eventData?.data?.error ||
+            "The merge job reported a failure.";
+          showMergeStatus(`Merge failed: ${reason}`, "error");
+          setMergeLoading(false);
+        };
+
+        // Use job-scoped listener when we have a job_id; fall back to the
+        // legacy folder-name listener otherwise.
+        let listenerHandle = null;
+        if (jobId && typeof api.listenForMergeJob === "function") {
+          listenerHandle = api.listenForMergeJob(jobId, onMergeComplete, onMergeFailed);
+        } else if (typeof api.listenForMergeNotification === "function") {
+          // Legacy path: fires on any ViewIoDone — acceptable when no job_id.
+          const cleanup = api.listenForMergeNotification(targetName, onMergeComplete, 6000);
+          listenerHandle = { cancel: cleanup };
+        }
+
+        // Fallback timer in case the WebSocket never fires (e.g. WS blocked).
+        setTimeout(async () => {
+          if (!wsFinished) {
+            wsFinished = true;
+            listenerHandle?.cancel?.();
+            clearSelection();
+            closeModal();
+            await loadFolders();
+            renderSidebar();
+            applyFilters();
+            showAlert(`Collections merge into "${targetName}" completed.`);
+          }
+        }, 6500);
+      } catch (error) {
+        console.error("Failed to merge collections:", error);
+        showMergeStatus(`Merge failed: ${error.message || "An unexpected error occurred."}`, "error");
+        setMergeLoading(false);
+      }
+    });
+
+    function setMergeLoading(loading) {
+      if (confirmBtn) {
+        confirmBtn.disabled = loading;
+        if (loading) {
+          confirmBtn.classList.add("opacity-60", "cursor-not-allowed");
+          spinner?.classList.remove("hidden");
+          if (btnText) btnText.textContent = "Merging...";
+        } else {
+          confirmBtn.classList.remove("opacity-60", "cursor-not-allowed");
+          spinner?.classList.add("hidden");
+          if (btnText) btnText.textContent = "Merge Collections";
+        }
+      }
+      if (cancelBtn) cancelBtn.disabled = loading;
+      if (targetSelect) targetSelect.disabled = loading;
+      if (customInput) customInput.disabled = loading;
+      if (modeBtnCollection) modeBtnCollection.disabled = loading;
+      if (modeBtnTag) modeBtnTag.disabled = loading;
+    }
+
+    function showMergeStatus(msg, type) {
+      if (!statusArea) return;
+      statusArea.classList.remove(
+        "hidden",
+        "border-rose-500/40",
+        "bg-rose-500/10",
+        "text-rose-300",
+        "border-cyan-500/40",
+        "bg-cyan-500/10",
+        "text-cyan-300",
+        "border-amber-500/40",
+        "bg-amber-500/10",
+        "text-amber-300",
+      );
+
+      if (type === "error") {
+        statusArea.classList.add("border-rose-500/40", "bg-rose-500/10", "text-rose-300");
+      } else if (type === "success") {
+        statusArea.classList.add("border-cyan-500/40", "bg-cyan-500/10", "text-cyan-300");
+      } else {
+        statusArea.classList.add("border-amber-500/40", "bg-amber-500/10", "text-amber-300");
+      }
+
+      statusArea.textContent = msg;
+    }
   }
 
   // ============================================================
@@ -2044,6 +2733,198 @@
   }
 
   // ============================================================
+  // REPO VIEW
+  // ============================================================
+
+  function openRepoViewModal(id) {
+    const folder = getFolder(id);
+
+    if (!folder) {
+      return;
+    }
+
+    openModal(`
+        <h2
+            class=" text-sm font-semibold
+                   text-slate-900 dark:text-white"
+        >
+            Create Repo View
+        </h2>
+        <h3 class="text-sm dark:text-blue-400 text-blue-600 mb-3 font-bold">
+          ${folder.name}
+        </h3>
+
+        <label
+            for="repoViewNameInput"
+            class="mb-1 block
+                   text-[11px] text-slate-500"
+        >
+            RepoView Name
+        </label>
+
+        <input
+            id="repoViewNameInput"
+            type="text"
+            autocomplete="off"
+            class="mb-4 h-9 w-full
+                   rounded-md
+                   border border-slate-300 dark:border-slate-700
+                   bg-white dark:bg-slate-950 px-3
+                   text-xs text-slate-900 dark:text-slate-100
+                   placeholder:text-slate-400 dark:placeholder:text-slate-600
+                   outline-none
+                   focus:border-cyan-500"
+            placeholder="RepoView Name"
+            value="${folder.name}-repoview"
+        >
+
+        <div
+            class="flex justify-end
+                   gap-2"
+        >
+            <button
+                type="button"
+                data-modal-close
+                class="rounded-md
+                       border border-slate-300 dark:border-slate-700
+                       px-3 py-1.5
+                       text-xs text-slate-600 dark:text-slate-400
+                       hover:bg-slate-100 dark:hover:bg-slate-800"
+            >
+                Cancel
+            </button>
+
+            <button
+                id="confirmCreateRepoView"
+                type="button"
+                class="rounded-md
+                       bg-slate-900 dark:bg-cyan-600
+                       px-3 py-1.5
+                       text-xs font-medium
+                       text-white
+                       hover:bg-slate-800 dark:hover:bg-cyan-500"
+            >
+                Create
+            </button>
+        </div>
+    `);
+
+    const input = document.getElementById("repoViewNameInput");
+    const createBtn = document.getElementById("confirmCreateRepoView");
+
+    input?.focus();
+
+    async function handleCreate() {
+      const name = input?.value?.trim() || "";
+
+      if (!name) {
+        showAlert("RepoView name cannot be empty.");
+        input?.focus();
+        return;
+      }
+
+      const api = getApi();
+      if (!api || typeof api.createRepoview !== "function") {
+        showAlert("Repo View API is not available.");
+        return;
+      }
+
+      createBtn.disabled = true;
+      const originalText = createBtn.textContent;
+      createBtn.textContent = "Creating…";
+
+      try {
+        if (typeof api.listRepoviews === "function") {
+          try {
+            const listRes = await api.listRepoviews();
+            const items = Array.isArray(listRes?.data?.items)
+              ? listRes.data.items
+              : Array.isArray(listRes?.data)
+              ? listRes.data
+              : [];
+            if (
+              items.some(
+                (repo) => (repo.name || "").toLowerCase() === name.toLowerCase()
+              )
+            ) {
+              showAlert(`A Repo View named "${name}" already exists.`);
+              createBtn.disabled = false;
+              createBtn.textContent = originalText;
+              input?.focus();
+              return;
+            }
+          } catch (e) {
+            // Server check will still enforce uniqueness
+          }
+        }
+
+        const res = await api.createRepoview({
+          name,
+          source_collection: folder.name,
+        });
+
+        if (!res || !res.ok) {
+          const errMsg =
+            res?.data?.error ||
+            res?.data?.message ||
+            (typeof res?.data === "string" ? res.data : "") ||
+            `Failed to create Repo View (HTTP ${res?.status ?? "unknown"})`;
+          showAlert(errMsg);
+          createBtn.disabled = false;
+          createBtn.textContent = originalText;
+          input?.focus();
+          return;
+        }
+
+        closeModal();
+        showAlert(`Repo View "${name}" created successfully.`);
+
+        if (window.RepoView && typeof window.RepoView.loadData === "function") {
+          try {
+            await window.RepoView.loadData();
+            if (typeof window.RepoView.renderSidebar === "function") {
+              window.RepoView.renderSidebar();
+            }
+            if (typeof window.RepoView.applyFilters === "function") {
+              window.RepoView.applyFilters();
+            }
+          } catch (e) {
+            console.warn("Failed to refresh Repo View listing:", e);
+          }
+        }
+
+        if (typeof loadFolders === "function") {
+          try {
+            await loadFolders();
+            if (typeof renderSidebar === "function") {
+              renderSidebar();
+            }
+            if (typeof applyFilters === "function") {
+              applyFilters();
+            }
+          } catch (e) {
+            console.warn("Failed to refresh collections:", e);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to create Repo View:", error);
+        showAlert(`Error creating repo view: ${error.message || error}`);
+        createBtn.disabled = false;
+        createBtn.textContent = originalText;
+      }
+    }
+
+    createBtn?.addEventListener("click", handleCreate);
+
+    input?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleCreate();
+      }
+    });
+  }
+
+  // ============================================================
   // NEW FOLDER
   // ============================================================
 
@@ -2052,7 +2933,7 @@
 
         <h2
             class="mb-4 text-sm font-semibold
-                   text-white"
+                   text-slate-900 dark:text-white"
         >
             New Empty Folder
         </h2>
@@ -2069,9 +2950,11 @@
             id="newFolderName"
             class="mb-3 h-9 w-full
                    rounded-md
-                   border border-slate-700
-                   bg-slate-950 px-3
-                   text-xs outline-none
+                   border border-slate-300 dark:border-slate-700
+                   bg-white dark:bg-slate-950 px-3
+                   text-xs text-slate-900 dark:text-slate-100
+                   placeholder:text-slate-400 dark:placeholder:text-slate-600
+                   outline-none
                    focus:border-cyan-500"
             placeholder="My New Collection"
         >
@@ -2088,9 +2971,11 @@
             id="newFolderPurpose"
             class="mb-3 h-9 w-full
                    rounded-md
-                   border border-slate-700
-                   bg-slate-950 px-3
-                   text-xs outline-none"
+                   border border-slate-300 dark:border-slate-700
+                   bg-white dark:bg-slate-950 px-3
+                   text-xs text-slate-900 dark:text-slate-100
+                   outline-none
+                   focus:border-cyan-500"
         >
             <option value="importable">
                 Importable
@@ -2113,9 +2998,11 @@
             id="newFolderTags"
             class="mb-3 h-9 w-full
                    rounded-md
-                   border border-slate-700
-                   bg-slate-950 px-3
-                   text-xs outline-none
+                   border border-slate-300 dark:border-slate-700
+                   bg-white dark:bg-slate-950 px-3
+                   text-xs text-slate-900 dark:text-slate-100
+                   placeholder:text-slate-400 dark:placeholder:text-slate-600
+                   outline-none
                    focus:border-cyan-500"
             placeholder="personal, draft"
         >
@@ -2132,9 +3019,11 @@
             id="newFolderAnnotation"
             class="mb-4 h-20 w-full
                    resize-none rounded-md
-                   border border-slate-700
-                   bg-slate-950 px-3 py-2
-                   text-xs outline-none
+                   border border-slate-300 dark:border-slate-700
+                   bg-white dark:bg-slate-950 px-3 py-2
+                   text-xs text-slate-900 dark:text-slate-100
+                   placeholder:text-slate-400 dark:placeholder:text-slate-600
+                   outline-none
                    focus:border-cyan-500"
         ></textarea>
 
@@ -2148,10 +3037,10 @@
                 type="button"
                 data-modal-close
                 class="rounded-md
-                       border border-slate-700
+                       border border-slate-300 dark:border-slate-700
                        px-3 py-1.5
-                       text-xs text-slate-400
-                       hover:bg-slate-800"
+                       text-xs text-slate-600 dark:text-slate-400
+                       hover:bg-slate-100 dark:hover:bg-slate-800"
             >
                 Cancel
             </button>
@@ -2161,11 +3050,11 @@
                 id="confirmNewFolder"
                 type="button"
                 class="rounded-md
-                       bg-cyan-600
+                       bg-slate-900 dark:bg-cyan-600
                        px-3 py-1.5
                        text-xs font-medium
                        text-white
-                       hover:bg-cyan-500"
+                       hover:bg-slate-800 dark:hover:bg-cyan-500"
             >
                 Create
             </button>
@@ -2210,7 +3099,7 @@
 
         <h2
             class="mb-4 text-sm font-semibold
-                   text-white"
+                   text-slate-900 dark:text-white"
         >
             Rename Collection
         </h2>
@@ -2221,9 +3110,10 @@
             value="${escapeAttr(folder.name)}"
             class="mb-4 h-9 w-full
                    rounded-md
-                   border border-slate-700
-                   bg-slate-950 px-3
-                   text-xs outline-none
+                   border border-slate-300 dark:border-slate-700
+                   bg-white dark:bg-slate-950 px-3
+                   text-xs text-slate-900 dark:text-slate-100
+                   outline-none
                    focus:border-cyan-500"
         >
 
@@ -2237,10 +3127,10 @@
                 type="button"
                 data-modal-close
                 class="rounded-md
-                       border border-slate-700
+                       border border-slate-300 dark:border-slate-700
                        px-3 py-1.5
-                       text-xs text-slate-400
-                       hover:bg-slate-800"
+                       text-xs text-slate-600 dark:text-slate-400
+                       hover:bg-slate-100 dark:hover:bg-slate-800"
             >
                 Cancel
             </button>
@@ -2250,11 +3140,11 @@
                 id="confirmRename"
                 type="button"
                 class="rounded-md
-                       bg-cyan-600
+                       bg-slate-900 dark:bg-cyan-600
                        px-3 py-1.5
                        text-xs font-medium
                        text-white
-                       hover:bg-cyan-500"
+                       hover:bg-slate-800 dark:hover:bg-cyan-500"
             >
                 Save
             </button>
@@ -2322,7 +3212,7 @@
 
         <h2
             class="mb-4 text-sm font-semibold
-                   text-white"
+                   text-slate-900 dark:text-white"
         >
             Collection — ${escapeHtml(folder.name)}
         </h2>
@@ -2336,14 +3226,15 @@
                     value="${escapeAttr(currentTags)}"
                     class="h-9 w-full
                            rounded-md
-                           border border-slate-700
-                           bg-slate-950 px-3
-                           text-xs outline-none
-                           focus:border-cyan-500"
+           border border-slate-300 dark:border-slate-700
+           bg-white dark:bg-slate-950 px-3
+           text-xs text-slate-900 dark:text-slate-100
+           outline-none
+           focus:border-cyan-500"
                 >
                 <p
                     class="mt-1 text-[10px]
-                           text-slate-600"
+                           text-slate-500 dark:text-slate-600"
                 >
                     Separate tags with commas.
                 </p>
@@ -2353,7 +3244,7 @@
                 <label class="mb-1 block text-xs text-slate-500">Annotation</label>
                 <textarea
                     id="collectionAnnotationInput"
-                    class="h-20 w-full rounded-md border border-slate-700 bg-slate-950 p-2 text-xs outline-none focus:border-cyan-500"
+                    class="h-20 w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 p-2 text-xs text-slate-900 dark:text-slate-100 outline-none focus:border-cyan-500"
                     placeholder="Optional notes..."
                 >${escapeHtml(currentAnnotation)}</textarea>
             </div>
@@ -2369,10 +3260,10 @@
                 type="button"
                 data-modal-close
                 class="rounded-md
-                       border border-slate-700
+                       border border-slate-300 dark:border-slate-700
                        px-3 py-1.5
-                       text-xs text-slate-400
-                       hover:bg-slate-800"
+                       text-xs text-slate-600 dark:text-slate-400
+                       hover:bg-slate-100 dark:hover:bg-slate-800"
             >
                 Cancel
             </button>
@@ -2486,7 +3377,7 @@
                    border border-slate-700
                    bg-slate-950 p-3
                    text-xs leading-5
-                   text-slate-300
+                   text-slate-800 dark:text-slate-300
                    outline-none
                    focus:border-cyan-500"
         >${escapeHtml(folder.annotation || "")}</textarea>
@@ -2600,16 +3491,16 @@
             class="my-4 max-h-48
                    overflow-y-auto
                    rounded-lg
-                   border border-slate-800"
+                   border border-slate-200 dark:border-slate-800"
         >
 
             ${folders
-              .map(
-                (folder) => `
+        .map(
+          (folder) => `
 
                             <div
                                 class="border-b
-                                       border-slate-800
+                                       border-slate-200 dark:border-slate-800
                                        px-3 py-2
                                        last:border-0"
                             >
@@ -2617,7 +3508,7 @@
                                 <p
                                     class="font-mono
                                            text-xs
-                                           text-slate-300"
+                                           text-slate-800 dark:text-slate-300"
                                 >
                                     ${escapeHtml(folder.name)}
                                 </p>
@@ -2627,19 +3518,18 @@
                                            text-[10px]
                                            text-slate-600"
                                 >
-                                    ${
-                                      Array.isArray(folder.endpoints)
-                                        ? folder.endpoints.length
-                                        : 0
-                                    }
+                                    ${Array.isArray(folder.endpoints)
+              ? folder.endpoints.length
+              : 0
+            }
                                     endpoints
                                 </p>
 
                             </div>
 
                         `,
-              )
-              .join("")}
+        )
+        .join("")}
 
         </div>
 
@@ -2711,7 +3601,7 @@
 
         <p
             class="text-xs leading-5
-                   text-slate-400"
+                 text-slate-800 dark:text-slate-300"
         >
             Import is not currently provided
             by the backend collection API.
@@ -2720,9 +3610,9 @@
 
         <div
             class="mt-4 rounded-lg
-                   border border-slate-800
-                   bg-slate-950/60 p-3
-                   text-xs text-slate-400"
+                  border border-slate-200 dark:border-slate-800
+bg-slate-100 dark:bg-slate-950/60 p-3
+                   text-xs  text-slate-800 dark:text-slate-300"
         >
             ${state.folders.length}
             collections are currently loaded
@@ -2734,17 +3624,19 @@
             class="mt-4 flex justify-end"
         >
 
-            <button
-                type="button"
-                data-modal-close
-                class="rounded-md
-                       border border-slate-700
-                       px-3 py-1.5
-                       text-xs text-slate-400
-                       hover:bg-slate-800"
-            >
-                Close
-            </button>
+           <button
+    type="button"
+    data-modal-close
+    class="rounded-md
+           border border-slate-300 dark:border-slate-700
+           px-3 py-1.5
+           text-xs
+           text-slate-800 dark:text-slate-300
+           hover:bg-slate-100 dark:hover:bg-slate-800
+           hover:border-slate-400 dark:hover:border-slate-600"
+>
+    Close
+</button>
 
         </div>
 
@@ -2770,7 +3662,7 @@
 
         <p
             class="text-xs leading-5
-                   text-slate-400"
+                   text-slate-800 dark:text-slate-300"
         >
             Export is not currently provided
             by the backend collection API.
@@ -2779,29 +3671,28 @@
 
         <div
             class="my-4 rounded-lg
-                   border border-slate-800
-                   bg-slate-950/60 p-3"
+                   border border-slate-200 dark:border-slate-800
+bg-slate-100 dark:bg-slate-950/60 p-3"
         >
 
-            ${
-              targets.length
-                ? targets
-                    .map(
-                      (folder) => `
+            ${targets.length
+        ? targets
+          .map(
+            (folder) => `
 
                                 <div
                                     class="flex
                                            items-center
                                            justify-between
                                            border-b
-                                           border-slate-800
+                                           border-slate-200 dark:border-slate-800
                                            py-2 last:border-0"
                                 >
 
                                     <span
                                         class="truncate
                                                text-xs
-                                               text-slate-300"
+                                              text-slate-800 dark:text-slate-300"
                                     >
                                         ${escapeHtml(folder.name)}
                                     </span>
@@ -2812,20 +3703,19 @@
                                                text-[10px]
                                                text-slate-600"
                                     >
-                                        ${
-                                          Array.isArray(folder.endpoints)
-                                            ? folder.endpoints.length
-                                            : 0
-                                        }
+                                        ${Array.isArray(folder.endpoints)
+                ? folder.endpoints.length
+                : 0
+              }
                                         endpoints
                                     </span>
 
                                 </div>
 
                             `,
-                    )
-                    .join("")
-                : `
+          )
+          .join("")
+        : `
                         <span
                             class="text-xs
                                    text-slate-600"
@@ -2833,7 +3723,7 @@
                             Select a collection first.
                         </span>
                       `
-            }
+      }
 
         </div>
 
@@ -2842,17 +3732,19 @@
             class="flex justify-end"
         >
 
-            <button
-                type="button"
-                data-modal-close
-                class="rounded-md
-                       border border-slate-700
-                       px-3 py-1.5
-                       text-xs text-slate-400
-                       hover:bg-slate-800"
-            >
-                Close
-            </button>
+           <button
+    type="button"
+    data-modal-close
+    class="rounded-md
+           border border-slate-300 dark:border-slate-700
+           px-3 py-1.5
+           text-xs
+           text-slate-800 dark:text-slate-300
+           hover:bg-slate-100 dark:hover:bg-slate-800
+           hover:border-slate-400 dark:hover:border-slate-600"
+>
+    Close
+</button>
 
         </div>
 
@@ -3033,6 +3925,8 @@
     openNewFolderModal,
 
     openDataView,
+
+    openRepoViewModal,
 
     applyFilters,
 

@@ -111,46 +111,46 @@ document.addEventListener("DOMContentLoaded", () => {
             const row =
                 document.createElement("tr");
             row.className =
-                "transition hover:bg-slate-800/40";
+                "transition hover:bg-slate-200 dark:hover:bg-slate-800/40";
 
             row.innerHTML = `
 
-                <!-- Folder Name -->
+            <!-- Folder Name -->
 
-                <td class="px-5 py-3
-                           font-medium
-                           text-slate-200">
+            <td class="px-5 py-3
+                       font-medium
+                       text-slate-800 dark:text-slate-200">
 
-                    ${item.name}
+                ${item.name}
 
-                </td>
-                <!-- Purpose -->
+            </td>
+            <!-- Purpose -->
 
-                <td class="px-5 py-3
-                           text-slate-400">
+            <td class="px-5 py-3
+                       text-slate-500 dark:text-slate-400">
 
-                    ${item.purpose}
+                ${item.purpose}
 
-                </td>
-                <!-- Size -->
+            </td>
+            <!-- Size -->
 
-                <td class="px-5 py-3
-                           text-slate-400">
+            <td class="px-5 py-3
+                       text-slate-500 dark:text-slate-400">
 
-                    ${item.size}
+                ${item.size}
 
-                </td>
-                <!-- Format Check -->
+            </td>
+            <!-- Format Check -->
 
-                <td class="px-5 py-3">
+            <td class="px-5 py-3">
 
-                    ${getFormatCheckBadge(
+                ${getFormatCheckBadge(
                 item.formatCheck
             )}
 
-                </td>
+            </td>
 
-            `;
+        `;
             // RIGHT CLICK
             row.addEventListener(
                 "contextmenu",
@@ -180,10 +180,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 <span class="
                     rounded-full
-                    bg-emerald-500/10
+                    bg-emerald-100 dark:bg-emerald-500/10
                     px-2 py-1
                     text-xs
-                    text-emerald-400">
+                    text-emerald-700 dark:text-emerald-400">
 
                     Success
 
@@ -195,10 +195,10 @@ document.addEventListener("DOMContentLoaded", () => {
             return `
                 <span class="
                     rounded-full
-                    bg-red-500/10
+                    bg-red-100 dark:bg-red-500/10
                     px-2 py-1
                     text-xs
-                    text-red-400">
+                    text-red-700 dark:text-red-400">
 
                     Fail
                 </span>
@@ -208,10 +208,10 @@ document.addEventListener("DOMContentLoaded", () => {
         return `
             <span class="
                 rounded-full
-                bg-slate-800
+                bg-slate-200 dark:bg-slate-800
                 px-2 py-1
                 text-xs
-                text-slate-400">
+                text-slate-500 dark:text-slate-400">
 
                 Not checked
             </span>
@@ -311,6 +311,17 @@ document.addEventListener("DOMContentLoaded", () => {
             "uncompressedTab"
         );
 
+    const ACTIVE_TAB_CLASSES = [
+        "bg-slate-900", "dark:bg-cyan-500",
+        "text-white", "dark:text-slate-950"
+    ];
+
+    const INACTIVE_TAB_CLASSES = [
+        "bg-white", "dark:bg-slate-800",
+        "text-slate-600", "dark:text-slate-300",
+        "border", "border-slate-200", "dark:border-transparent"
+    ];
+
     if (compressedTab) {
 
         compressedTab.addEventListener(
@@ -320,26 +331,22 @@ document.addEventListener("DOMContentLoaded", () => {
                 currentView = "compressed";
 
                 compressedTab.classList.remove(
-                    "bg-slate-800",
-                    "text-slate-300"
+                    ...INACTIVE_TAB_CLASSES
                 );
 
                 compressedTab.classList.add(
-                    "bg-cyan-500",
-                    "text-slate-950"
+                    ...ACTIVE_TAB_CLASSES
                 );
 
 
                 if (uncompressedTab) {
 
                     uncompressedTab.classList.remove(
-                        "bg-cyan-500",
-                        "text-slate-950"
+                        ...ACTIVE_TAB_CLASSES
                     );
 
                     uncompressedTab.classList.add(
-                        "bg-slate-800",
-                        "text-slate-300"
+                        ...INACTIVE_TAB_CLASSES
                     );
 
                 }
@@ -358,26 +365,22 @@ document.addEventListener("DOMContentLoaded", () => {
                 currentView = "uncompressed";
 
                 uncompressedTab.classList.remove(
-                    "bg-slate-800",
-                    "text-slate-300"
+                    ...INACTIVE_TAB_CLASSES
                 );
 
                 uncompressedTab.classList.add(
-                    "bg-cyan-500",
-                    "text-slate-950"
+                    ...ACTIVE_TAB_CLASSES
                 );
 
 
                 if (compressedTab) {
 
                     compressedTab.classList.remove(
-                        "bg-cyan-500",
-                        "text-slate-950"
+                        ...ACTIVE_TAB_CLASSES
                     );
 
                     compressedTab.classList.add(
-                        "bg-slate-800",
-                        "text-slate-300"
+                        ...INACTIVE_TAB_CLASSES
                     );
 
                 }
@@ -733,6 +736,18 @@ document.addEventListener("DOMContentLoaded", () => {
                     action
                         ? action.value
                         : "rename";
+
+                if (window.EdmsAPI && typeof window.EdmsAPI.takeoutWebview === "function") {
+                    if (!selectedItem || selectedItem.purpose === "WebView" || selectedItem.purpose === "webview") {
+                        window.EdmsAPI.takeoutWebview(folderName.value.trim(), { action: actionValue })
+                            .then((res) => {
+                                if (res && !res.ok) console.warn("takeoutWebview returned:", res.status);
+                            })
+                            .catch((err) => {
+                                console.warn("Failed takeoutWebview API call:", err);
+                            });
+                    }
+                }
 
                 alert(
                     "Takeout requested:\n\n" +

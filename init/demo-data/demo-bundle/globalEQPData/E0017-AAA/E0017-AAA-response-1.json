@@ -1,0 +1,1 @@
+{"args":{"foo":"bar"},"headers":{"accept":"*/*","accept-encoding":"gzip, br","host":"postman-echo.com","x-forwarded-proto":"https"},"url":"https://postman-echo.com/get?foo=bar"}

@@ -25,6 +25,9 @@ pub async fn ipc_callback(
         if let Some(ref err) = callback.error {
             error!("[callback] task='{}' failed: {}", callback.task, err);
         }
+        // A job's child reports its failure here: fail the job too.
+        crate::handlers::repoview_ie::abort_import(&state, &callback);
+        crate::handlers::jobs::fail_from_callback(&state, &callback);
         let _ = state.events_tx.send(ServerEvent::Error {
             message: format!(
                 "IPC task '{}' failed: {}",
@@ -44,6 +47,12 @@ pub async fn ipc_callback(
         "export_merge"             => handle_export_merge(&state, &callback).await,
         "mark_active_folder"       => handle_mark_active_folder(&state, &callback).await,
         "compute_crud_operations"  => handle_compute_crud_operations(&state, &callback).await,
+        "view_io_progress"         => crate::handlers::jobs::progress_from_callback(&state, &callback),
+        "view_takeout"             => crate::handlers::jobs::complete_from_callback(&state, &callback),
+        "view_import_copy"         => crate::handlers::repoview_ie::finish_import(&state, &callback).await,
+        "view_table_check"         => crate::handlers::jobs::complete_from_callback(&state, &callback),
+        "collection_merge"         => crate::handlers::collection_merge::finish_merge(&state, &callback),
+        "view_unzip"               => crate::handlers::repoview_ie::continue_after_unzip(&state, &callback).await,
         "convert_to_pdf" | "convert_to_html" | "convert_to_markdown" => {
             handle_file_conversion(&state, &callback).await
         }
@@ -117,11 +126,97 @@ async fn handle_run_test(state: &AppState, callback: &IpcCallback) {
     let status_code      = r["status_code"].as_i64().unwrap_or(0) as i32;
     let response_time_ms = r["response_time_ms"].as_i64().unwrap_or(0) as i32;
     let response_body    = r.get("response_body").cloned().unwrap_or(serde_json::Value::Null);
-    // Must match the {eid}-response-{N}.json filename write_response_file
-    // actually produces (compute::endpoint_writer) — see the matching note
-    // on request_file in test_view.rs.
-    let response_file    = state
-        .endpoint_storage_dir(&endpoint_id)
+
+    let request_headers  = r.get("request_headers").cloned().unwrap_or(serde_json::json!({}));
+    let response_headers = r.get("response_headers").cloned().unwrap_or(serde_json::json!({}));
+    let headers_content = serde_json::json!({
+        "request_headers":  request_headers,
+        "response_headers": response_headers,
+    });
+
+    let dir = state.endpoint_storage_dir(&endpoint_id);
+    let req_file_path = dir.join(format!("{endpoint_id}-request-{request_number}.json"));
+    let req_content = tokio::fs::read_to_string(&req_file_path).await.unwrap_or_default();
+    let res_content = serde_json::to_string(&response_body).unwrap_or_default();
+    let hdr_content = headers_content.to_string();
+
+    let (method, endpoint_str) = {
+        let st = state.clone();
+        let eid = endpoint_id.clone();
+        tokio::task::spawn_blocking(move || {
+            crate::db::get_endpoint(&st.core, &st.queries, &eid)
+                .ok()
+                .flatten()
+                .map(|ep| (ep.method.unwrap_or_else(|| "GET".to_string()), ep.endpoint_str))
+        })
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| {
+            crate::qp_service::extract_method_and_endpoint(&req_content)
+        })
+    };
+    let qp_data = crate::qp_service::extract_qp_data(&endpoint_str);
+    let snapshot_key = crate::qp_service::make_canonical_key(
+        &method,
+        &endpoint_id,
+        &req_content,
+        &res_content,
+        &hdr_content,
+        &qp_data,
+    );
+
+    let dup_opt = crate::qp_service::find_duplicate_qp(
+        &dir,
+        &endpoint_id,
+        &method,
+        &endpoint_str,
+        &req_content,
+        &res_content,
+        &hdr_content,
+        Some(request_number),
+    );
+
+    // Only block if a matching QP actually exists on disk (prevents blocking deleted QPs as #0)
+    if let Some(dup_num) = dup_opt {
+        if dup_num > 0 {
+            tracing::warn!(
+                "[handle_run_test] Duplicate QP detected for endpoint {endpoint_id}. Discarding duplicate write to disk."
+            );
+            let _ = tokio::fs::remove_file(&req_file_path).await;
+            let st = state.clone();
+            let eid = endpoint_id.clone();
+            let _ = tokio::task::spawn_blocking(move || {
+                let rq = st.queries.get_request_query("R7").ok_or(edms::error::EdmsError::UnknownError)?;
+                st.core.proc(rq, &[&eid, &request_number])
+            }).await;
+
+            state.cancel_timer(&endpoint_id, request_number);
+            let _ = state.events_tx.send(ServerEvent::DuplicateQpBlocked {
+                endpoint_id: endpoint_id.clone(),
+                request_number,
+                duplicate_of: dup_num,
+            });
+
+            let response_file = dir
+                .join(format!("{endpoint_id}-response-{dup_num}.json"))
+                .display()
+                .to_string();
+
+            let _ = state.events_tx.send(ServerEvent::TestFinished {
+                endpoint_id,
+                request_number: dup_num,
+                status_code,
+                response_time_ms,
+                response_file,
+            });
+            return;
+        }
+    }
+
+    state.duplicate_store.add_if_new(&snapshot_key);
+
+    let response_file = dir
         .join(format!("{endpoint_id}-response-{request_number}.json"))
         .display()
         .to_string();

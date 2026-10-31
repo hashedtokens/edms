@@ -1,3 +1,12 @@
+# Where EDMS stores all its data on YOUR machine — plain YAML, no .env file
+# (Ravi, 2026-09-15). Defaults to a folder next to this repo
+# (../../edms-data), auto-created by Docker on first run — no manual mkdir
+# needed — and directly visible on your PC, not hidden in a Docker volume.
+# Want it somewhere else? Edit the left-hand side of this ONE line;
+# whatever you set it to gets auto-created the same way. The backend and
+# the seed container both use it (the seed drops the demo bundle into the
+# storage folder's imports area, so it must see the same folder).
+x-edms-storage: &edms-storage "../../edms-data:/app/edms_root:Z"
 services:
   webserver:
     build:
@@ -12,16 +21,10 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ../backend/webserver/data:/app/data
+      - ../backend/webserver/data:/app/data:Z
       - webserver-data:/app/edms_data
-      # Where EDMS stores all its data on YOUR machine — plain YAML, no
-      # .env file (Ravi, 2026-09-15). Defaults to a folder next to this
-      # repo (../../edms-data), auto-created by Docker on first run — no
-      # manual mkdir needed — and directly visible on your PC, not hidden
-      # in a Docker volume. Want it somewhere else? Just edit the
-      # left-hand side below; whatever you set it to gets auto-created
-      # the same way.
-      - ../../edms-data:/app/edms_root
+      # The storage folder - set once, at the top of this file.
+      - *edms-storage
     environment:
       - RUST_LOG=info
       - EDMS_DB_PATH=/app/data/edms.db
@@ -36,7 +39,7 @@ services:
     image: hashedtokens-edms-frontend:v1.0
     container_name: hashedtokens-edms-frontend
     ports:
-      - "3911:80"  # per the folder-schema doc — open localhost:3911 for the UI
+      - "3911:80" # per the folder-schema doc — open localhost:3911 for the UI
     depends_on:
       - webserver
     networks:
@@ -44,17 +47,23 @@ services:
 
   # First-boot demo data. Runs once on `docker compose up`, then exits
   # (you'll see it as "Exited (0)" in `docker compose ps` — that's
-  # expected). It's idempotent: if the backend already has endpoints it
-  # does nothing. Talks only to the API, so it never touches the DB or
-  # storage layout directly.
+  # expected). It loads the RECORDED bundle in ./demo-data - no internet,
+  # no live URLs - through the product's own import, then builds the
+  # collections, views and front pages around it. If the backend already
+  # has endpoints it does nothing. It talks to the API; its only file
+  # access is copying the bundle into the storage folder's imports area
+  # (and removing that copy afterwards).
   seed:
     image: node:22-alpine
     depends_on:
       - webserver
     environment:
       - EDMS_BASE=http://webserver:3000
+      - EDMS_STORAGE=/app/edms_root
     volumes:
       - ./seed.mjs:/seed.mjs:ro
+      - ./demo-data:/demo-data:ro
+      - *edms-storage
     command: node /seed.mjs
     restart: "no"
     networks:

@@ -3,6 +3,7 @@
 
 use edms::{EdmsCore, query_loader::QueryMap};
 use crate::tagops::types::ActivityEntry;
+use std::path::Path;
 
 pub type DynResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -28,7 +29,16 @@ pub fn get_storage_root(db_path: &str) -> std::path::PathBuf {
 }
 
 /// Resolves the path to a collection's dedicated SQLite file, if available.
+/// The storage root is taken to be the folder `db_path` sits in - see
+/// `resolve_collection_sqlite_path_in` to say where it really is.
 pub fn resolve_collection_sqlite_path(core: &EdmsCore, db_path: &str, collection_name: &str) -> Option<std::path::PathBuf> {
+    resolve_collection_sqlite_path_in(core, &get_storage_root(db_path), collection_name)
+}
+
+/// Same, with the storage root given. (The database file doesn't have to sit
+/// in the storage root - in Docker it is `/app/data/edms.db` while the storage
+/// is `/app/edms_root` - so a caller that knows the root should say so.)
+pub fn resolve_collection_sqlite_path_in(core: &EdmsCore, root: &Path, collection_name: &str) -> Option<std::path::PathBuf> {
     // 1. Try catalog table `collections`
     if let Ok(rows) = core.cproc(
         "SELECT file_path FROM collections WHERE name = ?",
@@ -44,7 +54,6 @@ pub fn resolve_collection_sqlite_path(core: &EdmsCore, db_path: &str, collection
     }
 
     // 2. Try default location: storage/collections/{collection_name}.sqlite
-    let root = get_storage_root(db_path);
     let default_p = root.join("storage").join("collections").join(format!("{collection_name}.sqlite"));
     if default_p.exists() {
         return Some(default_p);
@@ -56,7 +65,12 @@ pub fn resolve_collection_sqlite_path(core: &EdmsCore, db_path: &str, collection
 /// Reads all member EIDs for a collection, checking its dedicated SQLite file first,
 /// and falling back to the `bookmarks` table.
 pub fn read_collection_member_eids(core: &EdmsCore, db_path: &str, collection_name: &str) -> DynResult<Vec<String>> {
-    if let Some(col_path) = resolve_collection_sqlite_path(core, db_path, collection_name) {
+    read_collection_member_eids_in(core, &get_storage_root(db_path), collection_name)
+}
+
+/// Same, with the storage root given.
+pub fn read_collection_member_eids_in(core: &EdmsCore, root: &Path, collection_name: &str) -> DynResult<Vec<String>> {
+    if let Some(col_path) = resolve_collection_sqlite_path_in(core, root, collection_name) {
         let membership = edms::ops::collection_membership_ops::CollectionMembershipOps::new(col_path.to_str().unwrap());
         if membership.initialize().is_ok() {
             if let Ok(ids) = membership.list_ids() {
@@ -83,28 +97,52 @@ pub fn write_collection_member_eids(
     collection_name: &str,
     eids: &[String],
 ) -> DynResult<()> {
+    write_collection_member_eids_in(core, &get_storage_root(db_path), collection_name, eids)
+}
+
+/// Same, with the storage root given.
+pub fn write_collection_member_eids_in(
+    core: &EdmsCore,
+    root: &Path,
+    collection_name: &str,
+    eids: &[String],
+) -> DynResult<()> {
     if eids.is_empty() {
         return Ok(());
     }
 
-    // 1. Update dedicated collection SQLite file if directory exists or can be created
-    let root = get_storage_root(db_path);
-    let col_dir = root.join("storage").join("collections");
-    let col_file = col_dir.join(format!("{collection_name}.sqlite"));
-
-    if let Ok(_) = std::fs::create_dir_all(&col_dir) {
-        let membership = edms::ops::collection_membership_ops::CollectionMembershipOps::new(col_file.to_str().unwrap());
-        if membership.initialize().is_ok() {
-            let _ = membership.add_batch(eids);
+    // 1. Update the collection's own SQLite file: the one the catalog already
+    // names if there is one (a collection the app created), else the default
+    // `storage/collections/{name}.sqlite` (created now).
+    let col_file = match resolve_collection_sqlite_path_in(core, root, collection_name) {
+        Some(existing) => existing,
+        None => {
+            let col_dir = root.join("storage").join("collections");
+            std::fs::create_dir_all(&col_dir)
+                .map_err(|e| format!("can't create {}: {e}", col_dir.display()))?;
+            col_dir.join(format!("{collection_name}.sqlite"))
         }
-    }
+    };
+    let col_file_str = col_file
+        .to_str()
+        .ok_or_else(|| format!("collection path {} isn't valid UTF-8", col_file.display()))?
+        .to_string();
+    // This is what the app lists the collection's endpoints from, so a failure
+    // here must fail the merge - it must not look like it worked.
+    let membership = edms::ops::collection_membership_ops::CollectionMembershipOps::new(&col_file_str);
+    membership
+        .initialize()
+        .map_err(|e| format!("can't open collection file {col_file_str}: {e:?}"))?;
+    membership
+        .add_batch(eids)
+        .map_err(|e| format!("can't add members to {col_file_str}: {e:?}"))?;
 
     // 2. Update catalog row if table `collections` exists.
     // Uses INSERT OR IGNORE so an already-registered collection is a no-op.
     // Failure (e.g. schema not yet initialised) is non-fatal because
     // resolve_collection_sqlite_path falls back to the default disk path,
     // but we warn so the root cause is visible in diagnostics.
-    let col_path_str = col_file.to_string_lossy().to_string();
+    let col_path_str = col_file_str.clone();
     if let Err(e) = core.proc(
         "INSERT OR IGNORE INTO collections (name, file_path) VALUES (?, ?)",
         &[&collection_name, &col_path_str],
@@ -152,7 +190,17 @@ pub(super) fn endpoints_with_tags_in_collection(
     collection_id: &str,
     tags:          &[String],
 ) -> DynResult<Vec<String>> {
-    let member_eids = read_collection_member_eids(core, &core.base.db_path, collection_id)?;
+    endpoints_with_tags_in_collection_in(core, &get_storage_root(&core.base.db_path), collection_id, tags)
+}
+
+/// Same, with the storage root given.
+pub(super) fn endpoints_with_tags_in_collection_in(
+    core:          &EdmsCore,
+    root:          &Path,
+    collection_id: &str,
+    tags:          &[String],
+) -> DynResult<Vec<String>> {
+    let member_eids = read_collection_member_eids_in(core, root, collection_id)?;
     if member_eids.is_empty() || tags.is_empty() {
         return Ok(member_eids);
     }

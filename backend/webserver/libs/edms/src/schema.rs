@@ -394,6 +394,22 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
         }
     }
 
+    // RepoView / WebView: `source` records which Collection a list was built
+    // from (the "Bookmark Tag" field per the RepoView spec, 2026-09-05) —
+    // non-modifiable after creation. Collections don't have a Source
+    // concept, so this only touches `repoview` and `webview` (WebView got
+    // the same list model in v1.0).
+    for table in ["repoview", "webview"] {
+        let has_source: i64 = conn.query_row(
+            &format!("SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name = 'source'"),
+            [],
+            |row| row.get(0),
+        )?;
+        if has_source == 0 {
+            conn.execute(&format!("ALTER TABLE {table} ADD COLUMN source TEXT"), [])?;
+        }
+    }
+
     // 9. Central tag-count rollups
     for table in ["collections_tags", "webview_tags", "repoview_tags"] {
         conn.execute(
@@ -414,6 +430,33 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
             tagname TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (collection_name, tagname)
+        )",
+        [],
+    )?;
+
+    // 10b. Per-repoview tag memberships — the row-level "Tags (modifiable)"
+    // field from the RepoView spec (2026-09-05), identifiers on the
+    // RepoView instance itself. Separate from `tags_in_data` (the
+    // non-modifiable aggregate computed from copied endpoint data) and
+    // from `repoview_tags` (the central tag-count rollup).
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS repoview_tag_memberships (
+            repoview_name TEXT NOT NULL,
+            tagname TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (repoview_name, tagname)
+        )",
+        [],
+    )?;
+
+    // 10c. Per-webview tag memberships — the same row-level "Tags" field as
+    // 10b, for WebView (v1.0: UI and model are the same as RepoView's).
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS webview_tag_memberships (
+            webview_name TEXT NOT NULL,
+            tagname TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (webview_name, tagname)
         )",
         [],
     )?;

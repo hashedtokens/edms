@@ -367,6 +367,7 @@ async fn run_test_impl(
     annotation: Option<String>,
     timer_cfg: TimerConfig,
 ) -> Result<(), EdmsError> {
+
     // 1) Get-or-create the endpoint — per Mathew (2026-09-08), an endpoint
     //    is only created the moment it's actually tested. Re-testing an
     //    existing endpoint_id is the common case (returned as-is); a new
@@ -386,6 +387,9 @@ async fn run_test_impl(
     let endpoint_id = endpoint.endpoint_id.clone();
     if was_created {
         state.refresh_dashboard_snapshot();
+        let _ = state.events_tx.send(ServerEvent::CrudOperationsUpdated {
+            computed_at: chrono::Utc::now().to_rfc3339(),
+        });
     }
 
     // 2) Allocate request number
@@ -846,13 +850,48 @@ pub async fn delete_qp(
         );
     }
 
-    // Best-effort: the metadata rows are the source of truth this route
-    // deletes by, so a file that's already missing isn't an error.
     let dir = state.endpoint_storage_dir(&endpoint_id);
+
+    // Remove deleted QP's key from in-memory duplicate store so re-testing works immediately
+    if let Some((q, p, h, qp_d)) = crate::qp_service::read_qp_quadruple(&dir, &endpoint_id, request_number) {
+        let (method, endpoint_str) = {
+            let st = state.clone();
+            let eid = endpoint_id.clone();
+            tokio::task::spawn_blocking(move || {
+                crate::db::get_endpoint(&st.core, &st.queries, &eid)
+                    .ok()
+                    .flatten()
+                    .map(|ep| (ep.method.unwrap_or_else(|| "GET".to_string()), ep.endpoint_str))
+            })
+            .await
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| ("GET".to_string(), String::new()))
+        };
+        let qp_data = if !qp_d.is_empty() { qp_d } else { crate::qp_service::extract_qp_data(&endpoint_str) };
+        let key = crate::qp_service::make_canonical_key(&method, &endpoint_id, &q, &p, &h, &qp_data);
+        state.duplicate_store.remove(&key);
+    }
+
+    // Delete QP files from disk
     for kind in ["request", "response", "headers"] {
         let path = dir.join(format!("{endpoint_id}-{kind}-{request_number}.json"));
         let _ = tokio::fs::remove_file(path).await;
     }
+
+    // Await synchronous file renames on disk, then await DB renumbering
+    let eid_clone = endpoint_id.clone();
+    let dir_clone = dir.clone();
+    let _ = tokio::task::spawn_blocking(move || {
+        reassign_qp_files_inline(&dir_clone, &eid_clone);
+    }).await;
+
+    let st2 = state.clone();
+    let eid2 = endpoint_id.clone();
+    let storage_dir = dir.to_string_lossy().to_string();
+    let _ = tokio::task::spawn_blocking(move || {
+        crate::db::reassign_qp_numbers(&st2.core, &eid2, &storage_dir)
+    }).await;
 
     state
         .emit(ServerEvent::QpDeleted {
@@ -936,21 +975,67 @@ pub async fn update_qp(
     }
 
     let dir = state.endpoint_storage_dir(&endpoint_id);
+
+    // Remove old snapshot key from duplicate store if it existed
+    if let Some((q, p, h, qp_d)) = crate::qp_service::read_qp_quadruple(&dir, &endpoint_id, request_number) {
+        let (method, endpoint_str) = {
+            let st = state.clone();
+            let eid = endpoint_id.clone();
+            tokio::task::spawn_blocking(move || {
+                crate::db::get_endpoint(&st.core, &st.queries, &eid)
+                    .ok()
+                    .flatten()
+                    .map(|ep| (ep.method.unwrap_or_else(|| "GET".to_string()), ep.endpoint_str))
+            })
+            .await
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| ("GET".to_string(), String::new()))
+        };
+        let qp_data = if !qp_d.is_empty() { qp_d } else { crate::qp_service::extract_qp_data(&endpoint_str) };
+        let old_key = crate::qp_service::make_canonical_key(&method, &endpoint_id, &q, &p, &h, &qp_data);
+        state.duplicate_store.remove(&old_key);
+    }
+
     let request_path = dir.join(format!("{endpoint_id}-request-{request_number}.json"));
     let response_path = dir.join(format!("{endpoint_id}-response-{request_number}.json"));
 
-    if let Err(e) = tokio::fs::write(&request_path, parse_qp_body(&payload.request_body).to_string()).await {
+    let new_req_str = parse_qp_body(&payload.request_body).to_string();
+    let new_res_str = parse_qp_body(&payload.response_body).to_string();
+
+    if let Err(e) = tokio::fs::write(&request_path, &new_req_str).await {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({ "ok": false, "error": format!("failed to write request file: {e}") })),
         );
     }
-    if let Err(e) = tokio::fs::write(&response_path, parse_qp_body(&payload.response_body).to_string()).await {
+    if let Err(e) = tokio::fs::write(&response_path, &new_res_str).await {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({ "ok": false, "error": format!("failed to write response file: {e}") })),
         );
     }
+
+    // Register new snapshot key in duplicate store
+    let (method, endpoint_str) = {
+        let st = state.clone();
+        let eid = endpoint_id.clone();
+        tokio::task::spawn_blocking(move || {
+            crate::db::get_endpoint(&st.core, &st.queries, &eid)
+                .ok()
+                .flatten()
+                .map(|ep| (ep.method.unwrap_or_else(|| "GET".to_string()), ep.endpoint_str))
+        })
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| ("GET".to_string(), String::new()))
+    };
+    let qp_data = crate::qp_service::extract_qp_data(&endpoint_str);
+    let hdr_path = dir.join(format!("{endpoint_id}-headers-{request_number}.json"));
+    let hdr_content = tokio::fs::read_to_string(&hdr_path).await.unwrap_or_else(|_| "{}".to_string());
+    let new_key = crate::qp_service::make_canonical_key(&method, &endpoint_id, &new_req_str, &new_res_str, &hdr_content, &qp_data);
+    state.duplicate_store.add_if_new(&new_key);
 
     state
         .emit(ServerEvent::QpUpdated {
@@ -1032,6 +1117,47 @@ pub async fn create_qp(
     };
 
     let dir = state.endpoint_storage_dir(&endpoint_id);
+    let req_content = parse_qp_body(&payload.request_body).to_string();
+    let res_content = parse_qp_body(&payload.response_body).to_string();
+    let headers_json = json!({ "request_headers": {}, "response_headers": {} });
+    let hdr_content = headers_json.to_string();
+
+    let (m, u) = crate::qp_service::extract_method_and_endpoint(&req_content);
+    let method_to_use = if m.is_empty() { &method } else { &m };
+    let qp_data = crate::qp_service::extract_qp_data(&u);
+    let snapshot_key = crate::qp_service::make_canonical_key(
+        method_to_use,
+        &endpoint_id,
+        &req_content,
+        &res_content,
+        &hdr_content,
+        &qp_data,
+    );
+
+    let dup_opt = crate::qp_service::find_duplicate_qp(
+        &dir,
+        &endpoint_id,
+        method_to_use,
+        &u,
+        &req_content,
+        &res_content,
+        &hdr_content,
+        None,
+    );
+
+    if let Some(dup_num) = dup_opt {
+        if dup_num > 0 {
+            return (
+                StatusCode::CONFLICT,
+                Json(json!({
+                    "ok": false,
+                    "error": format!("Duplicate QP detected: an identical (Q, P, H) already exists as QP #{dup_num} for endpoint {endpoint_id}"),
+                    "duplicate_of": dup_num,
+                })),
+            );
+        }
+    }
+    state.duplicate_store.add_if_new(&snapshot_key);
     let request_path = dir.join(format!("{endpoint_id}-request-{request_number}.json"));
     let response_path = dir.join(format!("{endpoint_id}-response-{request_number}.json"));
     let headers_path = dir.join(format!("{endpoint_id}-headers-{request_number}.json"));
@@ -1100,4 +1226,41 @@ pub async fn create_qp(
         .await;
 
     (StatusCode::OK, Json(json!({ "ok": true, "request_number": request_number })))
+}
+fn reassign_qp_files_inline(folder: &std::path::Path, eid: &str) {
+    let prefix = format!("{}-request-", eid);
+    let suffix = ".json";
+    let mut numbers: Vec<usize> = Vec::new();
+
+    let entries = match std::fs::read_dir(folder) {
+        Ok(e) => e,
+        Err(_) => return,
+    };
+
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        if name.starts_with(prefix.as_str()) && name.ends_with(suffix) {
+            let mid = &name[prefix.len()..name.len() - suffix.len()];
+            if let Ok(n) = mid.parse::<usize>() {
+                numbers.push(n);
+            }
+        }
+    }
+
+    numbers.sort_unstable();
+
+    for (zero_idx, old_n) in numbers.into_iter().enumerate() {
+        let new_n = zero_idx + 1;
+        if old_n == new_n {
+            continue;
+        }
+        for kind in ["request", "response", "headers"] {
+            let old_path = folder.join(format!("{}-{}-{}.json", eid, kind, old_n));
+            let new_path = folder.join(format!("{}-{}-{}.json", eid, kind, new_n));
+            if old_path.exists() {
+                let _ = std::fs::rename(&old_path, &new_path);
+            }
+        }
+    }
 }

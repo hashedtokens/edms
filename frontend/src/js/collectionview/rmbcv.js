@@ -4,169 +4,92 @@
 // ============================================================
 
 (() => {
-'use strict';
+  "use strict";
 
+  // ============================================================
+  // INIT
+  // ============================================================
 
-// ============================================================
-// INIT
-// ============================================================
+  document.addEventListener("DOMContentLoaded", init);
 
-document.addEventListener(
-    'DOMContentLoaded',
-    init
-);
+  function init() {
+    const menu = document.getElementById("contextMenu");
 
+    const tbody = document.getElementById("folderTableBody");
 
-function init() {
+    if (!menu || !tbody || !window.CollectionView) {
+      console.error("Collection View context menu could not initialize.");
 
-    const menu =
-        document.getElementById(
-            'contextMenu'
-        );
-
-    const tbody =
-        document.getElementById(
-            'folderTableBody'
-        );
-
-
-    if (
-        !menu ||
-        !tbody ||
-        !window.CollectionView
-    ) {
-
-        console.error(
-            'Collection View context menu could not initialize.'
-        );
-
-        return;
-
+      return;
     }
 
-
     let targetIds = [];
-
 
     // ========================================================
     // RIGHT CLICK ON FOLDER ROW
     // ========================================================
 
-    tbody.addEventListener(
-        'contextmenu',
-        event => {
+    tbody.addEventListener("contextmenu", (event) => {
+      const row = event.target.closest("tr[data-id]");
 
-            const row =
-                event.target.closest(
-                    'tr[data-id]'
-                );
+      if (!row) {
+        return;
+      }
 
+      event.preventDefault();
 
-            if (!row) {
-                return;
-            }
+      const id = row.dataset.id;
 
+      const selected = window.CollectionView.getState().selected;
 
-            event.preventDefault();
+      /*
+       * If the clicked folder is already inside a
+       * multi-selection, operate on the whole selection.
+       *
+       * Otherwise only operate on the clicked folder.
+       */
 
+      if (selected.has(id) && selected.size > 1) {
+        targetIds = [...selected];
+      } else {
+        targetIds = [id];
+      }
 
-            const id =
-                row.dataset.id;
+      renderMenu();
 
+      /*
+       * Make the menu visible before measuring it.
+       */
 
-            const selected =
-                window.CollectionView
-                    .getState()
-                    .selected;
+      menu.classList.remove("hidden");
 
+      menu.style.display = "block";
 
-            /*
-             * If the clicked folder is already inside a
-             * multi-selection, operate on the whole selection.
-             *
-             * Otherwise only operate on the clicked folder.
-             */
+      menu.style.visibility = "hidden";
 
-            if (
-                selected.has(id) &&
-                selected.size > 1
-            ) {
+      positionMenu(event.clientX, event.clientY);
 
-                targetIds =
-                    [...selected];
-
-            } else {
-
-                targetIds =
-                    [id];
-
-            }
-
-
-            renderMenu();
-
-
-            /*
-             * Make the menu visible before measuring it.
-             */
-
-            menu.classList.remove(
-                'hidden'
-            );
-
-
-            menu.style.display =
-                'block';
-
-            menu.style.visibility =
-                'hidden';
-
-
-            positionMenu(
-                event.clientX,
-                event.clientY
-            );
-
-
-            menu.style.visibility =
-                'visible';
-
-        }
-    );
-
+      menu.style.visibility = "visible";
+    });
 
     // ========================================================
     // BUILD MENU
     // ========================================================
 
     function renderMenu() {
+      const count = targetIds.length;
 
-        const count =
-            targetIds.length;
+      const isSingle = count === 1;
 
+      const isMultiple = count > 1;
 
-        const isSingle =
-            count === 1;
-
-        const isMultiple =
-            count > 1;
-
-
-        menu.innerHTML = `
+      menu.innerHTML = `
 
             <!-- ============================================ -->
             <!-- DATA VIEW -->
             <!-- ============================================ -->
 
-            ${
-                isSingle
-                    ? menuItem(
-                        'dataview',
-                        iconDatabase(),
-                        'Data View'
-                    )
-                    : ''
-            }
+            ${isSingle ? menuItem("dataview", iconDatabase(), "Data View") : ""}
 
 
 
@@ -176,29 +99,17 @@ function init() {
             <!-- WEB VIEW -->
             <!-- ============================================ -->
 
-            ${
-                isSingle
-                    ? menuItem(
-                        'webview',
-                        iconGlobe(),
-                        'Web View'
-                    )
-                    : ''
-            }
-
-
+            ${isSingle ? menuItem("webview", iconGlobe(), "Create Web View") : ""}
+            ${isSingle ? menuItem("repoview", iconRepo(), "Create Repo View") : ""}
+            
             <!-- ============================================ -->
             <!-- CREATE TEST VIEW -->
             <!-- ============================================ -->
 
             ${
-                isSingle
-                    ? menuItem(
-                        'testview',
-                        iconFlask(),
-                        'Create Test View'
-                    )
-                    : ''
+              isSingle
+                ? menuItem("testview", iconFlask(), "Create Test View")
+                : ""
             }
 
 
@@ -206,51 +117,27 @@ function init() {
             <!-- RENAME -->
             <!-- ============================================ -->
 
-            ${
-                isSingle
-                    ? menuItem(
-                        'rename',
-                        iconEdit(),
-                        'Rename'
-                    )
-                    : ''
-            }
+            ${isSingle ? menuItem("rename", iconEdit(), "Rename") : ""}
 
 
             <!-- ============================================ -->
             <!-- DUPLICATE -->
             <!-- ============================================ -->
 
-            ${
-                isSingle
-                    ? menuItem(
-                        'duplicate',
-                        iconCopy(),
-                        'Duplicate'
-                    )
-                    : ''
-            }
+            ${isSingle ? menuItem("duplicate", iconCopy(), "Duplicate") : ""}
 
 
             <!-- ============================================ -->
             <!-- MODIFY (TAGS & ANNOTATION) -->
             <!-- ============================================ -->
 
-            ${
-                isSingle
-                    ? menuItem(
-                        'edittags',
-                        iconTag(),
-                        'Modify'
-                    )
-                    : ''
-            }
+            ${isSingle ? menuItem("edittags", iconTag(), "Modify") : ""}
 
 
             ${
-                isSingle
-                    ? '<div class="my-1 border-t border-slate-800"></div>'
-                    : ''
+              isSingle
+                ? '<div class="my-1 border-t border-slate-800"></div>'
+                : ""
             }
 
 
@@ -259,13 +146,9 @@ function init() {
             <!-- ============================================ -->
 
             ${
-                isMultiple
-                    ? menuItem(
-                        'merge',
-                        iconMerge(),
-                        `Merge Selected (${count})`
-                    )
-                    : ''
+              isMultiple
+                ? menuItem("merge", iconMerge(), `Merge Selected (${count})`)
+                : ""
             }
 
 
@@ -274,20 +157,16 @@ function init() {
             <!-- ============================================ -->
 
             ${
-                isSingle
-                    ? menuItem(
-                        'newfolder',
-                        iconFolderPlus(),
-                        'New Empty Folder'
-                    )
-                    : ''
+              isSingle
+                ? menuItem("newfolder", iconFolderPlus(), "New Empty Folder")
+                : ""
             }
 
 
             ${
-                isMultiple
-                    ? '<div class="my-1 border-t border-slate-800"></div>'
-                    : ''
+              isMultiple
+                ? '<div class="my-1 border-t border-slate-800"></div>'
+                : ""
             }
 
 
@@ -296,31 +175,21 @@ function init() {
             <!-- ============================================ -->
 
             ${menuItem(
-                'delete',
-                iconTrash(),
-                isMultiple
-                    ? `Delete ${count} Collections`
-                    : 'Delete Collection',
-                'text-rose-400 hover:bg-rose-500/10'
+              "delete",
+              iconTrash(),
+              isMultiple ? `Delete ${count} Collections` : "Delete Collection",
+              "text-rose-400 hover:bg-rose-500/10",
             )}
 
         `;
-
     }
-
 
     // ========================================================
     // MENU ITEM
     // ========================================================
 
-    function menuItem(
-        action,
-        icon,
-        label,
-        extraClass = ''
-    ) {
-
-        return `
+    function menuItem(action, icon, label, extraClass = "") {
+      return `
 
             <button
                 type="button"
@@ -334,7 +203,7 @@ function init() {
                     py-2
                     text-left
                     text-xs
-                    text-slate-300
+                    text-slate-700 dark:text-slate-300
                     transition-colors
                     hover:bg-slate-800
                     hover:text-white
@@ -351,388 +220,226 @@ function init() {
             </button>
 
         `;
-
     }
-
 
     // ========================================================
     // MENU ACTIONS
     // ========================================================
 
-    menu.addEventListener(
-        'click',
-        async event => {
+    menu.addEventListener("click", async (event) => {
+      const button = event.target.closest("[data-action]");
 
-            const button =
-                event.target.closest(
-                    '[data-action]'
-                );
+      if (!button) {
+        return;
+      }
 
+      const action = button.dataset.action;
 
-            if (!button) {
-                return;
-            }
+      if (targetIds.length === 0) {
+        closeMenu();
 
+        return;
+      }
 
-            const action =
-                button.dataset.action;
+      switch (action) {
+        // --------------------------------------------
+        // DATA VIEW
+        // --------------------------------------------
 
+        case "dataview":
+          if (targetIds.length === 1) {
+            window.CollectionView.openDataView(targetIds[0]);
+          }
 
-            if (
-                targetIds.length === 0
-            ) {
+          break;
 
-                closeMenu();
+        // --------------------------------------------
+        // CREATE TEST VIEW
+        // --------------------------------------------
 
-                return;
+        case "testview":
+          if (targetIds.length === 1) {
+            /*
+             * Open the Test View page in a new tab,
+             * pre-scoped to the right-clicked collection.
+             */
+            window.CollectionView.openTestView(targetIds[0]);
+          }
 
-            }
+          break;
 
+        // --------------------------------------------
+        // REPO VIEW
+        // --------------------------------------------
 
-            switch (action) {
+        case "repoview":
+          if (targetIds.length === 1) {
+            window.CollectionView.openRepoViewModal(targetIds[0]);
+          }
 
+          break;
 
-                // --------------------------------------------
-                // DATA VIEW
-                // --------------------------------------------
+        // --------------------------------------------
+        // RENAME
+        // --------------------------------------------
 
-                case 'dataview':
+        case "rename":
+          if (targetIds.length === 1) {
+            window.CollectionView.openRenameModal(targetIds[0]);
+          }
 
-                    if (
-                        targetIds.length === 1
-                    ) {
+          break;
 
-                        window.CollectionView
-                            .openDataView(
-                                targetIds[0]
-                            );
+        // --------------------------------------------
+        // EDIT TAGS
+        // --------------------------------------------
 
-                    }
+        case "edittags":
+          if (targetIds.length === 1) {
+            window.CollectionView.openTagEditor(targetIds[0]);
+          }
 
-                    break;
+          break;
 
+        // --------------------------------------------
+        // DUPLICATE
+        // --------------------------------------------
 
+        case "duplicate":
+          if (targetIds.length === 1) {
+            window.CollectionView.duplicateFolder(targetIds[0]);
+          }
 
+          break;
 
+        // --------------------------------------------
+        // MERGE
+        // --------------------------------------------
 
-                // --------------------------------------------
-                // CREATE TEST VIEW
-                // --------------------------------------------
+        case "merge":
+          if (targetIds.length >= 2) {
+            window.CollectionView.openMergeModal(targetIds);
+          }
 
-                case 'testview':
+          break;
 
-                    if (
-                        targetIds.length === 1
-                    ) {
+        // --------------------------------------------
+        // NEW FOLDER
+        // --------------------------------------------
 
-                        /*
-                         * Open the Test View page in a new tab,
-                         * pre-scoped to the right-clicked collection.
-                         */
-                        window.CollectionView
-                            .openTestView(
-                                targetIds[0]
-                            );
+        case "newfolder":
+          window.CollectionView.openNewFolderModal();
 
-                    }
+          break;
 
-                    break;
+        // --------------------------------------------
+        // DELETE
+        // --------------------------------------------
 
+        case "delete":
+          window.CollectionView.openDeleteModal(targetIds);
 
-                // --------------------------------------------
-                // RENAME
-                // --------------------------------------------
+          break;
+      }
 
-                case 'rename':
-
-                    if (
-                        targetIds.length === 1
-                    ) {
-
-                        window.CollectionView
-                            .openRenameModal(
-                                targetIds[0]
-                            );
-
-                    }
-
-                    break;
-
-
-                // --------------------------------------------
-                // EDIT TAGS
-                // --------------------------------------------
-
-                case 'edittags':
-
-                    if (
-                        targetIds.length === 1
-                    ) {
-
-                        window.CollectionView
-                            .openTagEditor(
-                                targetIds[0]
-                            );
-
-                    }
-
-                    break;
-
-
-                // --------------------------------------------
-                // DUPLICATE
-                // --------------------------------------------
-
-                case 'duplicate':
-
-                    if (
-                        targetIds.length === 1
-                    ) {
-
-                        window.CollectionView
-                            .duplicateFolder(
-                                targetIds[0]
-                            );
-
-                    }
-
-                    break;
-
-
-                // --------------------------------------------
-                // MERGE
-                // --------------------------------------------
-
-                case 'merge':
-
-                    if (
-                        targetIds.length >= 2
-                    ) {
-
-                        window.CollectionView
-                            .openMergeModal(
-                                targetIds
-                            );
-
-                    }
-
-                    break;
-
-
-                // --------------------------------------------
-                // NEW FOLDER
-                // --------------------------------------------
-
-                case 'newfolder':
-
-                    window.CollectionView
-                        .openNewFolderModal();
-
-                    break;
-
-
-                // --------------------------------------------
-                // DELETE
-                // --------------------------------------------
-
-                case 'delete':
-
-                    window.CollectionView
-                        .openDeleteModal(
-                            targetIds
-                        );
-
-                    break;
-
-            }
-
-
-            closeMenu();
-
-        }
-    );
-
+      closeMenu();
+    });
 
     // ========================================================
     // CLOSE ON NORMAL CLICK
     // ========================================================
 
-    document.addEventListener(
-        'click',
-        event => {
-
-            if (
-                !menu.contains(
-                    event.target
-                )
-            ) {
-
-                closeMenu();
-
-            }
-
-        }
-    );
-
+    document.addEventListener("click", (event) => {
+      if (!menu.contains(event.target)) {
+        closeMenu();
+      }
+    });
 
     // ========================================================
     // CLOSE ON ESCAPE
     // ========================================================
 
-    document.addEventListener(
-        'keydown',
-        event => {
-
-            if (
-                event.key === 'Escape'
-            ) {
-
-                closeMenu();
-
-            }
-
-        }
-    );
-
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        closeMenu();
+      }
+    });
 
     // ========================================================
     // CLOSE ON RESIZE
     // ========================================================
 
-    window.addEventListener(
-        'resize',
-        closeMenu
-    );
-
+    window.addEventListener("resize", closeMenu);
 
     // ========================================================
     // CLOSE ON SCROLL
     // ========================================================
 
-    window.addEventListener(
-        'scroll',
-        closeMenu,
-        true
-    );
-
+    window.addEventListener("scroll", closeMenu, true);
 
     // ========================================================
     // CLOSE MENU
     // ========================================================
 
     function closeMenu() {
+      menu.classList.add("hidden");
 
-        menu.classList.add(
-            'hidden'
-        );
+      menu.style.display = "none";
 
-
-        menu.style.display =
-            'none';
-
-        menu.style.visibility =
-            'hidden';
-
+      menu.style.visibility = "hidden";
     }
-
 
     // ========================================================
     // POSITION MENU
     // ========================================================
 
-    function positionMenu(
-        x,
-        y
-    ) {
+    function positionMenu(x, y) {
+      /*
+       * Menu must already be display:block here so that
+       * offsetWidth / offsetHeight are available.
+       */
 
-        /*
-         * Menu must already be display:block here so that
-         * offsetWidth / offsetHeight are available.
-         */
+      const width = menu.offsetWidth || 224;
 
-        const width =
-            menu.offsetWidth || 224;
+      const height = menu.offsetHeight || 240;
 
-        const height =
-            menu.offsetHeight || 240;
+      const margin = 8;
 
-        const margin =
-            8;
+      let left = x;
 
+      let top = y;
 
-        let left =
-            x;
+      // --------------------------------------------
+      // Horizontal boundary
+      // --------------------------------------------
 
-        let top =
-            y;
+      if (left + width > window.innerWidth - margin) {
+        left = window.innerWidth - width - margin;
+      }
 
+      // --------------------------------------------
+      // Vertical boundary
+      // --------------------------------------------
 
-        // --------------------------------------------
-        // Horizontal boundary
-        // --------------------------------------------
+      if (top + height > window.innerHeight - margin) {
+        top = window.innerHeight - height - margin;
+      }
 
-        if (
-            left + width >
-            window.innerWidth - margin
-        ) {
+      left = Math.max(margin, left);
 
-            left =
-                window.innerWidth -
-                width -
-                margin;
+      top = Math.max(margin, top);
 
-        }
+      menu.style.left = `${left}px`;
 
-
-        // --------------------------------------------
-        // Vertical boundary
-        // --------------------------------------------
-
-        if (
-            top + height >
-            window.innerHeight - margin
-        ) {
-
-            top =
-                window.innerHeight -
-                height -
-                margin;
-
-        }
-
-
-        left =
-            Math.max(
-                margin,
-                left
-            );
-
-
-        top =
-            Math.max(
-                margin,
-                top
-            );
-
-
-        menu.style.left =
-            `${left}px`;
-
-        menu.style.top =
-            `${top}px`;
-
+      menu.style.top = `${top}px`;
     }
-
 
     // ========================================================
     // ICONS
     // ========================================================
 
-    function iconBase(
-        content
-    ) {
-
-        return `
+    function iconBase(content) {
+      return `
 
             <svg
                 class="h-4 w-4 shrink-0"
@@ -748,13 +455,10 @@ function init() {
             </svg>
 
         `;
-
     }
 
-
     function iconDatabase() {
-
-        return iconBase(`
+      return iconBase(`
 
             <ellipse
                 cx="12"
@@ -772,13 +476,10 @@ function init() {
             />
 
         `);
-
     }
 
-
     function iconFlask() {
-
-        return iconBase(`
+      return iconBase(`
 
             <path
                 d="M9 3h6"
@@ -805,13 +506,10 @@ function init() {
             />
 
         `);
-
     }
 
-
     function iconEdit() {
-
-        return iconBase(`
+      return iconBase(`
 
             <path
                 d="M12 20h9"
@@ -822,13 +520,10 @@ function init() {
             />
 
         `);
-
     }
 
-
     function iconCopy() {
-
-        return iconBase(`
+      return iconBase(`
 
             <rect
                 x="9"
@@ -843,13 +538,10 @@ function init() {
             />
 
         `);
-
     }
 
-
     function iconGlobe() {
-
-        return iconBase(`
+      return iconBase(`
 
             <circle
                 cx="12"
@@ -870,13 +562,26 @@ function init() {
             />
 
         `);
-
     }
+    function iconRepo() {
+      return iconBase(`
+        <path
+            d="M4 4.5A1.5 1.5 0 0 1 5.5 3h13A1.5 1.5 0 0 1 20 4.5v15a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19.5z"
+        />
 
+        <path d="M8 3v18" />
 
+        <circle cx="8" cy="8" r="1" />
+        <circle cx="8" cy="12" r="1" />
+        <circle cx="8" cy="16" r="1" />
+
+        <path d="M12 8h4" />
+        <path d="M12 12h4" />
+        <path d="M12 16h4" />
+    `);
+    }
     function iconMerge() {
-
-        return iconBase(`
+      return iconBase(`
 
             <path
                 d="M6 4v5"
@@ -899,13 +604,10 @@ function init() {
             />
 
         `);
-
     }
 
-
     function iconFolderPlus() {
-
-        return iconBase(`
+      return iconBase(`
 
             <path
                 d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"
@@ -920,13 +622,10 @@ function init() {
             />
 
         `);
-
     }
 
-
     function iconEye() {
-
-        return iconBase(`
+      return iconBase(`
 
             <path
                 d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"
@@ -939,13 +638,10 @@ function init() {
             />
 
         `);
-
     }
 
-
     function iconTrash() {
-
-        return iconBase(`
+      return iconBase(`
 
             <path
                 d="M4 7h16"
@@ -968,17 +664,13 @@ function init() {
             />
 
         `);
-
     }
 
-
     function iconTag() {
-        return iconBase(`
+      return iconBase(`
             <path d="M20.5 13.5 13.5 20.5a2 2 0 0 1-2.8 0L4 13.8V4h9.8l6.7 6.7a2 2 0 0 1 0 2.8Z" />
             <circle cx="8.5" cy="8.5" r="1" />
         `);
     }
-
-}
-
+  }
 })();

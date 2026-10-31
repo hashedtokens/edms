@@ -43,32 +43,6 @@ pub async fn delete_folder(
     }
 }
 
-pub async fn merge_folder(
-    State(_state): State<AppState>,
-    Path(folder): Path<String>,
-) -> (StatusCode, Json<serde_json::Value>) {
-    // Spawn edms-child to handle the merge — result comes back via /internal/callback
-    ipc::spawn_child(
-        "export_merge",
-        json!({
-            "inputs":  [],
-            "folders": [folder],
-            "output":  format!("edms_root/exports/{folder}-merged.zip"),
-        }),
-        3000,
-    );
-
-    // Return immediately — this is fire and forget, result arrives via callback
-    (
-        StatusCode::ACCEPTED,
-        Json(json!({
-            "ok": true,
-            "status": "merge queued",
-            "folder": folder,
-        })),
-    )
-}
-
 pub async fn ws_make_folder_active(
     ws: WebSocketUpgrade,
     State(state): State<AppState>,

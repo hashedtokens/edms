@@ -1,0 +1,555 @@
+{
+  "endpoints": [
+    {
+      "annotation": "List all posts.",
+      "eid": "E0001-AAA",
+      "endpoint_str": "https://jsonplaceholder.typicode.com/posts",
+      "method": "GET",
+      "qps": [
+        {
+          "method": "GET",
+          "request_number": 1,
+          "response_time_ms": 297,
+          "status_code": 200
+        },
+        {
+          "method": "GET",
+          "request_number": 2,
+          "response_time_ms": 229,
+          "status_code": 200
+        }
+      ],
+      "tags": [
+        "read-only"
+      ]
+    },
+    {
+      "annotation": "Fetch one post by ID.",
+      "eid": "E0002-AAA",
+      "endpoint_str": "https://jsonplaceholder.typicode.com/posts/1",
+      "method": "GET",
+      "qps": [
+        {
+          "method": "GET",
+          "request_number": 1,
+          "response_time_ms": 194,
+          "status_code": 200
+        }
+      ],
+      "tags": [
+        "read-only"
+      ]
+    },
+    {
+      "annotation": "Comments on a post.",
+      "eid": "E0003-AAA",
+      "endpoint_str": "https://jsonplaceholder.typicode.com/posts/1/comments",
+      "method": "GET",
+      "qps": [
+        {
+          "method": "GET",
+          "request_number": 1,
+          "response_time_ms": 154,
+          "status_code": 200
+        }
+      ],
+      "tags": [
+        "read-only"
+      ]
+    },
+    {
+      "annotation": "Fetch the author's profile.",
+      "eid": "E0004-AAA",
+      "endpoint_str": "https://jsonplaceholder.typicode.com/users/1",
+      "method": "GET",
+      "qps": [
+        {
+          "method": "GET",
+          "request_number": 1,
+          "response_time_ms": 219,
+          "status_code": 200
+        }
+      ],
+      "tags": [
+        "read-only"
+      ]
+    },
+    {
+      "annotation": "Create a post (simulated - nothing is persisted).",
+      "eid": "E0005-AAA",
+      "endpoint_str": "https://jsonplaceholder.typicode.com/posts",
+      "method": "POST",
+      "qps": [
+        {
+          "method": "POST",
+          "request_number": 1,
+          "response_time_ms": 213,
+          "status_code": 201
+        }
+      ],
+      "tags": [
+        "write"
+      ]
+    },
+    {
+      "annotation": "Replace a post.",
+      "eid": "E0006-AAA",
+      "endpoint_str": "https://jsonplaceholder.typicode.com/posts/1",
+      "method": "PUT",
+      "qps": [
+        {
+          "method": "PUT",
+          "request_number": 1,
+          "response_time_ms": 185,
+          "status_code": 200
+        }
+      ],
+      "tags": [
+        "write"
+      ]
+    },
+    {
+      "annotation": "Delete a post.",
+      "eid": "E0007-AAA",
+      "endpoint_str": "https://jsonplaceholder.typicode.com/posts/1",
+      "method": "DELETE",
+      "qps": [
+        {
+          "method": "DELETE",
+          "request_number": 1,
+          "response_time_ms": 215,
+          "status_code": 200
+        }
+      ],
+      "tags": [
+        "write"
+      ]
+    },
+    {
+      "annotation": "A post that does not exist: expect 404.",
+      "eid": "E0008-AAA",
+      "endpoint_str": "https://jsonplaceholder.typicode.com/posts/9999",
+      "method": "GET",
+      "qps": [
+        {
+          "method": "GET",
+          "request_number": 1,
+          "response_time_ms": 219,
+          "status_code": 404
+        }
+      ],
+      "tags": [
+        "error-case",
+        "read-only"
+      ]
+    },
+    {
+      "annotation": "Echo a GET request.",
+      "eid": "E0009-AAA",
+      "endpoint_str": "https://httpbin.org/get",
+      "method": "GET",
+      "qps": [
+        {
+          "method": "GET",
+          "request_number": 1,
+          "response_time_ms": 194,
+          "status_code": 200
+        },
+        {
+          "method": "GET",
+          "request_number": 2,
+          "response_time_ms": 432,
+          "status_code": 200
+        }
+      ],
+      "tags": [
+        "echo",
+        "read-only"
+      ]
+    },
+    {
+      "annotation": "Echo a POST body.",
+      "eid": "E0010-AAA",
+      "endpoint_str": "https://httpbin.org/post",
+      "method": "POST",
+      "qps": [
+        {
+          "method": "POST",
+          "request_number": 1,
+          "response_time_ms": 194,
+          "status_code": 200
+        }
+      ],
+      "tags": [
+        "echo",
+        "write"
+      ]
+    },
+    {
+      "annotation": "Echo a PUT body.",
+      "eid": "E0011-AAA",
+      "endpoint_str": "https://httpbin.org/put",
+      "method": "PUT",
+      "qps": [
+        {
+          "method": "PUT",
+          "request_number": 1,
+          "response_time_ms": 213,
+          "status_code": 200
+        }
+      ],
+      "tags": [
+        "echo",
+        "write"
+      ]
+    },
+    {
+      "annotation": "Echo a PATCH body.",
+      "eid": "E0012-AAA",
+      "endpoint_str": "https://httpbin.org/patch",
+      "method": "PATCH",
+      "qps": [
+        {
+          "method": "PATCH",
+          "request_number": 1,
+          "response_time_ms": 214,
+          "status_code": 200
+        }
+      ],
+      "tags": [
+        "echo",
+        "write"
+      ]
+    },
+    {
+      "annotation": "Echo a DELETE request.",
+      "eid": "E0013-AAA",
+      "endpoint_str": "https://httpbin.org/delete",
+      "method": "DELETE",
+      "qps": [
+        {
+          "method": "DELETE",
+          "request_number": 1,
+          "response_time_ms": 211,
+          "status_code": 200
+        }
+      ],
+      "tags": [
+        "echo",
+        "write"
+      ]
+    },
+    {
+      "annotation": "Always answers 404 Not Found.",
+      "eid": "E0014-AAA",
+      "endpoint_str": "https://httpbin.org/status/404",
+      "method": "GET",
+      "qps": [
+        {
+          "method": "GET",
+          "request_number": 1,
+          "response_time_ms": 211,
+          "status_code": 404
+        }
+      ],
+      "tags": [
+        "echo",
+        "error-case",
+        "read-only"
+      ]
+    },
+    {
+      "annotation": "Always answers 401 Unauthorized.",
+      "eid": "E0015-AAA",
+      "endpoint_str": "https://httpbin.org/status/401",
+      "method": "GET",
+      "qps": [
+        {
+          "method": "GET",
+          "request_number": 1,
+          "response_time_ms": 293,
+          "status_code": 401
+        }
+      ],
+      "tags": [
+        "echo",
+        "error-case",
+        "read-only"
+      ]
+    },
+    {
+      "annotation": "Return a fresh random UUID.",
+      "eid": "E0016-AAA",
+      "endpoint_str": "https://httpbin.org/uuid",
+      "method": "GET",
+      "qps": [
+        {
+          "method": "GET",
+          "request_number": 1,
+          "response_time_ms": 197,
+          "status_code": 200
+        }
+      ],
+      "tags": [
+        "echo",
+        "read-only"
+      ]
+    },
+    {
+      "annotation": "Echo a GET with a query string.",
+      "eid": "E0017-AAA",
+      "endpoint_str": "https://postman-echo.com/get?foo=bar",
+      "method": "GET",
+      "qps": [
+        {
+          "method": "GET",
+          "request_number": 1,
+          "response_time_ms": 227,
+          "status_code": 200
+        }
+      ],
+      "tags": [
+        "echo",
+        "read-only"
+      ]
+    },
+    {
+      "annotation": "Echo a POST body.",
+      "eid": "E0018-AAA",
+      "endpoint_str": "https://postman-echo.com/post",
+      "method": "POST",
+      "qps": [
+        {
+          "method": "POST",
+          "request_number": 1,
+          "response_time_ms": 222,
+          "status_code": 200
+        }
+      ],
+      "tags": [
+        "echo",
+        "write"
+      ]
+    },
+    {
+      "annotation": "Always answers 201 Created.",
+      "eid": "E0019-AAA",
+      "endpoint_str": "https://postman-echo.com/status/201",
+      "method": "GET",
+      "qps": [
+        {
+          "method": "GET",
+          "request_number": 1,
+          "response_time_ms": 285,
+          "status_code": 201
+        }
+      ],
+      "tags": [
+        "echo",
+        "read-only"
+      ]
+    },
+    {
+      "annotation": "Current weather for Berlin.",
+      "eid": "E0020-AAA",
+      "endpoint_str": "https://api.open-meteo.com/v1/forecast?latitude=52.52&longitude=13.41&current_weather=true",
+      "method": "GET",
+      "qps": [
+        {
+          "method": "GET",
+          "request_number": 1,
+          "response_time_ms": 565,
+          "status_code": 200
+        }
+      ],
+      "tags": [
+        "public-data",
+        "read-only"
+      ]
+    },
+    {
+      "annotation": "Country details by name.",
+      "eid": "E0021-AAA",
+      "endpoint_str": "https://restcountries.com/v3.1/name/france",
+      "method": "GET",
+      "qps": [
+        {
+          "method": "GET",
+          "request_number": 1,
+          "response_time_ms": 386,
+          "status_code": 200
+        }
+      ],
+      "tags": [
+        "public-data",
+        "read-only"
+      ]
+    },
+    {
+      "annotation": "Book search.",
+      "eid": "E0022-AAA",
+      "endpoint_str": "https://openlibrary.org/search.json?q=the+hobbit&limit=3",
+      "method": "GET",
+      "qps": [
+        {
+          "method": "GET",
+          "request_number": 1,
+          "response_time_ms": 1662,
+          "status_code": 200
+        }
+      ],
+      "tags": [
+        "public-data",
+        "read-only"
+      ]
+    },
+    {
+      "annotation": "Predict an age from a first name.",
+      "eid": "E0023-AAA",
+      "endpoint_str": "https://api.agify.io/?name=michael",
+      "method": "GET",
+      "qps": [
+        {
+          "method": "GET",
+          "request_number": 1,
+          "response_time_ms": 214,
+          "status_code": 200
+        }
+      ],
+      "tags": [
+        "public-data",
+        "read-only"
+      ]
+    },
+    {
+      "annotation": "Sample store products.",
+      "eid": "E0024-AAA",
+      "endpoint_str": "https://dummyjson.com/products?limit=3",
+      "method": "GET",
+      "qps": [
+        {
+          "method": "GET",
+          "request_number": 1,
+          "response_time_ms": 185,
+          "status_code": 200
+        }
+      ],
+      "tags": [
+        "public-data",
+        "read-only"
+      ]
+    },
+    {
+      "annotation": "One Pokemon, with its full detail (a large response).",
+      "eid": "E0025-AAA",
+      "endpoint_str": "https://pokeapi.co/api/v2/pokemon/ditto",
+      "method": "GET",
+      "qps": [
+        {
+          "method": "GET",
+          "request_number": 1,
+          "response_time_ms": 196,
+          "status_code": 200
+        }
+      ],
+      "tags": [
+        "read-only"
+      ]
+    },
+    {
+      "annotation": "A page of Pokemon names.",
+      "eid": "E0026-AAA",
+      "endpoint_str": "https://pokeapi.co/api/v2/pokemon?limit=5",
+      "method": "GET",
+      "qps": [
+        {
+          "method": "GET",
+          "request_number": 1,
+          "response_time_ms": 196,
+          "status_code": 200
+        }
+      ],
+      "tags": [
+        "read-only"
+      ]
+    },
+    {
+      "annotation": "A random cat fact.",
+      "eid": "E0027-AAA",
+      "endpoint_str": "https://catfact.ninja/fact",
+      "method": "GET",
+      "qps": [
+        {
+          "method": "GET",
+          "request_number": 1,
+          "response_time_ms": 251,
+          "status_code": 200
+        }
+      ],
+      "tags": [
+        "read-only"
+      ]
+    },
+    {
+      "annotation": "Cat breeds, paginated.",
+      "eid": "E0028-AAA",
+      "endpoint_str": "https://catfact.ninja/breeds?limit=3",
+      "method": "GET",
+      "qps": [
+        {
+          "method": "GET",
+          "request_number": 1,
+          "response_time_ms": 219,
+          "status_code": 200
+        }
+      ],
+      "tags": [
+        "read-only"
+      ]
+    },
+    {
+      "annotation": "A random dog picture.",
+      "eid": "E0029-AAA",
+      "endpoint_str": "https://dog.ceo/api/breeds/image/random",
+      "method": "GET",
+      "qps": [
+        {
+          "method": "GET",
+          "request_number": 1,
+          "response_time_ms": 286,
+          "status_code": 200
+        }
+      ],
+      "tags": [
+        "read-only"
+      ]
+    },
+    {
+      "annotation": "A random joke.",
+      "eid": "E0030-AAA",
+      "endpoint_str": "https://official-joke-api.appspot.com/random_joke",
+      "method": "GET",
+      "qps": [
+        {
+          "method": "GET",
+          "request_number": 1,
+          "response_time_ms": 290,
+          "status_code": 200
+        }
+      ],
+      "tags": [
+        "read-only"
+      ]
+    }
+  ],
+  "format": "edms-repoview",
+  "repoview": {
+    "annotation": null,
+    "created_at": "2026-10-13 22:23:54",
+    "kind": "repoview",
+    "name": "demo-bundle",
+    "source": "demo-capture",
+    "tags": []
+  },
+  "version": 1
+}

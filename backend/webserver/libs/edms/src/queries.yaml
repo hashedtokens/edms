@@ -16,7 +16,7 @@ endpoints:
 
   E4:
     help: "Update endpoint annotation"
-    query: "UPDATE endpoints SET annotation = ? WHERE endpoint_id = ?"
+    query: "UPDATE endpoints SET annotation = ?, updated_at = CURRENT_TIMESTAMP WHERE endpoint_id = ?"
 
   E5:
     help: "Delete endpoint by ID"
@@ -65,7 +65,7 @@ requests:
 
   R8:
     help: "List QP pairs for an endpoint — request+response metadata joined, ordered by request number"
-    query: "SELECT r.request_number, r.method, r.timestamp, p.status_code, p.response_time_ms FROM request_metadata r LEFT JOIN response_metadata p ON p.endpoint_id = r.endpoint_id AND p.request_number = r.request_number WHERE r.endpoint_id = ? ORDER BY r.request_number"
+    query: "SELECT r.request_number, r.method, r.timestamp, p.status_code, p.response_time_ms FROM request_metadata r LEFT JOIN response_metadata p ON p.endpoint_id = r.endpoint_id AND p.request_number = r.request_number WHERE r.endpoint_id = ? GROUP BY r.request_number ORDER BY r.request_number"
 
   R9:
     help: "Check whether a specific QP pair (request_metadata row) exists"
@@ -234,13 +234,13 @@ catalog:
     query: "UPDATE collections SET annotation = ? WHERE name = ?"
   WEBVIEW_CREATE:
     help: "Register a new webview in the catalog"
-    query: "INSERT INTO webview (name, file_path, annotation) VALUES (?, ?, ?)"
+    query: "INSERT INTO webview (name, file_path, annotation, source) VALUES (?, ?, ?, ?)"
   WEBVIEW_LIST:
     help: "List all registered webviews"
-    query: "SELECT name, file_path, created_at, annotation FROM webview ORDER BY name"
+    query: "SELECT name, file_path, created_at, annotation, source FROM webview ORDER BY name"
   WEBVIEW_GET:
     help: "Get one webview's catalog row by name (to find its file_path)"
-    query: "SELECT name, file_path, created_at, annotation FROM webview WHERE name = ?"
+    query: "SELECT name, file_path, created_at, annotation, source FROM webview WHERE name = ?"
   WEBVIEW_REMOVE:
     help: "Remove a webview's catalog entry"
     query: "DELETE FROM webview WHERE name = ?"
@@ -251,14 +251,14 @@ catalog:
     help: "Set a webview's annotation"
     query: "UPDATE webview SET annotation = ? WHERE name = ?"
   REPOVIEW_CREATE:
-    help: "Register a new repoview in the catalog"
-    query: "INSERT INTO repoview (name, file_path, annotation) VALUES (?, ?, ?)"
+    help: "Register a new repoview in the catalog, with the source collection it was copied from"
+    query: "INSERT INTO repoview (name, file_path, annotation, source) VALUES (?, ?, ?, ?)"
   REPOVIEW_LIST:
-    help: "List all registered repoviews"
-    query: "SELECT name, file_path, created_at, annotation FROM repoview ORDER BY name"
+    help: "List all registered repoviews, with each one's source collection - an extra column vs. the generic list() row mapping, which only reads the first four and ignores the rest"
+    query: "SELECT name, file_path, created_at, annotation, source FROM repoview ORDER BY name"
   REPOVIEW_GET:
-    help: "Get one repoview's catalog row by name (to find its file_path)"
-    query: "SELECT name, file_path, created_at, annotation FROM repoview WHERE name = ?"
+    help: "Get one repoview's catalog row by name, including its source collection — extra column vs. the generic get()/list() row mapping, which only reads the first four and ignores the rest"
+    query: "SELECT name, file_path, created_at, annotation, source FROM repoview WHERE name = ?"
   REPOVIEW_REMOVE:
     help: "Remove a repoview's catalog entry"
     query: "DELETE FROM repoview WHERE name = ?"
@@ -334,6 +334,30 @@ merge:
   CT_COLLECTIONS_BY_TAG:
     help: "List collections having a specific tag"
     query: "SELECT collection_name FROM collection_tag_memberships WHERE tagname = ? ORDER BY collection_name"
+  RT_INSERT:
+    help: "Insert repoview-level tag (row-level, modifiable — not the central tag-count rollup)"
+    query: "INSERT OR IGNORE INTO repoview_tag_memberships (repoview_name, tagname) VALUES (?, ?)"
+  RT_DELETE:
+    help: "Delete repoview-level tag"
+    query: "DELETE FROM repoview_tag_memberships WHERE repoview_name = ? AND tagname = ?"
+  RT_LIST:
+    help: "List tags for a repoview"
+    query: "SELECT tagname FROM repoview_tag_memberships WHERE repoview_name = ? ORDER BY tagname"
+  RT_REPOVIEWS_BY_TAG:
+    help: "List repoviews having a specific tag"
+    query: "SELECT repoview_name FROM repoview_tag_memberships WHERE tagname = ? ORDER BY repoview_name"
+  WT_INSERT:
+    help: "Insert webview-level tag (row-level, modifiable — not the central tag-count rollup)"
+    query: "INSERT OR IGNORE INTO webview_tag_memberships (webview_name, tagname) VALUES (?, ?)"
+  WT_DELETE:
+    help: "Delete webview-level tag"
+    query: "DELETE FROM webview_tag_memberships WHERE webview_name = ? AND tagname = ?"
+  WT_LIST:
+    help: "List tags for a webview"
+    query: "SELECT tagname FROM webview_tag_memberships WHERE webview_name = ? ORDER BY tagname"
+  WT_REPOVIEWS_BY_TAG:
+    help: "List webviews having a specific tag"
+    query: "SELECT webview_name FROM webview_tag_memberships WHERE tagname = ? ORDER BY webview_name"
   CT_MERGE:
     help: "Merge collection tags from source to target"
     query: "INSERT OR IGNORE INTO collection_tag_memberships (collection_name, tagname) SELECT ?, tagname FROM collection_tag_memberships WHERE collection_name = ?"

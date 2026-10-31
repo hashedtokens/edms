@@ -5,3 +5,4 @@ pub mod tag_ops;
 pub mod view_ops;
 pub mod collection_tag_ops;
 pub mod collection_membership_ops;
+pub mod repoview_tag_ops;

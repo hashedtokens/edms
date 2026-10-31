@@ -8,3 +8,7 @@ npm-debug.log*
 # OS files
 .DS_Store
 Thumbs.db
+
+listview.html
+listview.js
+README-edit-webview-frontpage.txt

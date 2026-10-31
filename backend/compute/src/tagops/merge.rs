@@ -3,8 +3,8 @@ use crate::tagops::{
     collection_tags::merge_collection_tags_op,
     db::{
         bulk_fetch_endpoint_details, bulk_fetch_endpoint_tags,
-        endpoints_with_tags_in_collection, get_storage_root, log_entry, open_core,
-        read_collection_member_eids, write_collection_member_eids, DynResult,
+        endpoints_with_tags_in_collection_in, get_storage_root, log_entry, open_core,
+        read_collection_member_eids_in, write_collection_member_eids_in, DynResult,
     },
     types::{ActivityEntry, CollectionTagFilter},
 };
@@ -14,8 +14,23 @@ use std::path::Path;
 pub const DEFAULT_MERGE_BATCH_SIZE: usize = 500;
 
 /// Merge coordinator: 5-Stage bulk-read, in-memory reconcile, bulk-write, and physical QP merge.
+/// The storage root is taken to be the folder the database file sits in; use
+/// `merge_by_tags_in` when the storage is somewhere else (as it is in Docker).
 pub fn merge_by_tags_coordinator(
     db_path: &str,
+    target_collection: &str,
+    sources: &[CollectionTagFilter],
+    log: &mut Vec<ActivityEntry>,
+) -> DynResult<()> {
+    merge_by_tags_in(db_path, &get_storage_root(db_path), target_collection, sources, log)
+}
+
+/// `merge_by_tags_coordinator` with the storage root given: where the
+/// collection files (`storage/collections`) and the QP files
+/// (`storage/globalEQPData`) are.
+pub fn merge_by_tags_in(
+    db_path: &str,
+    storage_root: &Path,
     target_collection: &str,
     sources: &[CollectionTagFilter],
     log: &mut Vec<ActivityEntry>,
@@ -35,7 +50,6 @@ pub fn merge_by_tags_coordinator(
     }
 
     let (core, queries) = open_core(db_path)?;
-    let storage_root = get_storage_root(db_path);
     let allocator = EidAllocator::new(db_path);
     let _ = allocator.initialize();
 
@@ -43,7 +57,7 @@ pub fn merge_by_tags_coordinator(
 
     // Stage 2 (Initial): Bulk read target context
     let mut target_members: HashSet<String> =
-        read_collection_member_eids(&core, db_path, target_collection)?
+        read_collection_member_eids_in(&core, storage_root, target_collection)?
             .into_iter()
             .collect();
 
@@ -69,9 +83,9 @@ pub fn merge_by_tags_coordinator(
         );
 
         // Stage 1: Bulk Read Source Context
-        let source_eids = endpoints_with_tags_in_collection(
+        let source_eids = endpoints_with_tags_in_collection_in(
             &core,
-            &queries,
+            storage_root,
             &src.collection_id,
             &src.tags,
         )?;
@@ -222,14 +236,14 @@ pub fn merge_by_tags_coordinator(
 
             // 3. Write target collection membership (both collection SQLite file and bookmarks table)
             if !new_member_eids.is_empty() {
-                write_collection_member_eids(&core, db_path, target_collection, &new_member_eids)?;
+                write_collection_member_eids_in(&core, storage_root, target_collection, &new_member_eids)?;
             }
 
             // Stage 5: Physical Filesystem Merge & QP Copy
             // Errors are non-fatal (DB is already committed) but logged so
             // that operators can identify and re-trigger partial copies.
             for (src_eid, dest_eid) in &qp_copy_tasks {
-                if let Err(e) = merge_physical_qp_files(&storage_root, src_eid, dest_eid) {
+                if let Err(e) = merge_physical_qp_files(storage_root, src_eid, dest_eid) {
                     log_entry(
                         log,
                         format!("    ⚠ QP copy {src_eid} → {dest_eid} failed: {e}"),

@@ -5,7 +5,7 @@
 //! POSTs IpcCallback result back to parent's /internal/callback.
 //! Exits.
 
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::io::{self};
 use std::time::Instant;
 
@@ -103,7 +103,13 @@ async fn main() {
         .or_else(|| request.payload.get("ViewType"))
         .cloned();
 
-    let (success, mut result, error) = dispatch(&task, request.payload).await;
+    // RepoView/WebView Import-Export jobs report progress while they run, so
+    // they need the callback port; everything else just returns a result.
+    let (success, mut result, error) = if is_view_io_task(&task) {
+        dispatch_view_io(&task, request.payload, port).await
+    } else {
+        dispatch(&task, request.payload).await
+    };
 
     // Preserve ViewType in callback result if specified in request payload
     if let Some(vt) = view_type {
@@ -136,6 +142,163 @@ async fn main() {
         task, elapsed_ms
     );
 }
+// ── RepoView / WebView Import-Export jobs ─────────────────────────────────
+//
+// The webserver gives each a `job_id` and expects it back in `result.job_id`
+// - on failure too, which is why a failure here still carries a result.
+// Progress goes out as extra callbacks with task `view_io_progress`.
+
+fn is_view_io_task(task: &str) -> bool {
+    matches!(
+        task,
+        "view_takeout" | "view_import_copy" | "view_unzip" | "view_table_check" | "collection_merge"
+    )
+}
+
+async fn dispatch_view_io(task: &str, payload: Value, port: u16) -> (bool, Value, Option<String>) {
+    let job_id = payload
+        .get("job_id")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let fail = |e: String| (false, json!({ "job_id": job_id }), Some(e));
+
+    match task {
+        "view_takeout" => {
+            let req: compute::view_io::ViewTakeoutRequest = match serde_json::from_value(payload) {
+                Ok(r) => r,
+                Err(e) => return fail(format!("payload deserialise error: {e}")),
+            };
+            let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<Value>();
+            let poster = tokio::spawn(post_progress(port, job_id.clone(), rx));
+            let worked = tokio::task::spawn_blocking(move || {
+                let mut report = |p: Value| {
+                    let _ = tx.send(p);
+                };
+                compute::view_io::run_takeout(&req, &mut report)
+            })
+            .await;
+            // the sender died with the worker, so the poster drains and ends
+            let _ = poster.await;
+            match worked {
+                Ok(Ok(mut result)) => {
+                    result["job_id"] = json!(job_id);
+                    (true, result, None)
+                }
+                Ok(Err(e)) => fail(e),
+                Err(e) => fail(e.to_string()),
+            }
+        }
+        "view_import_copy" => {
+            let req: compute::view_io::ViewImportCopyRequest = match serde_json::from_value(payload) {
+                Ok(r) => r,
+                Err(e) => return fail(format!("payload deserialise error: {e}")),
+            };
+            let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<Value>();
+            let poster = tokio::spawn(post_progress(port, job_id.clone(), rx));
+            let worked = tokio::task::spawn_blocking(move || {
+                let mut report = |p: Value| {
+                    let _ = tx.send(p);
+                };
+                compute::view_io::run_import_copy(&req, &mut report)
+            })
+            .await;
+            let _ = poster.await;
+            match worked {
+                Ok(Ok(mut result)) => {
+                    result["job_id"] = json!(job_id);
+                    (true, result, None)
+                }
+                Ok(Err(e)) => fail(e),
+                Err(e) => fail(e.to_string()),
+            }
+        }
+        "view_unzip" => {
+            let req: compute::view_io::ViewUnzipRequest = match serde_json::from_value(payload) {
+                Ok(r) => r,
+                Err(e) => return fail(format!("payload deserialise error: {e}")),
+            };
+            let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<Value>();
+            let poster = tokio::spawn(post_progress(port, job_id.clone(), rx));
+            let worked = tokio::task::spawn_blocking(move || {
+                let mut report = |p: Value| {
+                    let _ = tx.send(p);
+                };
+                compute::view_io::run_unzip(&req, &mut report)
+            })
+            .await;
+            let _ = poster.await;
+            match worked {
+                Ok(Ok(mut result)) => {
+                    result["job_id"] = json!(job_id);
+                    (true, result, None)
+                }
+                Ok(Err(e)) => fail(e),
+                Err(e) => fail(e.to_string()),
+            }
+        }
+        "view_table_check" => {
+            let req: compute::view_io::ViewCheckRequest = match serde_json::from_value(payload) {
+                Ok(r) => r,
+                Err(e) => return fail(format!("payload deserialise error: {e}")),
+            };
+            let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<Value>();
+            let poster = tokio::spawn(post_progress(port, job_id.clone(), rx));
+            let worked = tokio::task::spawn_blocking(move || {
+                let mut report = |p: Value| {
+                    let _ = tx.send(p);
+                };
+                compute::view_io::run_check(&req, &mut report)
+            })
+            .await;
+            let _ = poster.await;
+            match worked {
+                Ok(Ok(mut result)) => {
+                    result["job_id"] = json!(job_id);
+                    (true, result, None)
+                }
+                Ok(Err(e)) => fail(e),
+                Err(e) => fail(e.to_string()),
+            }
+        }
+        // Merge collections (whole, or only the endpoints carrying chosen
+        // tags) into a new or existing collection. No progress reports: it
+        // is quick, and the result says what happened.
+        "collection_merge" => {
+            let req: compute::tagops::collection_merge::CollectionMergeRequest = match serde_json::from_value(payload) {
+                Ok(r) => r,
+                Err(e) => return fail(format!("payload deserialise error: {e}")),
+            };
+            let worked = tokio::task::spawn_blocking(move || compute::tagops::collection_merge::run_collection_merge(&req)).await;
+            match worked {
+                Ok(Ok(mut result)) => {
+                    result["job_id"] = json!(job_id);
+                    (true, result, None)
+                }
+                Ok(Err(e)) => fail(e),
+                Err(e) => fail(e.to_string()),
+            }
+        }
+        other => fail(format!("unknown task: '{other}'")),
+    }
+}
+
+async fn post_progress(port: u16, job_id: String, mut rx: tokio::sync::mpsc::UnboundedReceiver<Value>) {
+    let url = format!("http://127.0.0.1:{port}/internal/callback");
+    let client = reqwest::Client::new();
+    while let Some(progress) = rx.recv().await {
+        let callback = IpcCallback {
+            task: "view_io_progress".to_string(),
+            result: json!({ "job_id": job_id, "progress": progress }),
+            elapsed_ms: 0,
+            success: true,
+            error: None,
+        };
+        // Progress is best effort: a lost one must never fail the job.
+        let _ = client.post(&url).json(&callback).send().await;
+    }
+}
+
 async fn dispatch(task: &str, payload: Value) -> (bool, Value, Option<String>) {
     match task {
         "export_collection" => {

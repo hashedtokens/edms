@@ -1,3 +1,11 @@
+function extractPayloadBody(data) {
+    let current = data;
+    while (current && typeof current === 'object' && 'body' in current && 'ok' in current) {
+        current = current.body;
+    }
+    return current !== undefined ? current : {};
+}
+
 // ============================================================
 // EDMS TEST VIEW
 // ============================================================
@@ -9,9 +17,13 @@ let filteredTestEndpoints = [];
 
 let selectedTestEndpoint = null;
 let selectedTestQP = null;
+let selectedSidebarItemId = null;
 
 let selectedQPIds = new Set();
-
+let selectedHistoryIds = new Set();
+let listPage = 1;
+const LIST_PAGE_SIZE = 5;
+let lastFilterSignature = "";
 let activeSidebarTab = "endpoints";
 let activeTestMethod = "ALL";
 let activeTimeFilter = "all";
@@ -160,7 +172,7 @@ async function initTestView() {
     setupAddressMode();
     setupQPMenu();
     setupHistoryContextMenu();
-
+    setupHistoryMenu();
     updateMethodButtons();
     updateSidebarTabButtons();
     applyTestFilters();
@@ -262,10 +274,6 @@ async function initCollectionContext() {
             'collectionContextCount'
         );
 
-    const clearBtn =
-        document.getElementById(
-            'clearCollectionFilter'
-        );
 
     if (nameEl) {
         nameEl.textContent =
@@ -287,24 +295,6 @@ async function initCollectionContext() {
         banner.classList.add('flex');
     }
 
-    if (clearBtn) {
-        clearBtn.addEventListener(
-            'click',
-            () => {
-
-                activeCollectionFilter = null;
-                activeCollectionEndpointIds = null;
-
-                if (banner) {
-                    banner.classList.add('hidden');
-                    banner.classList.remove('flex');
-                }
-
-                applyTestFilters();
-
-            }
-        );
-    }
 
     /*
      * Re-apply filters now that the collection
@@ -351,24 +341,18 @@ async function fetchEndpointTags(endpointId) {
 
     }
 
-    const response =
-        await fetch(
-            `${API_BASE}/tags/${encodeURIComponent(endpointId)}`
-        );
+    const res = await EdmsAPI.listEndpointTags(endpointId);
 
-    if (!response.ok) {
+    if (!res.ok) {
 
         throw new Error(
-            `Failed to load endpoint tags: ${response.status}`
+            `Failed to load endpoint tags: ${res.status}`
         );
 
     }
 
-    const data =
-        await response.json();
-
-    return Array.isArray(data?.tags)
-        ? data.tags
+    return Array.isArray(res.data?.tags)
+        ? res.data.tags
         : [];
 
 }
@@ -388,27 +372,21 @@ async function fetchEndpointQPs(endpointId) {
 
     }
 
-    const response =
-        await fetch(
-            `${API_BASE}/test-view/${encodeURIComponent(endpointId)}/qps`
-        );
+    const res = await EdmsAPI.listQPs(endpointId);
 
-    if (!response.ok) {
+    if (!res.ok) {
 
         throw new Error(
-            `Failed to load endpoint QPs: ${response.status}`
+            `Failed to load endpoint QPs: ${res.status}`
         );
 
     }
 
-    const data =
-        await response.json();
-
-    if (!data.ok || !Array.isArray(data.qps)) {
+    if (!res.data?.ok || !Array.isArray(res.data?.qps)) {
         return [];
     }
 
-    return data.qps.map(qp => ({
+    return res.data.qps.map(qp => ({
         id: qp.request_number,
         name: String(qp.request_number),
         method: qp.method,
@@ -434,40 +412,19 @@ async function addEndpointTag(endpointId, tag) {
 
     }
 
-    const response =
-        await fetch(
-            `${API_BASE}/tags/${encodeURIComponent(endpointId)}/add`,
-            {
-                method: "POST",
+    const res = await EdmsAPI.addEndpointTag(endpointId, tag);
 
-                headers: {
-                    "Content-Type":
-                        "application/json"
-                },
-
-                body:
-                    JSON.stringify({
-                        tag
-                    })
-            }
-        );
-
-    const data =
-        await parseTagResponse(
-            response
-        );
-
-    if (!response.ok) {
+    if (!res.ok) {
 
         throw new Error(
-            data?.message ||
-            data?.error ||
-            `Failed to add tag: ${response.status}`
+            res.data?.message ||
+            res.data?.error ||
+            `Failed to add tag: ${res.status}`
         );
 
     }
 
-    return data;
+    return res.data;
 
 }
 
@@ -484,63 +441,36 @@ async function removeEndpointTag(endpointId, tag) {
 
     }
 
-    const response =
-        await fetch(
-            `${API_BASE}/tags/${encodeURIComponent(endpointId)}/remove`,
-            {
-                method: "POST",
+    const res = await EdmsAPI.removeEndpointTag(endpointId, tag);
 
-                headers: {
-                    "Content-Type":
-                        "application/json"
-                },
-
-                body:
-                    JSON.stringify({
-                        tag
-                    })
-            }
-        );
-
-    const data =
-        await parseTagResponse(
-            response
-        );
-
-    if (!response.ok) {
+    if (!res.ok) {
 
         throw new Error(
-            data?.message ||
-            data?.error ||
-            `Failed to remove tag: ${response.status}`
+            res.data?.message ||
+            res.data?.error ||
+            `Failed to remove tag: ${res.status}`
         );
 
     }
 
-    return data;
+    return res.data;
 
 }
 
 async function loadPopularEndpointTags() {
 
-    const response =
-        await fetch(
-            `${API_BASE}/tags/popular`
-        );
+    const res = await EdmsAPI.listPopularTags();
 
-    if (!response.ok) {
+    if (!res.ok) {
 
         throw new Error(
-            `Failed to load popular tags: ${response.status}`
+            `Failed to load popular tags: ${res.status}`
         );
 
     }
 
-    const data =
-        await response.json();
-
-    return Array.isArray(data)
-        ? data
+    return Array.isArray(res.data)
+        ? res.data
         : [];
 
 }
@@ -643,7 +573,7 @@ async function loadEndpointTagsFromBackend() {
                         endpoint.tags = [];
 
                     }
-                    
+
                     if (
                         !Array.isArray(
                             endpoint.qps
@@ -726,7 +656,7 @@ function loadEndpointsFromBackend() {
 
                         if (
                             message.type ===
-                                "snapshot" &&
+                            "snapshot" &&
                             Array.isArray(
                                 message.endpoints
                             )
@@ -758,7 +688,7 @@ function loadEndpointsFromBackend() {
                                 evtType === "CollectionLoaded" ||
                                 evtType === "ViewRefresh"
                             ) {
-                                try { ws.close(); } catch {}
+                                try { ws.close(); } catch { }
                                 setTimeout(() => loadEndpointsFromBackend().then(() => applyTestFilters()), 0);
                                 return;
                             }
@@ -854,7 +784,7 @@ function normalizeBackendEndpoint(endpoint) {
         endpoint:
             parsedURL
                 ? parsedURL.pathname +
-                  parsedURL.search
+                parsedURL.search
                 : fullURL,
 
         baseUrl:
@@ -937,7 +867,7 @@ function loadBookmarksFromBackend() {
 
                         if (
                             message.type ===
-                                "snapshot" &&
+                            "snapshot" &&
                             Array.isArray(
                                 message.bookmarks
                             )
@@ -965,7 +895,7 @@ function loadBookmarksFromBackend() {
 
                             if (evtType === "ViewRefresh") {
                                 // Always reload on a view refresh.
-                                try { ws.close(); } catch {}
+                                try { ws.close(); } catch { }
                                 setTimeout(() => loadBookmarksFromBackend().then(() => applyTestFilters()), 0);
                                 return;
                             }
@@ -975,7 +905,7 @@ function loadBookmarksFromBackend() {
                                 evtCollection === collectionForThisLoad
                             ) {
                                 // Only reload if the update is for *our* collection.
-                                try { ws.close(); } catch {}
+                                try { ws.close(); } catch { }
                                 setTimeout(() => loadBookmarksFromBackend().then(() => applyTestFilters()), 0);
                                 return;
                             }
@@ -1069,17 +999,18 @@ function loadHistoryFromBackend() {
 
                         if (
                             message.type ===
-                                "snapshot" &&
+                            "snapshot" &&
                             Array.isArray(
                                 message.history
                             )
                         ) {
 
-                            historyRecords =
-                                message.history.map(
-                                    normalizeBackendHistory
-                                );
+                            const hiddenHistoryIds = getHiddenHistoryIds();
 
+                            historyRecords =
+                                message.history
+                                    .map(normalizeBackendHistory)
+                                    .filter(h => !hiddenHistoryIds.has(String(h.id)));
                             historyRecords =
                                 historyRecords.map(
                                     history => ({
@@ -1113,7 +1044,7 @@ function loadHistoryFromBackend() {
                                 evtType === "HistoryUpdated" ||
                                 evtType === "ViewRefresh"
                             ) {
-                                try { ws.close(); } catch {}
+                                try { ws.close(); } catch { }
                                 setTimeout(() => loadHistoryFromBackend().then(() => applyTestFilters()), 0);
                                 return;
                             }
@@ -1351,7 +1282,7 @@ function restoreLocalQPs() {
 
             const savedQPs =
                 qpStore[
-                    String(endpoint.id)
+                String(endpoint.id)
                 ];
 
             if (
@@ -1399,7 +1330,7 @@ function getActiveSidebarItems() {
                         history.endpointId,
 
                     qpId:
-                        history.qpId,
+                        history.qpId ?? history.requestNumber,
 
                     method:
                         history.method ||
@@ -1478,6 +1409,7 @@ function getActiveSidebarItems() {
                             "",
 
                         updated:
+                            bookmark.updated ??
                             bookmark.bookmarkedAt ??
                             bookmark.bookmarked_at,
 
@@ -1543,39 +1475,102 @@ function getActiveSidebarItems() {
 // ============================================================
 // RENDER SIDEBAR
 // ============================================================
-
 function renderTestEndpoints() {
 
     if (!testEndpointList) return;
 
     testEndpointList.innerHTML = "";
 
-    if (
-        filteredTestEndpoints.length === 0
-    ) {
-
+    if (filteredTestEndpoints.length === 0) {
         testEndpointList.innerHTML = `
             <div class="p-4 text-sm text-slate-500">
                 No ${escapeHTML(activeSidebarTab)} found.
             </div>
         `;
-
         return;
-
     }
 
-    filteredTestEndpoints.forEach(
-        item => {
+    // back to page 1 when the tab or a filter changes
+    const signature = [
+        activeSidebarTab,
+        activeTestMethod,
+        activeTimeFilter,
+        testSearchInput?.value,
+        urlFilter?.value
+    ].join("|");
 
-            testEndpointList.appendChild(
-                createTestEndpointCard(item)
-            );
+    if (signature !== lastFilterSignature) {
+        listPage = 1;
+        lastFilterSignature = signature;
+    }
 
-        }
+    const totalPages = Math.max(
+        1,
+        Math.ceil(filteredTestEndpoints.length / LIST_PAGE_SIZE)
     );
+    listPage = Math.min(Math.max(listPage, 1), totalPages);
+
+    const start = (listPage - 1) * LIST_PAGE_SIZE;
+
+    filteredTestEndpoints
+        .slice(start, start + LIST_PAGE_SIZE)
+        .forEach(item => {
+            testEndpointList.appendChild(createTestEndpointCard(item));
+        });
+
+    if (totalPages > 1) {
+        testEndpointList.appendChild(createListPager(totalPages));
+    }
 
     updateSelectedEndpointHighlight();
+}
 
+function createListPager(totalPages) {
+
+    const bar = document.createElement("div");
+
+    bar.className =
+        "sticky bottom-0 flex items-center justify-between gap-2 " +
+        "border-t border-slate-200 dark:border-slate-800 " +
+        "bg-slate-50 dark:bg-slate-950 px-3 py-2 " +
+        "text-xs text-slate-500 dark:text-slate-400";
+
+    const btn =
+        "rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1 " +
+        "hover:bg-slate-200 dark:hover:bg-slate-800 " +
+        "disabled:opacity-40 disabled:cursor-not-allowed";
+
+    bar.innerHTML = `
+        <button type="button" data-page="prev" class="${btn}">Prev</button>
+        <span>Page ${listPage} of ${totalPages}</span>
+        <button type="button" data-page="next" class="${btn}">Next</button>
+    `;
+
+    const prev = bar.querySelector('[data-page="prev"]');
+    const next = bar.querySelector('[data-page="next"]');
+
+    prev.disabled = listPage <= 1;
+    next.disabled = listPage >= totalPages;
+
+    prev.addEventListener("click", () => {
+        listPage--;
+        renderTestEndpoints();
+        testEndpointList.scrollTop = 0;
+    });
+
+    next.addEventListener("click", () => {
+        listPage++;
+        renderTestEndpoints();
+        testEndpointList.scrollTop = 0;
+    });
+
+    return bar;
+}
+
+
+function getTagCountLabel(endpoint) {
+    const count = Array.isArray(endpoint?.tags) ? endpoint.tags.length : 0;
+    return `${count} Tag${count === 1 ? "" : "s"}`;
 }
 
 // ============================================================
@@ -1584,131 +1579,322 @@ function renderTestEndpoints() {
 
 function createTestEndpointCard(item) {
 
-    const card =
-        document.createElement("div");
+    const card = document.createElement("div");
 
     const endpoint =
         item.endpointRef ||
         item.source ||
         item;
 
+    const isHistory = item.type === "history";
+
+    const itemId = String(item.id ?? endpoint.id);
+
     card.className = `
         endpoint-card
         group
         rounded-lg
         border
-        border-slate-800
-        bg-slate-900
-        hover:bg-slate-800/80
+        border-slate-300 dark:border-slate-800
+        bg-white dark:bg-slate-900
+        hover:bg-slate-100 dark:hover:bg-slate-800/80
         hover:border-cyan-500/50
         transition-all
         duration-200
         cursor-pointer
         px-3
         py-3
+        ${isHistory && selectedHistoryIds.has(itemId) ? "ring-2 ring-cyan-400" : ""}
     `;
 
-    card.dataset.id =
-        item.id ??
-        endpoint.id;
+    card.dataset.id = item.id ?? endpoint.id;
+    card.dataset.endpointId = item.endpointId ?? endpoint.id;
 
-    card.dataset.endpointId =
-        item.endpointId ??
-        endpoint.id;
+    // 1. Method (GET, POST, etc.)
+    const method = escapeHTML(item.method || endpoint.method || "");
+    // 2. Date (Time)
+    const dateStr = escapeHTML(formatEndpointDate(item.updated || endpoint.updated));
+    // 3. QP Count 
+    const qpLabel = escapeHTML(getQPCountLabel(endpoint));
+    // 4. Tag Count
+    const tagLabel = escapeHTML(getTagCountLabel(endpoint));
+    // 5. Base URL 
+    const baseUrl = escapeHTML(
+        endpoint.baseUrl ||
+        (endpoint.endpoint_str && endpoint.endpoint_str.startsWith("http")
+            ? new URL(endpoint.endpoint_str).origin
+            : "")
+    );
+    // 6. Path 
+    const path = escapeHTML(item.endpoint || endpoint.endpoint || "");
 
     card.innerHTML = `
 
         <div class="flex items-center justify-between">
 
-            <span
-                class="px-2 py-1 rounded-md text-[11px]
-                       font-semibold border
-                       ${getMethodColor(
-                           item.method ||
-                           endpoint.method
-                       )}">
-                ${escapeHTML(
-                    item.method ||
-                    endpoint.method ||
-                    ""
-                )}
-            </span>
+            <div class="flex items-center gap-2">
 
-            <span
-                class="text-[11px]
-                       text-slate-500
-                       group-hover:text-slate-300">
-                ${escapeHTML(
-                    formatEndpointDate(
-                        item.updated
-                    )
-                )}
-            </span>
+                ${isHistory ? `
+                    <input
+                        type="checkbox"
+                        class="history-checkbox h-3.5 w-3.5 accent-cyan-500 cursor-pointer"
+                        data-history-id="${escapeHTML(itemId)}"
+                        ${selectedHistoryIds.has(itemId) ? "checked" : ""}
+                    />
+                ` : ""}
 
-        </div>
+                <span
+                    class="px-2 py-1 rounded-md text-[11px]
+                           font-semibold border
+                           ${getMethodColor(method)}">
+                    ${method}
+                </span>
 
-        <p
-            class="mt-2 text-sm font-medium
-                   text-slate-200 truncate
-                   group-hover:text-white">
-            ${escapeHTML(
-                item.endpoint ||
-                endpoint.endpoint ||
-                ""
-            )}
-        </p>
+            </div>
 
-        <div
-            class="mt-2 flex items-center
+            <div class="flex items-center gap-2">
+
+                <span
+                    class="text-[11px] text-slate-500
+                           group-hover:text-slate-700 dark:group-hover:text-slate-300">
+                    ${dateStr}
+                </span>
+
+
+            </div>
+
+            <div
+            class=" flex items-center
                    justify-between text-[11px]
                    text-slate-500">
 
-            <span>
-                ${escapeHTML(
-                    getItemBadge(item)
-                )}
-            </span>
+                <span></span>
+                <span>
+                    ${qpLabel}
+                </span>
 
-            <span>
-                ${getQPCountLabel(endpoint)}
-            </span>
+            </div>
+
+            <div
+            class=" flex items-center
+                   justify-between text-[11px]
+                   text-slate-500">
+
+                <span>
+                    ${tagLabel}
+                </span>
+
+                ${isHistory ? `
+                    <button
+                        type="button"
+                        class="history-delete hidden group-hover:flex items-center ml-2 justify-center
+                               w-7 h-7 rounded-md text-slate-400
+                               hover:text-red-500 hover:bg-red-500/10 transition"
+                        data-history-id="${escapeHTML(itemId)}"
+                        title="Delete">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" class="w-4 h-4">
+                            <path d="M3 6h18"></path>
+                            <path d="M8 6V4h8v2"></path>
+                            <path d="M19 6l-1 14H6L5 6"></path>
+                            <path d="M10 11v5"></path>
+                            <path d="M14 11v5"></path>
+                        </svg>
+                    </button>
+                ` : ""}
+
+            </div>
 
         </div>
+
+        ${item.type === "history" && baseUrl ? `
+                <div class="mt-2.5 text-xs text-slate-400 font-mono truncate">
+                    ${baseUrl}
+                </div>
+                ` : ""}
+
+        <p
+            class="mt-2 text-sm font-medium
+                   text-slate-800 dark:text-slate-200 truncate
+                   group-hover:text-slate-900 dark:group-hover:text-white">
+            ${escapeHTML(item.endpoint || endpoint.endpoint || "")}
+        </p>
+
+        
     `;
 
-    card.addEventListener(
-        "click",
-        () => {
+    if (isHistory) {
 
-            selectSidebarItem(
-                item,
-                card
-            );
+        const checkbox = card.querySelector(".history-checkbox");
 
-        }
-    );
+        checkbox.addEventListener("click", event => event.stopPropagation());
 
-    if (
-        item.type ===
-        "history"
-    ) {
-
-        card.addEventListener(
-            "contextmenu",
-            event => {
-
-                showHistoryContextMenu(
-                    event,
-                    item.source
-                );
-
+        checkbox.addEventListener("change", () => {
+            if (checkbox.checked) {
+                selectedHistoryIds.add(itemId);
+                card.classList.add("ring-2", "ring-cyan-400");
+            } else {
+                selectedHistoryIds.delete(itemId);
+                card.classList.remove("ring-2", "ring-cyan-400");
             }
-        );
+        });
 
+        card.querySelector(".history-delete").addEventListener("click", async event => {
+            event.stopPropagation();
+            try {
+                await deleteHistoryItem(itemId);
+                await loadHistoryFromBackend();
+                applyTestFilters();
+            } catch (error) {
+                console.error("Failed to delete history:", error);
+                window.alert(error?.message || "Could not delete history.");
+            }
+        });
+    }
+
+    card.addEventListener("click", () => {
+        selectSidebarItem(item, card);
+    });
+
+    if (isHistory) {
+        card.addEventListener("contextmenu", event => {
+            showHistoryContextMenu(event, item.source);
+        });
     }
 
     return card;
+}
+// ============================================================
+// HISTORY: DELETE + THREE-DOT MENU
+// ============================================================
 
+const HIDDEN_HISTORY_KEY = "testview.hiddenHistoryIds";
+
+function getHiddenHistoryIds() {
+    try {
+        return new Set(JSON.parse(localStorage.getItem(HIDDEN_HISTORY_KEY) || "[]"));
+    } catch {
+        return new Set();
+    }
+}
+
+function hideHistoryIdLocally(historyId) {
+    const hidden = getHiddenHistoryIds();
+    hidden.add(String(historyId));
+    localStorage.setItem(HIDDEN_HISTORY_KEY, JSON.stringify([...hidden]));
+}
+
+async function deleteHistoryItem(historyId) {
+
+    if (!historyId) return;
+
+    const response = await fetch(
+        `${API_BASE}/test-view/history/${encodeURIComponent(historyId)}/delete`,
+        { method: "POST" }
+    );
+
+    if (response.status === 404) {
+        hideHistoryIdLocally(historyId);
+    } else if (!response.ok) {
+        throw new Error(`History delete failed: ${response.status}`);
+    }
+
+    selectedHistoryIds.delete(String(historyId));
+}
+
+function setHistoryCheckbox(checkbox, checked) {
+    checkbox.checked = checked;
+    const id = String(checkbox.dataset.historyId);
+    const card = checkbox.closest(".endpoint-card");
+    if (checked) {
+        selectedHistoryIds.add(id);
+        card?.classList.add("ring-2", "ring-cyan-400");
+    } else {
+        selectedHistoryIds.delete(id);
+        card?.classList.remove("ring-2", "ring-cyan-400");
+    }
+}
+
+function doSelectAllHistory() {
+    selectedHistoryIds = new Set(historyRecords.map(h => String(h.id)));
+    document.querySelectorAll(".history-checkbox")
+        .forEach(cb => setHistoryCheckbox(cb, true));
+}
+
+function doClearSelectionHistory() {
+    selectedHistoryIds = new Set();
+    document.querySelectorAll(".history-checkbox")
+        .forEach(cb => setHistoryCheckbox(cb, false));
+}
+
+function doInvertSelectionHistory() {
+    if (activeSidebarTab !== "history") return;
+    document.querySelectorAll(".history-checkbox")
+        .forEach(cb => setHistoryCheckbox(cb, !cb.checked));
+}
+
+async function doDeleteSelectedHistory() {
+
+    if (selectedHistoryIds.size === 0) {
+        console.warn("No history items selected.");
+        return;
+    }
+
+    await Promise.all(
+        [...selectedHistoryIds].map(id =>
+            deleteHistoryItem(id).catch(error => {
+                console.error(`Error deleting history ${id}:`, error);
+            })
+        )
+    );
+
+    selectedHistoryIds = new Set();
+
+    await loadHistoryFromBackend();
+
+    applyTestFilters();
+}
+
+function handleHistoryMenuAction(action) {
+    switch (action) {
+        case "select-all": doSelectAllHistory(); break;
+        case "invert-selection": doInvertSelectionHistory(); break;
+        case "clear-selection": doClearSelectionHistory(); break;
+        case "delete-selected": doDeleteSelectedHistory(); break;
+    }
+}
+
+function setupHistoryMenu() {
+
+    const historyMenuButton = document.getElementById("historyMenuButton");
+    const historyMenu = document.getElementById("historyMenu");
+
+    if (!historyMenuButton || !historyMenu) return;
+
+    historyMenuButton.addEventListener("click", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        qpMenu?.classList.add("hidden");
+        historyMenu.classList.toggle("hidden");
+    });
+
+    historyMenu.addEventListener("click", event => {
+        const button = event.target.closest("[data-history-action]");
+        if (!button) return;
+        handleHistoryMenuAction(button.dataset.historyAction);
+        historyMenu.classList.add("hidden");
+    });
+
+    document.addEventListener("click", event => {
+        if (
+            !historyMenu.classList.contains("hidden") &&
+            !historyMenu.contains(event.target) &&
+            !historyMenuButton.contains(event.target)
+        ) {
+            historyMenu.classList.add("hidden");
+        }
+    });
 }
 
 // ============================================================
@@ -1740,8 +1926,8 @@ function setupHistoryContextMenu() {
         min-w-[190px]
         rounded-lg
         border
-        border-slate-700
-        bg-slate-900
+        border-slate-300 dark:border-slate-700
+        bg-white dark:bg-slate-900
         shadow-xl
         overflow-hidden
     `;
@@ -1757,7 +1943,8 @@ function setupHistoryContextMenu() {
                 py-2.5
                 text-left
                 text-sm
-                text-slate-200
+                text-slate-700 dark:text-slate-200
+hover:bg-slate-100 dark:hover:bg-slate-800
                 hover:bg-slate-800
             "
         >
@@ -1773,8 +1960,8 @@ function setupHistoryContextMenu() {
                 py-2.5
                 text-left
                 text-sm
-                text-red-400
-                hover:bg-slate-800
+                text-red-600 dark:text-red-400
+hover:bg-slate-100 dark:hover:bg-slate-800
             "
         >
             Clear All
@@ -2160,24 +2347,20 @@ async function clearAllHistory() {
 function getMethodColor(method) {
 
     switch (
-        String(method || "")
-            .toUpperCase()
+    String(method || "")
+        .toUpperCase()
     ) {
 
         case "GET":
-            return "bg-emerald-500/15 text-emerald-400 border-emerald-500/20";
-
+            return "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20";
         case "POST":
-            return "bg-amber-500/15 text-amber-400 border-amber-500/20";
-
+            return "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20";
         case "PUT":
-            return "bg-sky-500/15 text-sky-400 border-sky-500/20";
-
+            return "bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/20";
         case "DELETE":
-            return "bg-red-500/15 text-red-400 border-red-500/20";
-
+            return "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/20";
         default:
-            return "bg-slate-700 text-slate-300 border-slate-600";
+            return "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600";
 
     }
 
@@ -2251,6 +2434,10 @@ function selectSidebarItem(
 
     if (!endpoint) return;
 
+    selectedSidebarItemId =
+        card?.dataset?.id ??
+        (item.id !== undefined && item.id !== null ? String(item.id) : String(endpoint.id));
+
     selectTestEndpoint(
         endpoint,
         card,
@@ -2275,30 +2462,10 @@ function selectTestEndpoint(
     latestResponseMeta =
         null;
 
-    document
-        .querySelectorAll(
-            ".endpoint-card"
-        )
-        .forEach(
-            item => {
-
-                item.classList.remove(
-                    "bg-sky-500/10",
-                    "border-l-2",
-                    "border-sky-500"
-                );
-
-            }
-        );
-
-    if (card) {
-
-        card.classList.add(
-            "bg-sky-500/10",
-            "border-l-2",
-            "border-sky-500"
-        );
-
+    if (card?.dataset?.id) {
+        selectedSidebarItemId = String(card.dataset.id);
+    } else if (endpoint?.id !== undefined && endpoint?.id !== null && !selectedSidebarItemId) {
+        selectedSidebarItemId = String(endpoint.id);
     }
 
     if (testMethod) {
@@ -2377,13 +2544,27 @@ async function refreshSelectedEndpointTags() {
         ]);
 
         selectedTestEndpoint.tags = tags;
-        
+
         if (qps.length > 0) {
+            // Deduplicate by ID to prevent duplicate buttons
+            const seen = new Set();
+            const uniqueQps = [];
+            for (const bQp of qps) {
+                const sid = String(bQp.id);
+                if (!seen.has(sid)) {
+                    seen.add(sid);
+                    uniqueQps.push(bQp);
+                }
+            }
+            uniqueQps.sort((a, b) => Number(a.id) - Number(b.id));
+
             const localQPs = Array.isArray(selectedTestEndpoint.qps) ? selectedTestEndpoint.qps : [];
-            selectedTestEndpoint.qps = qps.map(backendQp => {
-                const localQp = localQPs.find(q => String(q.id) === String(backendQp.id));
+            selectedTestEndpoint.qps = uniqueQps.map((backendQp, idx) => {
+                const seq = idx + 1;
+                const localQp = localQPs.find(q => String(q.id) === String(backendQp.id) || String(q.id) === String(seq));
                 return {
                     ...backendQp,
+                    name: String(seq),
                     request: localQp?.request || {},
                     response: localQp?.response || {}
                 };
@@ -2401,7 +2582,7 @@ async function refreshSelectedEndpointTags() {
 
             endpoint.tags =
                 selectedTestEndpoint.tags;
-                
+
             endpoint.qps =
                 selectedTestEndpoint.qps;
 
@@ -2436,29 +2617,71 @@ function updateSelectedEndpointHighlight() {
         .forEach(
             card => {
 
+                const cardId =
+                    card.dataset.id;
+
                 const cardEndpointId =
                     card.dataset.endpointId;
 
-                const active =
+                const matchesSpecificCard =
+                    selectedSidebarItemId !== null &&
+                    selectedSidebarItemId !== undefined &&
+                    String(cardId) === String(selectedSidebarItemId);
+
+                const matchesEndpointId =
                     selectedId !== undefined &&
                     selectedId !== null &&
-                    String(cardEndpointId) ===
-                        String(selectedId);
+                    (String(cardEndpointId) === String(selectedId) || String(cardId) === String(selectedId));
 
-                card.classList.toggle(
-                    "bg-sky-500/10",
-                    active
-                );
+                const active =
+                    matchesSpecificCard ||
+                    (!selectedSidebarItemId && matchesEndpointId);
 
-                card.classList.toggle(
-                    "border-l-2",
-                    active
-                );
+                if (active) {
 
-                card.classList.toggle(
-                    "border-sky-500",
-                    active
-                );
+                    card.classList.remove(
+                        "border-slate-300",
+                        "dark:border-slate-800",
+                        "border"
+                    );
+
+                    card.classList.add(
+                        "border-2",
+                        "border-cyan-500",
+                        "bg-cyan-500/10",
+                        "dark:bg-cyan-500/15",
+                        "ring-1",
+                        "ring-cyan-500/50",
+                        "shadow-sm"
+                    );
+
+                    card.style.borderColor =
+                        "var(--color-cyan-500, #06b6d4)";
+
+                } else {
+
+                    card.classList.remove(
+                        "border-2",
+                        "border-cyan-500",
+                        "bg-cyan-500/10",
+                        "dark:bg-cyan-500/15",
+                        "ring-1",
+                        "ring-cyan-500/50",
+                        "shadow-sm",
+                        "bg-sky-500/10",
+                        "border-l-2",
+                        "border-sky-500"
+                    );
+
+                    card.classList.add(
+                        "border",
+                        "border-slate-300",
+                        "dark:border-slate-800"
+                    );
+
+                    card.style.borderColor = "";
+
+                }
 
             }
         );
@@ -2483,6 +2706,8 @@ function renderTestQP(
 
     selectedQPIds =
         new Set();
+
+    if (!endpoint) return;
 
     if (
         !Array.isArray(endpoint.qps)
@@ -2548,15 +2773,15 @@ function renderTestQP(
             button.className = `
                 qp-btn
                 w-full
-                min-h-10
+                min-h-8
                 rounded-md
                 border
-                border-slate-700
-                bg-slate-800
+                border-slate-300 dark:border-slate-700
+                bg-slate-200 dark:bg-slate-800
                 px-1
-                py-2
+                py-1
                 text-xs
-                text-slate-300
+                text-slate-700 dark:text-slate-300
                 hover:bg-cyan-500
                 hover:text-white
                 transition-all
@@ -2702,7 +2927,7 @@ function setupQPMenu() {
 
             event.preventDefault();
             event.stopPropagation();
-
+            document.getElementById("historyMenu")?.classList.add("hidden");
             qpMenu.classList.toggle(
                 "hidden"
             );
@@ -2744,7 +2969,7 @@ function setupQPMenu() {
                     event.target
                 ) &&
                 event.target !==
-                    qpMenuButton
+                qpMenuButton
             ) {
 
                 qpMenu.classList.add(
@@ -2766,8 +2991,8 @@ function handleQPMenuAction(action) {
 
     switch (action) {
 
-        case "create":
-            doCreateQP();
+        case "invert-selection":
+            doInvertSelectionQP();
             break;
 
         case "select-all":
@@ -2913,7 +3138,17 @@ function doSelectAllQP() {
         );
 
 }
+function doInvertSelectionQP() {
 
+    if (!selectedTestEndpoint || !Array.isArray(selectedTestEndpoint.qps)) return;
+
+    testQPPanel
+        .querySelectorAll('input[type="checkbox"]')
+        .forEach(checkbox => {
+            checkbox.checked = !checkbox.checked;
+            checkbox.dispatchEvent(new Event("change"));
+        });
+}
 // ============================================================
 // CLEAR QP SELECTION
 // ============================================================
@@ -2984,10 +3219,7 @@ async function doDeleteSelectedQP() {
         for (const qpId of selectedQPIds) {
             if (String(qpId) !== "default") {
                 deletePromises.push(
-                    fetch(
-                        `${API_BASE}/test-view/${encodeURIComponent(endpointId)}/qps/${encodeURIComponent(qpId)}/delete`,
-                        { method: "POST" }
-                    ).catch(error => {
+                    EdmsAPI.deleteQP(endpointId, qpId).catch(error => {
                         console.error(`Error deleting QP ${qpId}:`, error);
                     })
                 );
@@ -2998,20 +3230,37 @@ async function doDeleteSelectedQP() {
         }
     }
 
-    selectedTestEndpoint.qps =
-        selectedTestEndpoint.qps.filter(
-            qp =>
-                !selectedQPIds.has(
-                    String(qp.id)
-                )
-        );
+    const remainingQps = selectedTestEndpoint.qps.filter(
+        qp => !selectedQPIds.has(String(qp.id))
+    );
+
+    // Renumber remaining QPs sequentially (1, 2, 3...)
+    remainingQps.forEach((qp, idx) => {
+        const sequentialNum = idx + 1;
+        qp.id = sequentialNum;
+        qp.name = String(sequentialNum);
+    });
+
+    selectedTestEndpoint.qps = remainingQps;
+
+    if (selectedTestQP && selectedQPIds.has(String(selectedTestQP.id))) {
+        selectedTestQP = selectedTestEndpoint.qps[0] || null;
+    } else if (selectedTestQP) {
+        const matching = selectedTestEndpoint.qps.find(q => String(q.id) === String(selectedTestQP.id));
+        if (matching) selectedTestQP = matching;
+    }
+
+    selectedQPIds.clear();
+
+    const ep = findEndpoint(endpointId);
+    if (ep) {
+        ep.qps = selectedTestEndpoint.qps;
+    }
 
     saveLocalQPs();
 
-    renderTestQP(
-        selectedTestEndpoint
-    );
-
+    renderTestQP(selectedTestEndpoint, selectedTestQP?.id);
+    renderTestEndpoints();
     applyTestFilters();
 
 }
@@ -3038,30 +3287,16 @@ async function selectTestQP(
         .forEach(
             item => {
 
-                item.classList.remove(
-                    "bg-cyan-500",
-                    "text-white"
-                );
-
-                item.classList.add(
-                    "bg-slate-800",
-                    "text-slate-300"
-                );
+                item.classList.remove("bg-cyan-500", "text-white");
+                item.classList.add("bg-slate-200", "dark:bg-slate-800", "text-slate-700", "dark:text-slate-300");
 
             }
         );
 
     if (button) {
 
-        button.classList.remove(
-            "bg-slate-800",
-            "text-slate-300"
-        );
-
-        button.classList.add(
-            "bg-cyan-500",
-            "text-white"
-        );
+        button.classList.remove("bg-slate-200", "dark:bg-slate-800", "text-slate-700", "dark:text-slate-300");
+        button.classList.add("bg-cyan-500", "text-white");
 
     }
 
@@ -3070,37 +3305,32 @@ async function selectTestQP(
 
     if (qp.id !== "default" && selectedTestEndpoint?.id && !qp.isFullDataLoaded) {
         try {
-            const endpointId = encodeURIComponent(selectedTestEndpoint.id);
-            const qpId = encodeURIComponent(qp.id);
+            const endpointId = selectedTestEndpoint.id;
+            const qpId = qp.id;
 
             const [reqRes, resRes, headRes] = await Promise.all([
-                fetch(`${API_BASE}/test-view/${endpointId}/request/${qpId}`).catch(() => null),
-                fetch(`${API_BASE}/test-view/${endpointId}/response/${qpId}`).catch(() => null),
-                fetch(`${API_BASE}/test-view/${endpointId}/headers/${qpId}`).catch(() => null)
+                EdmsAPI.fetchRequest(endpointId, qpId).catch(() => null),
+                EdmsAPI.fetchResponse(endpointId, qpId).catch(() => null),
+                EdmsAPI.fetchHeaders(endpointId, qpId).catch(() => null)
             ]);
 
             qp.request = qp.request || {};
             qp.response = qp.response || {};
 
             if (reqRes && reqRes.ok) {
-                const text = await reqRes.text();
-                try { qp.request.body = JSON.parse(text); } 
-                catch { qp.request.body = text; }
+                qp.request.body = reqRes.data?.body !== undefined ? reqRes.data.body : (reqRes.data || {});
             }
 
             if (resRes && resRes.ok) {
-                const text = await resRes.text();
-                try { qp.response.body = JSON.parse(text); } 
-                catch { qp.response.body = text; }
+                qp.response.body = resRes.data?.body !== undefined ? resRes.data.body : (resRes.data || {});
             }
 
             if (headRes && headRes.ok) {
-                const text = await headRes.text();
-                try {
-                    const headersData = JSON.parse(text);
+                const headersData = headRes.data;
+                if (headersData && typeof headersData === 'object') {
                     qp.request.headers = headersData.request_headers || {};
                     qp.response.headers = headersData.response_headers || {};
-                } catch {}
+                }
             }
 
             qp.isFullDataLoaded = true;
@@ -3139,7 +3369,7 @@ function renderCurrentRequest() {
 
     const content =
         activeRequestTab ===
-        "headers"
+            "headers"
 
             ? request.headers || {}
 
@@ -3175,7 +3405,7 @@ function renderCurrentResponse() {
 
     const content =
         activeResponseTab ===
-        "headers"
+            "headers"
 
             ? getResponseHeadersPreview(
                 response
@@ -3331,7 +3561,7 @@ function setupMethodFilters() {
 
                     activeTestMethod =
                         activeTestMethod ===
-                        method
+                            method
                             ? "ALL"
                             : method;
 
@@ -3511,9 +3741,9 @@ function applyTestFilters() {
 
                         (
                             activeTestMethod ===
-                                "ALL" ||
+                            "ALL" ||
                             item.method ===
-                                activeTestMethod
+                            activeTestMethod
                         ) &&
 
                         (
@@ -3586,7 +3816,7 @@ function matchesTimeFilter(
         now - date;
 
     switch (
-        activeTimeFilter
+    activeTimeFilter
     ) {
 
         case "today":
@@ -3603,7 +3833,7 @@ function matchesTimeFilter(
             return (
                 difference >= 0 &&
                 difference <=
-                    7 * day
+                7 * day
             );
 
         case "30days":
@@ -3611,7 +3841,7 @@ function matchesTimeFilter(
             return (
                 difference >= 0 &&
                 difference <=
-                    30 * day
+                30 * day
             );
 
         default:
@@ -3655,56 +3885,85 @@ function setupRunner() {
     const saveMenu = document.getElementById("saveMenu");
     const btnUpdateQP = document.getElementById("btnUpdateQP");
     const btnCreateQP = document.getElementById("btnCreateQP");
+    const btnSaveCurrentCollection = document.getElementById("btnSaveCurrentCollection");
+    const btnSaveCurrentCollectionSep = document.getElementById("btnSaveCurrentCollectionSep");
+    const btnAddToCollection = document.getElementById("btnAddToCollection");
+    const addToCollectionModal = document.getElementById("addToCollectionModal");
+    const closeAddToCollectionModal = document.getElementById("closeAddToCollectionModal");
+    const cancelAddToCollectionBtn = document.getElementById("cancelAddToCollectionBtn");
+    const confirmAddToCollectionBtn = document.getElementById("confirmAddToCollectionBtn");
+    const collectionSelect = document.getElementById("collectionSelect");
 
     if (saveButton && saveMenu && saveDropdownContainer) {
         saveButton.type = "button";
-        
+
         saveButton.addEventListener("click", event => {
             event.preventDefault();
             event.stopPropagation();
             saveMenu.classList.toggle("hidden");
-            
+
             if (!saveMenu.classList.contains("hidden")) {
                 if (selectedTestQP) {
                     btnUpdateQP.style.display = "flex";
                 } else {
                     btnUpdateQP.style.display = "none";
                 }
+
+                // Show "Save to Current Collection" only when inside a collection context
+                if (activeCollectionFilter) {
+                    if (btnSaveCurrentCollection) {
+                        btnSaveCurrentCollection.classList.remove("hidden");
+                        btnSaveCurrentCollection.classList.add("flex");
+                    }
+                    if (btnSaveCurrentCollectionSep) {
+                        btnSaveCurrentCollectionSep.classList.remove("hidden");
+                    }
+                } else {
+                    if (btnSaveCurrentCollection) {
+                        btnSaveCurrentCollection.classList.add("hidden");
+                        btnSaveCurrentCollection.classList.remove("flex");
+                    }
+                    if (btnSaveCurrentCollectionSep) {
+                        btnSaveCurrentCollectionSep.classList.add("hidden");
+                    }
+                }
             }
         });
-        
+
+
         document.addEventListener("click", event => {
             if (!saveDropdownContainer.contains(event.target)) {
                 saveMenu.classList.add("hidden");
             }
         });
-        
+
         btnUpdateQP.addEventListener("click", async event => {
             event.preventDefault();
             event.stopPropagation();
             saveMenu.classList.add("hidden");
-            
+
             const endpoint = selectedTestEndpoint;
             if (!endpoint || !selectedTestQP) return;
-            
+
             try {
-                const res = await fetch(`http://localhost:3000/test-view/${encodeURIComponent(endpoint.id)}/qps/${encodeURIComponent(selectedTestQP)}/update`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        request_body: requestContent.value,
-                        response_body: responseContent.value
-                    })
-                });
+                const res = await EdmsAPI.updateQP(
+                    endpoint.id,
+                    selectedTestQP.id,
+                    requestContent.value,
+                    responseContent.value
+                );
                 if (res.ok) {
                     console.log("QP updated on backend successfully");
-                    const qp = endpoint.qps?.find(q => String(q.id) === String(selectedTestQP));
+                    const qp = endpoint.qps?.find(q => String(q.id) === String(selectedTestQP.id));
                     if (qp) {
                         if (!qp.request) qp.request = {};
                         if (!qp.response) qp.response = {};
                         qp.request.body = requestContent.value;
                         qp.response.body = responseContent.value;
                         saveLocalQPs(); // Keep local cache in sync just in case
+
+                        // Force UI refresh for the updated QP
+                        renderTestQP(endpoint, selectedTestQP.id);
                     }
                 } else {
                     console.error("Failed to update QP on backend");
@@ -3713,30 +3972,27 @@ function setupRunner() {
                 console.error("Error updating QP:", e);
             }
         });
-        
+
         btnCreateQP.addEventListener("click", async event => {
             event.preventDefault();
             event.stopPropagation();
             saveMenu.classList.add("hidden");
-            
+
             const endpoint = selectedTestEndpoint;
             if (!endpoint) return;
-            
+
             try {
-                const res = await fetch(`http://localhost:3000/test-view/${encodeURIComponent(endpoint.id)}/qps/create`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        method: endpoint.method || "GET",
-                        request_body: requestContent.value,
-                        response_body: responseContent.value
-                    })
-                });
-                
+                const res = await EdmsAPI.createQP(
+                    endpoint.id,
+                    endpoint.method || "GET",
+                    requestContent.value,
+                    responseContent.value
+                );
+
                 if (res.ok) {
-                    const data = await res.json();
+                    const data = res.data;
                     if (!Array.isArray(endpoint.qps)) endpoint.qps = [];
-                    
+
                     const newQp = {
                         id: data.request_number,
                         name: String(data.request_number),
@@ -3752,12 +4008,11 @@ function setupRunner() {
                             status: null
                         }
                     };
-                    
+
                     endpoint.qps.push(newQp);
                     saveLocalQPs(); // Keep local cache in sync
-                    
-                    renderTestQPs(endpoint);
-                    selectTestQP(newQp.id);
+
+                    renderTestQP(endpoint, newQp.id);
                     console.log("QP created on backend successfully");
                 } else {
                     console.error("Failed to create QP on backend");
@@ -3766,6 +4021,163 @@ function setupRunner() {
                 console.error("Error creating QP:", e);
             }
         });
+        if (btnSaveCurrentCollection) {
+            btnSaveCurrentCollection.addEventListener("click", async event => {
+                event.preventDefault();
+                event.stopPropagation();
+                saveMenu.classList.add("hidden");
+
+                const endpoint = selectedTestEndpoint;
+                if (!endpoint) {
+                    window.alert("No endpoint selected.");
+                    return;
+                }
+                if (!activeCollectionFilter) {
+                    window.alert("No active collection context.");
+                    return;
+                }
+
+                try {
+                    await window.EdmsAPI.addActiveBookmark(activeCollectionFilter, endpoint.id);
+                    try {
+                        await window.EdmsAPI.saveActiveBookmark(activeCollectionFilter, endpoint.id);
+                    } catch (e) {
+                        console.warn("REST saveActiveBookmark returned an error, but WS may have succeeded", e);
+                    }
+                    console.log(`Saved endpoint ${endpoint.id} to current collection '${activeCollectionFilter}'`);
+                    await loadBookmarksFromBackend();
+                    applyTestFilters();
+                } catch (e) {
+                    console.error("Error saving to current collection:", e);
+                    window.alert("Failed to save to current collection: " + e.message);
+                }
+            });
+        }
+
+        if (btnSaveCurrentCollection) {
+            btnSaveCurrentCollection.addEventListener("click", async event => {
+                event.preventDefault();
+                event.stopPropagation();
+                saveMenu.classList.add("hidden");
+
+                const endpoint = selectedTestEndpoint;
+                if (!endpoint) {
+                    window.alert("No endpoint selected.");
+                    return;
+                }
+                if (!activeCollectionFilter) {
+                    window.alert("No active collection context.");
+                    return;
+                }
+
+                try {
+                    await window.EdmsAPI.addActiveBookmark(activeCollectionFilter, endpoint.id);
+                    try {
+                        await window.EdmsAPI.saveActiveBookmark(activeCollectionFilter, endpoint.id);
+                    } catch (e) {
+                        console.warn("REST saveActiveBookmark returned an error, but WS may have succeeded", e);
+                    }
+                    console.log(`Saved endpoint ${endpoint.id} to current collection '${activeCollectionFilter}'`);
+                    await loadBookmarksFromBackend();
+                    applyTestFilters();
+                } catch (e) {
+                    console.error("Error saving to current collection:", e);
+                    window.alert("Failed to save to current collection: " + e.message);
+                }
+            });
+        }
+
+        if (btnAddToCollection) {
+            btnAddToCollection.addEventListener("click", async event => {
+                event.preventDefault();
+                event.stopPropagation();
+                saveMenu.classList.add("hidden");
+
+                const endpoint = selectedTestEndpoint;
+                if (!endpoint) {
+                    window.alert("No endpoint selected.");
+                    return;
+                }
+
+                try {
+                    const collectionsRes = await window.EdmsAPI.listCollections();
+                    let collections = [];
+                    if (collectionsRes && collectionsRes.ok && collectionsRes.data) {
+                        if (Array.isArray(collectionsRes.data)) collections = collectionsRes.data;
+                        else if (Array.isArray(collectionsRes.data.collections)) collections = collectionsRes.data.collections;
+                        else if (Array.isArray(collectionsRes.data.items)) collections = collectionsRes.data.items;
+                    }
+
+                    if (collections.length === 0) {
+                        window.alert("No collections found.");
+                        return;
+                    }
+
+                    if (collectionSelect) {
+                        collectionSelect.innerHTML = "";
+                        collections.forEach(c => {
+                            const cname = c.name || c.collection_name || c.collection || "";
+                            if (!cname) return;
+                            const option = document.createElement("option");
+                            option.value = cname;
+                            option.textContent = cname;
+                            collectionSelect.appendChild(option);
+                        });
+                    }
+
+                    if (addToCollectionModal) {
+                        addToCollectionModal.showModal();
+                    }
+                } catch (e) {
+                    console.error("Error fetching collections:", e);
+                    window.alert("Failed to fetch collections.");
+                }
+            });
+        }
+
+        const closeCollectionModal = () => {
+            if (addToCollectionModal && addToCollectionModal.open) {
+                addToCollectionModal.close();
+            }
+        };
+
+        if (closeAddToCollectionModal) closeAddToCollectionModal.addEventListener("click", closeCollectionModal);
+        if (cancelAddToCollectionBtn) cancelAddToCollectionBtn.addEventListener("click", closeCollectionModal);
+
+        if (confirmAddToCollectionBtn) {
+            confirmAddToCollectionBtn.addEventListener("click", async () => {
+                const endpoint = selectedTestEndpoint;
+                if (!endpoint) return;
+
+                const selectedCollection = collectionSelect ? collectionSelect.value : null;
+                if (!selectedCollection) return;
+
+                try {
+                    // Add via WebSocket
+                    await window.EdmsAPI.addActiveBookmark(selectedCollection, endpoint.id);
+
+                    // Also attempt REST save to persist the change immediately
+                    try {
+                        await window.EdmsAPI.saveActiveBookmark(selectedCollection, endpoint.id);
+                    } catch (e) {
+                        console.warn("REST saveActiveBookmark returned an error, but WS may have succeeded", e);
+                    }
+
+                    console.log(`Added endpoint ${endpoint.id} to collection ${selectedCollection}`);
+
+                    // Update UI if we are in this collection
+                    if (activeCollectionFilter === selectedCollection) {
+                        await loadBookmarksFromBackend();
+                        applyTestFilters();
+                    }
+
+                    closeCollectionModal();
+                } catch (e) {
+                    console.error("Error adding to collection:", e);
+                    window.alert("Failed to add to collection: " + e.message);
+                }
+            });
+        }
     }
 
     const runForm =
@@ -3919,7 +4331,7 @@ async function runTestEndpoint() {
         return;
     }
 
-    const existingEndpoint =
+    let existingEndpoint =
         isCurrentInputExistingEndpoint(
             selectedTestEndpoint,
             endpointStr,
@@ -3927,6 +4339,12 @@ async function runTestEndpoint() {
         )
             ? selectedTestEndpoint
             : null;
+
+    if (!existingEndpoint && Array.isArray(endpoints)) {
+        existingEndpoint = endpoints.find(ep =>
+            isCurrentInputExistingEndpoint(ep, endpointStr, method)
+        ) || null;
+    }
 
     const endpointId =
         existingEndpoint?.id;
@@ -4032,7 +4450,7 @@ async function runTestEndpoint() {
 
         if (
             activeRequestTab ===
-                "body" &&
+            "body" &&
             requestContent
         ) {
 
@@ -4062,6 +4480,8 @@ async function runTestEndpoint() {
             }
 
         }
+
+        requestJson = extractPayloadBody(requestJson);
 
         // -------------------------------------
         // SEND TO BACKEND
@@ -4128,9 +4548,9 @@ async function runTestEndpoint() {
 
         if (
             resolvedEndpointId ===
-                undefined ||
+            undefined ||
             resolvedEndpointId ===
-                null
+            null
         ) {
 
             console.log(
@@ -4178,9 +4598,9 @@ async function runTestEndpoint() {
 
         if (
             resolvedEndpointId ===
-                undefined ||
+            undefined ||
             resolvedEndpointId ===
-                null
+            null
         ) {
 
             throw new Error(
@@ -4245,7 +4665,7 @@ async function runTestEndpoint() {
 
             if (
                 selectedTestEndpoint.qps.length ===
-                    0
+                0
             ) {
 
                 selectedTestEndpoint.qps.push(
@@ -4257,7 +4677,7 @@ async function runTestEndpoint() {
                     String(localQP.id)
                 ) &&
                 String(localQP.id) ===
-                    "default"
+                "default"
             ) {
 
                 selectedTestEndpoint.qps.unshift(
@@ -4341,9 +4761,9 @@ async function runTestEndpoint() {
 
         if (
             requestNumber ===
-                undefined ||
+            undefined ||
             requestNumber ===
-                null
+            null
         ) {
 
             throw new Error(
@@ -4476,43 +4896,29 @@ async function runTestEndpoint() {
             endpoint.qps.find(
                 candidate =>
                     String(candidate.id) ===
-                    String(selectedTestQP?.id)
+                    String(requestNumber)
             );
 
         if (!qp) {
-
-            qp =
-                selectedTestQP
-                    ? JSON.parse(
-                        JSON.stringify(
-                            selectedTestQP
-                        )
-                    )
-                    : {
-
-                        id:
-                            "default",
-
-                        name:
-                            "Default Request",
-
-                        request: {
-
-                            headers: {},
-
-                            body: {}
-
-                        },
-
-                        response: {}
-
-                    };
-
-            endpoint.qps.push(
-                qp
-            );
-
+            qp = {
+                id: requestNumber,
+                name: String(requestNumber),
+                method: method,
+                request: {
+                    headers: {},
+                    body: {}
+                },
+                response: {}
+            };
+            endpoint.qps.push(qp);
         }
+
+        if (endpoint.qps.length > 1) {
+            endpoint.qps = endpoint.qps.filter(
+                candidate => String(candidate.id) !== "default"
+            );
+        }
+        endpoint.qps.sort((a, b) => Number(a.id) - Number(b.id));
 
         // -------------------------------------
         // APPLY REQUEST DATA DIRECTLY
@@ -4522,26 +4928,8 @@ async function runTestEndpoint() {
             qp.request ||
             {};
 
-        const savedRequest =
-            requestResult.data;
-
-        if (
-            savedRequest?.body !==
-            undefined
-        ) {
-
-            qp.request.body =
-                savedRequest.body;
-
-        } else if (
-            savedRequest !==
-            undefined
-        ) {
-
-            qp.request.body =
-                savedRequest;
-
-        }
+        const savedRequest = requestResult.data;
+        qp.request.body = savedRequest?.body !== undefined ? savedRequest.body : (savedRequest || {});
 
         if (
             savedRequest?.headers
@@ -4583,23 +4971,7 @@ async function runTestEndpoint() {
         const savedResponse =
             responseResult.data;
 
-        if (
-            savedResponse?.body !==
-            undefined
-        ) {
-
-            qp.response.body =
-                savedResponse.body;
-
-        } else if (
-            savedResponse !==
-            undefined
-        ) {
-
-            qp.response.body =
-                savedResponse;
-
-        }
+        qp.response.body = savedResponse?.body !== undefined ? savedResponse.body : (savedResponse || {});
 
         qp.response.status =
             statusCode;
@@ -4686,7 +5058,7 @@ async function runTestEndpoint() {
             applyTestFilters();
 
         } catch (
-            historyReloadError
+        historyReloadError
         ) {
 
             console.warn(
@@ -4727,7 +5099,7 @@ async function runTestEndpoint() {
 
                 testWS.close();
 
-            } catch {}
+            } catch { }
 
             testWS =
                 null;
@@ -4850,9 +5222,9 @@ function handleTestStarted(event) {
 
     if (
         requestNumber !==
-            undefined &&
+        undefined &&
         requestNumber !==
-            null
+        null
     ) {
 
         activeRequestNumber =
@@ -5019,9 +5391,9 @@ function handleTestFinished(event) {
 
     if (
         requestNumber !==
-            undefined &&
+        undefined &&
         requestNumber !==
-            null
+        null
     ) {
 
         activeRequestNumber =
@@ -5122,9 +5494,9 @@ async function stopTestEndpoint() {
 
     if (
         activeRequestNumber ===
-            null ||
+        null ||
         activeRequestNumber ===
-            undefined
+        undefined
     ) {
 
         console.warn(
@@ -5137,9 +5509,9 @@ async function stopTestEndpoint() {
 
     if (
         selectedTestEndpoint.id ===
-            undefined ||
+        undefined ||
         selectedTestEndpoint.id ===
-            null
+        null
     ) {
 
         console.warn(
@@ -5190,7 +5562,7 @@ async function stopTestEndpoint() {
 
             testWS.close();
 
-        } catch {}
+        } catch { }
 
         testWS =
             null;
@@ -5237,22 +5609,22 @@ function setRunButtonState(
     const runText = document.getElementById("runText");
 
     if (isRunning) {
-        runButton.className = "h-8 shrink-0 px-4 flex items-center gap-1.5 rounded-lg border border-red-500/40 bg-transparent text-red-400 font-semibold text-sm transition hover:bg-red-500/10 active:scale-95";
-        
+        runButton.className = "h-8 shrink-0 px-4 flex items-center gap-1.5 rounded-lg border border-red-500/40 bg-transparent text-red-600 dark:text-red-400 font-semibold text-sm transition hover:bg-red-500/10 active:scale-95";
+
         if (runIconContainer) {
             runIconContainer.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3.5 h-3.5"><rect x="4" y="4" width="16" height="16" rx="2"></rect></svg>`;
         }
-        
+
         if (runText) {
             runText.textContent = "Stop";
         }
     } else {
         runButton.className = "h-8 shrink-0 px-4 flex items-center gap-1.5 rounded-lg bg-cyan-500 text-slate-950 font-semibold text-sm transition hover:bg-cyan-400 active:scale-95 shadow-md shadow-cyan-500/20";
-        
+
         if (runIconContainer) {
             runIconContainer.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><polygon points="6 3 20 12 6 21 6 3"></polygon></svg>`;
         }
-        
+
         if (runText) {
             runText.textContent = "Run";
         }
@@ -5595,7 +5967,7 @@ function renderSelectedEndpointTags() {
                 py-1
                 rounded-full
                 bg-cyan-500/15
-                text-cyan-300
+                text-cyan-700 dark:text-cyan-300
                 text-xs
                 border
                 border-cyan-500/20
@@ -5619,8 +5991,8 @@ function renderSelectedEndpointTags() {
 
             removeButton.className = `
                 ml-1
-                text-cyan-400
-                hover:text-white
+text-cyan-600 dark:text-cyan-400
+hover:text-slate-900 dark:hover:text-white
                 text-sm
                 leading-none
             `;
@@ -5766,7 +6138,7 @@ function updateContentTabButtons(
 
     const ids =
         panel ===
-        "request"
+            "request"
 
             ? {
                 headers:
@@ -5831,7 +6203,6 @@ function updateContentTabButtons(
 // ============================================================
 // PANEL CONTROLS
 // ============================================================
-
 function setupPanelControls() {
 
     setupPanelControlSet(
@@ -5845,6 +6216,9 @@ function setupPanelControls() {
         responseBox,
         requestBox
     );
+
+    addPanelExtras("request", requestBox, requestContent);
+    addPanelExtras("response", responseBox, responseContent);
 
 }
 
@@ -5954,57 +6328,77 @@ function collapsePanel(panel) {
 }
 
 // ============================================================
-// FULLSCREEN
+// FULLSCREEN  (Request + Response maximize / minimize together)
 // ============================================================
 
-function togglePanelFullscreen(
-    panel,
-    siblingPanel
-) {
+let panelsMaximized = false;
 
-    const isFullscreen =
-        panel.dataset.fullscreen ===
-        "true";
+const MAX_WRAPPER_CLASSES = [
+    "bg-slate-100",
+    "dark:bg-[#06111F]",
+    "border",
+    "border-slate-300",
+    "dark:border-slate-700/40",
+    "shadow-2xl"
+];
 
-    resetPanels();
+function applyPanelsMaximized(maximized) {
 
-    if (isFullscreen) return;
+    panelsMaximized = maximized;
 
-    panel.dataset.fullscreen =
-        "true";
+    const wrapper = requestBox?.parentElement;
 
-    panel.style.position =
-        "fixed";
+    if (!wrapper) return;
 
-    panel.style.inset =
-        "16px";
+    if (maximized) {
 
-    panel.style.zIndex =
-        "50";
+        wrapper.style.position = "fixed";
+        wrapper.style.inset = "40px";
+        wrapper.style.zIndex = "50";
+        wrapper.style.padding = "16px";
+        wrapper.style.borderRadius = "12px";
+        wrapper.style.overflow = "auto";
+        // dimmed backdrop behind the maximized panels
+        wrapper.style.boxShadow = "0 0 0 100vmax rgba(2, 6, 23, 0.6)";
 
-    panel.style.height =
-        "auto";
+        wrapper.classList.add(...MAX_WRAPPER_CLASSES);
 
-    panel.style.maxHeight =
-        "calc(100vh - 32px)";
+    } else {
 
-    panel.style.display =
-        "flex";
+        wrapper.removeAttribute("style");
 
-    if (siblingPanel) {
-
-        siblingPanel.style.display =
-            "none";
+        wrapper.classList.remove(...MAX_WRAPPER_CLASSES);
 
     }
 
+    [requestBox, responseBox].forEach(panel => {
+        if (panel) {
+            panel.dataset.fullscreen = String(maximized);
+        }
+    });
+
 }
+
+function togglePanelFullscreen() {
+
+    // The maximize button on EITHER panel toggles BOTH panels
+    applyPanelsMaximized(!panelsMaximized);
+
+}
+
+document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && panelsMaximized) {
+        applyPanelsMaximized(false);
+    }
+});
 
 // ============================================================
 // RESET PANELS
 // ============================================================
 
 function resetPanels() {
+
+    applyPanelsMaximized(false);
 
     [
         requestBox,
@@ -6014,15 +6408,8 @@ function resetPanels() {
 
             if (!panel) return;
 
-            panel.dataset.fullscreen =
-                "false";
-
             panel.dataset.closed =
                 "false";
-
-            panel.removeAttribute(
-                "style"
-            );
 
             Array.from(
                 panel.children
@@ -6039,6 +6426,170 @@ function resetPanels() {
     );
 
 }
+
+// ============================================================
+// COPY BUTTON + SIZE LABEL (added to both panels)
+// ============================================================
+
+function formatByteSize(text) {
+
+    const bytes = new Blob([String(text ?? "")]).size;
+
+    if (bytes < 1024) return `${bytes} B`;
+
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+
+    return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+
+}
+
+// Runs onChange for typing AND for code that sets textarea.value
+function watchTextareaValue(textarea, onChange) {
+
+    const descriptor =
+        Object.getOwnPropertyDescriptor(
+            HTMLTextAreaElement.prototype,
+            "value"
+        );
+
+    Object.defineProperty(textarea, "value", {
+
+        get() {
+            return descriptor.get.call(this);
+        },
+
+        set(newValue) {
+            descriptor.set.call(this, newValue);
+            onChange();
+        },
+
+        configurable: true
+
+    });
+
+    textarea.addEventListener("input", onChange);
+
+}
+
+async function copyTextToClipboard(text) {
+
+    try {
+
+        await navigator.clipboard.writeText(text);
+
+    } catch {
+
+        // fallback for non-secure contexts
+        const temp = document.createElement("textarea");
+        temp.value = text;
+        temp.style.position = "fixed";
+        temp.style.opacity = "0";
+        document.body.appendChild(temp);
+        temp.select();
+        document.execCommand("copy");
+        temp.remove();
+
+    }
+
+}
+
+const COPY_ICON = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round" class="w-4 h-4">
+        <rect x="9" y="9" width="11" height="11" rx="2"></rect>
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+    </svg>`;
+
+const CHECK_ICON = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round"
+        stroke-linejoin="round" class="w-4 h-4">
+        <polyline points="20 6 9 17 4 12"></polyline>
+    </svg>`;
+
+function addPanelExtras(panelName, panel, textarea) {
+
+    if (!panel || !textarea) return;
+
+    // ---- Find panel header ----
+    const fullscreenButton =
+        document.getElementById(`${panelName}Fullscreen`);
+
+    const header = fullscreenButton?.parentElement;
+
+    // ---- Copy button (before fullscreen button) ----
+    if (
+        fullscreenButton &&
+        !document.getElementById(`${panelName}Copy`)
+    ) {
+        const copyButton = document.createElement("button");
+
+        copyButton.id = `${panelName}Copy`;
+        copyButton.type = "button";
+        copyButton.title = "Copy";
+        copyButton.innerHTML = COPY_ICON;
+
+        copyButton.className = `
+            rounded-md p-1.5
+            text-slate-500 dark:text-slate-400
+            transition hover:bg-slate-200
+            dark:hover:bg-slate-700
+            hover:text-cyan-600 dark:hover:text-cyan-400
+        `;
+
+        copyButton.addEventListener("click", async event => {
+            event.preventDefault();
+
+            await copyTextToClipboard(textarea.value);
+
+            copyButton.innerHTML = CHECK_ICON;
+            copyButton.title = "Copied";
+
+            setTimeout(() => {
+                copyButton.innerHTML = COPY_ICON;
+                copyButton.title = "Copy";
+            }, 1200);
+        });
+
+        fullscreenButton.parentElement.insertBefore(
+            copyButton,
+            fullscreenButton
+        );
+    }
+
+    // ---- Size label (top-right of the panel header) ----
+    if (
+        header &&
+        !document.getElementById(`${panelName}Size`)
+    ) {
+        const sizeLabel = document.createElement("span");
+
+        sizeLabel.id = `${panelName}Size`;
+
+        sizeLabel.className = `
+            text-[10px]
+            text-slate-500 dark:text-slate-400
+            whitespace-nowrap
+            mr-2
+        `;
+
+        const update = () => {
+            sizeLabel.textContent =
+                formatByteSize(textarea.value);
+        };
+
+        // Insert the size label before the copy button.
+        const copyButton =
+            document.getElementById(`${panelName}Copy`);
+
+        header.insertBefore(sizeLabel, copyButton || fullscreenButton);
+
+        watchTextareaValue(textarea, update);
+        update();
+    }
+}
+
 
 // ============================================================
 // SIDEBAR TABS
@@ -6086,6 +6637,9 @@ function setupSidebarTab(
             selectedTestEndpoint =
                 null;
 
+            selectedSidebarItemId =
+                null;
+
             selectedTestQP =
                 null;
 
@@ -6107,55 +6661,35 @@ function setupSidebarTab(
 function updateSidebarTabButtons() {
 
     const tabs = {
-
-        historyTab:
-            "history",
-
-
-
-        endpointsTab:
-            "endpoints"
-
+        historyTab: "history",
+        endpointsTab: "endpoints"
     };
 
-    Object.entries(tabs).forEach(
-        ([id, tab]) => {
+    const ACTIVE = ["text-sky-600", "dark:text-sky-400", "border-sky-500"];
+    const INACTIVE = ["text-slate-500", "dark:text-slate-400", "border-transparent"];
 
-            const button =
-                document.getElementById(
-                    id
-                );
+    Object.entries(tabs).forEach(([id, tab]) => {
+        const button = document.getElementById(id);
+        if (!button) return;
 
-            if (!button) return;
+        const active = activeSidebarTab === tab;
 
-            const active =
-                activeSidebarTab ===
-                tab;
+        button.classList.remove(...(active ? INACTIVE : ACTIVE));
+        button.classList.add(...(active ? ACTIVE : INACTIVE));
+    });
 
-            button.classList.toggle(
-                "text-sky-400",
-                active
-            );
+    const historyMenuWrap = document.getElementById("historyMenuWrap");
+    if (historyMenuWrap) {
+        historyMenuWrap.classList.toggle("invisible", activeSidebarTab !== "history");
+    }
 
-            button.classList.toggle(
-                "border-sky-500",
-                active
-            );
+    const historyMenu = document.getElementById("historyMenu");
+    if (historyMenu && activeSidebarTab !== "history") {
+        historyMenu.classList.add("hidden");
+    }
 
-            button.classList.toggle(
-                "text-slate-400",
-                !active
-            );
-
-        }
-    );
-
-    requestAnimationFrame(
-        updateSidebarTabUnderline
-    );
-
+    requestAnimationFrame(updateSidebarTabUnderline);
 }
-
 // ============================================================
 // SIDEBAR TAB UNDERLINE
 // ============================================================
@@ -6271,9 +6805,8 @@ function updateSidebarTabUnderline() {
         `${activeRect.width}px`;
 
     underline.style.transform =
-        `translateX(${
-            activeRect.left -
-            parentRect.left
+        `translateX(${activeRect.left -
+        parentRect.left
         }px)`;
 
 }
@@ -6527,9 +7060,9 @@ function isEndpointBookmarked(
 
     if (
         endpointId ===
-            undefined ||
+        undefined ||
         endpointId ===
-            null
+        null
     ) {
 
         return false;

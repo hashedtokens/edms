@@ -299,41 +299,41 @@ const TagManager = (() => {
 
         const content = `
 
-            <div class="space-y-4">
+    <div class="space-y-4">
 
-                <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between">
 
-                    <div>
+            <div>
 
-                        <p class="text-xs text-slate-400">
-                            ${currentTags.length}
-                            tag${currentTags.length === 1 ? "" : "s"}
-                        </p>
+                <p class="text-xs text-slate-800 dark:text-slate-400">
+                    ${currentTags.length}
+                    tag${currentTags.length === 1 ? "" : "s"}
+                </p>
 
-                        <p class="mt-0.5 text-[10px] text-slate-600">
-                            ${getItems().length}
-                            items in this view
-                        </p>
+                <p class="mt-0.5 text-[10px] text-slate-500 dark:text-slate-600">
+                    ${getItems().length}
+                    items in this view
+                </p>
 
-                    </div>
+            </div>
 
-                    <button
-                        type="button"
-                        id="tmRefresh"
-                        class="
-                            rounded-md
-                            border border-slate-700
-                            bg-slate-800
-                            px-2.5 py-1.5
-                            text-[11px]
-                            text-slate-400
-                            transition
-                            hover:bg-slate-700
-                            hover:text-white
-                        "
-                    >
-                        Refresh
-                    </button>
+                   <button
+    type="button"
+    id="tmRefresh"
+    class="
+        rounded-md
+        border border-slate-300 dark:border-slate-700
+        bg-slate-100 dark:bg-slate-800
+        px-2.5 py-1.5
+        text-[11px]
+        text-slate-800 dark:text-slate-400
+        transition
+        hover:bg-slate-200 dark:hover:bg-slate-700
+        hover:text-slate-900 dark:hover:text-white
+    "
+>
+    Refresh
+</button>
 
                 </div>
 
@@ -471,7 +471,7 @@ const TagManager = (() => {
                             max-h-[45vh]
                             overflow-y-auto
                             rounded-lg
-                            border border-slate-800
+                            border border-slate-300 dark:border-slate-800
                         "
                     >
                         ${renderTagList(counts)}
@@ -483,25 +483,26 @@ const TagManager = (() => {
                 <div
                     class="
                         flex justify-end
-                        border-t border-slate-800
+                        border-t border-slate-300 dark:border-slate-800
                         pt-3
                     "
                 >
 
-                    <button
-                        type="button"
-                        data-modal-close
-                        class="
-                            rounded-md
-                            border border-slate-700
-                            px-3 py-1.5
-                            text-xs
-                            text-slate-400
-                            hover:bg-slate-800
-                        "
-                    >
-                        Close
-                    </button>
+                   <button
+    type="button"
+    data-modal-close
+    class="
+        rounded-md
+        border border-slate-300 dark:border-slate-700
+        px-3 py-1.5
+        text-xs
+        text-slate-800 dark:text-slate-400
+        hover:bg-slate-200 dark:hover:bg-slate-800
+        hover:border-slate-400 dark:hover:border-slate-600
+    "
+>
+    Close
+</button>
 
                 </div>
 
@@ -543,7 +544,7 @@ const TagManager = (() => {
                         No tags found
                     </p>
 
-                    <p class="mt-1 text-[10px] text-slate-700">
+                    <p class="mt-1 text-[10px] text-slate-500 dark:text-slate-300">
                         Tags will appear here when
                         items contain tags.
                     </p>
@@ -986,7 +987,7 @@ const TagManager = (() => {
                 const newTags =
                     tags.map(tag =>
                         normalizeTag(tag).toLowerCase() ===
-                        oldTag.toLowerCase()
+                            oldTag.toLowerCase()
                             ? normalizedNewTag
                             : tag
                     );
@@ -1725,9 +1726,9 @@ const TagManager = (() => {
                         "
                     >
                         ${escape(
-                            config?.title ||
-                            "Tag Manager"
-                        )}
+            config?.title ||
+            "Tag Manager"
+        )}
                     </h3>
 
                     <button
@@ -1857,7 +1858,7 @@ const TagManager = (() => {
 
         return text
             ? text.charAt(0).toUpperCase() +
-              text.slice(1)
+            text.slice(1)
             : "";
     }
 

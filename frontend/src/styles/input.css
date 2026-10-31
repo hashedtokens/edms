@@ -1,2 +1,38 @@
 @import "tailwindcss";
 @plugin 'tailwind-scrollbar';
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+    /* ============================================
+     POINTER CURSORS — applies across all views
+     ============================================ */
+
+    button:not(:disabled),
+    a[href],
+    [role="button"]:not([aria-disabled="true"]),
+    select,
+    input[type="checkbox"],
+    input[type="radio"],
+    label[for] {
+        cursor: pointer;
+    }
+
+    button:disabled,
+    [aria-disabled="true"] {
+        cursor: not-allowed;
+    }
+
+    [draggable="true"] {
+        cursor: grab;
+    }
+
+    [draggable="true"]:active {
+        cursor: grabbing;
+    }
+
+    input[type="text"],
+    input[type="search"],
+    textarea {
+        cursor: text;
+    }
+}

@@ -263,6 +263,57 @@ Content-Type: application/json
 ### List (endpoint_id, tag) pairs this collection carries from the import above
 GET {{baseUrl}}/collections/auth-suite/tags/endpoints
 
+### Merge COLLECTIONS (Collection level): everything in auth-suite and smoke-tests goes into
+### "release-candidate" - a new collection, or added to it if it exists. The two sources are
+### never changed. 202 {job_id,...}; the result arrives as a ViewIoDone event (op "merge") on
+### GET /jobs/ws and on GET /jobs/:id: target_created, members_before/after, added, log.
+POST {{baseUrl}}/collections/release-candidate/merge
+Content-Type: application/json
+
+{ "sources": ["auth-suite", "smoke-tests"] }
+
+### Merge BY TAGS (Tag level): only the endpoints carrying one of that source's tags
+POST {{baseUrl}}/collections/release-candidate/merge
+Content-Type: application/json
+
+{ "sources": [
+    { "collection": "auth-suite",  "tags": ["critical", "smoke"] },
+    { "collection": "smoke-tests", "tags": ["critical"] }
+] }
+
+### Same, with one tag list for every source named without its own
+POST {{baseUrl}}/collections/release-candidate/merge
+Content-Type: application/json
+
+{ "sources": ["auth-suite", "smoke-tests"], "tags": ["critical"] }
+
+### Take a Collection out (Export), as a job: copies every member's EQP data to
+### storage/takeout/{dest_name}/ with a repoview-manifest.json (kind "collection"). No SQLite.
+### 202 {job_id, endpoints, members_without_endpoint}; the result arrives as a ViewIoDone
+### event (op "takeout", view "collections") on GET /jobs/ws and on GET /jobs/:id.
+### 409 {options:["overwrite","rename"]} if that takeout folder exists.
+POST {{baseUrl}}/collections/auth-suite/takeout
+Content-Type: application/json
+
+{ "dest_name": "auth-suite-2026-10", "overwrite": false }
+
+### Import a Collection from an unzipped takeout under
+### storage/imports/uncompressed/collections/ - every endpoint gets a fresh EID and the
+### collection is created (bookmarks, membership file, catalog row, annotation, tags).
+### 409 {options:["rename"]} if the name is taken.
+POST {{baseUrl}}/collections/import
+Content-Type: application/json
+
+{ "folder": "auth-suite-2026-10", "name": "auth-suite-copy" }
+
+### Import a zipped Collection takeout from storage/imports/compressed/collections/
+### (unzipped strictly first; 409 {options:["replace"]} if already unzipped, retry with
+### "replace_extracted": true)
+POST {{baseUrl}}/collections/import
+Content-Type: application/json
+
+{ "zip": "auth-suite-2026-10.zip", "name": "auth-suite-from-zip" }
+
 ### Remove an endpoint from a collection
 POST {{baseUrl}}/collections/auth-suite/endpoints/remove
 Content-Type: application/json
@@ -310,15 +361,55 @@ Content-Type: application/json
 ### List collections tags with their counts
 GET {{baseUrl}}/collections/tags/list
 
-### --- Same four "tags" routes + catalog create/list, scoped to webview ---
+### --- WebView: the same list model as RepoView (v1.0), under /webview ---
+# Every /repoview/... route below has a /webview/... twin with the same body
+# and behaviour (create, list, :name, rename, annotation, delete, duplicate,
+# convert-to-collection, combine, takeout, import, membership-tags, by-tag).
+# A WebView has no tables routes; it has a front page instead.
 
+### Create a WebView from a Collection (source_collection is required now)
 POST {{baseUrl}}/webview/create
 Content-Type: application/json
 
-{ "name": "wtest" }
+{ "name": "wtest", "source_collection": "content-api" }
 
-### List registered webviews
+### List WebViews
 GET {{baseUrl}}/webview/list
+
+### Modify Frontpage: load (a new WebView starts with {})
+GET {{baseUrl}}/webview/wtest/front-page
+
+### Modify Frontpage: save (the editor's JSON document, any valid JSON except null; replaces the previous one; up to 10 MB)
+POST {{baseUrl}}/webview/wtest/front-page
+Content-Type: application/json
+
+{
+  "front_page": {
+    "type": "doc",
+    "content": [
+      { "type": "heading", "attrs": { "level": 1 }, "content": [{ "type": "text", "text": "About the WebView" }] },
+      { "type": "paragraph", "content": [{ "type": "text", "text": "WebView description" }] }
+    ]
+  }
+}
+
+### Combine two WebViews
+POST {{baseUrl}}/webview/combine
+Content-Type: application/json
+
+{ "name": "wall", "sources": ["wtest", "wtest2"] }
+
+### Takeout (front-page.json goes with it) and import it back
+POST {{baseUrl}}/webview/wtest/takeout
+Content-Type: application/json
+
+{}
+
+### Import reads storage/imports/uncompressed/webview/{folder}/
+POST {{baseUrl}}/webview/import
+Content-Type: application/json
+
+{ "folder": "wtest", "name": "wtest-imported" }
 
 ### Create a webview tag, or add to its count if it already exists
 POST {{baseUrl}}/webview/tags/create
@@ -341,15 +432,206 @@ Content-Type: application/json
 ### List webview tags with their counts
 GET {{baseUrl}}/webview/tags/list
 
-### --- Same four "tags" routes + catalog create/list, scoped to repoview ---
+### --- Repoview (v1.0): a LIST - a SQLite index + Tables-*.md, no EQP data ---
+# The EQP data is only copied at Import/Export time. There are no routes to
+# browse, add or remove a RepoView's endpoints - see API_REFERENCE.md.
 
+### Create a repoview from a collection - builds the list (members, tags, a
+# snapshot of each endpoint + its QPs, and the size of its EQP data). Instant:
+# nothing is copied. Omit endpoint_ids for every member.
 POST {{baseUrl}}/repoview/create
 Content-Type: application/json
 
-{ "name": "rtest" }
+{ "name": "rtest", "annotation": "optional", "source_collection": "product-catalog" }
 
-### List registered repoviews
+### List every repoview with ALL the columns the UI table reads, in one call:
+# name, tags, dataTags, crud, segments, segmentCount, eidCount, qpCount,
+# indexLists, dateCreated, dataSizeBytes, ...
 GET {{baseUrl}}/repoview/list
+
+### One repoview (snake_case): eid_count, qp_count, data_size_bytes,
+# tags_in_data, crud_types, segments, segment_count, index_lists, source, tags
+GET {{baseUrl}}/repoview/rtest
+
+### Rename a repoview - moves the whole folder
+POST {{baseUrl}}/repoview/rtest/rename
+Content-Type: application/json
+
+{ "new_name": "rtest-renamed" }
+
+### Annotate a repoview
+POST {{baseUrl}}/repoview/rtest-renamed/annotation
+Content-Type: application/json
+
+{ "annotation": "updated" }
+
+### Duplicate a repoview - clones the folder, annotation, source and tags
+POST {{baseUrl}}/repoview/rtest-renamed/duplicate
+Content-Type: application/json
+
+{ "new_name": "rtest-renamed-copy" }
+
+### Delete a repoview - removes the catalog row and the whole folder
+POST {{baseUrl}}/repoview/rtest-renamed-copy/delete
+
+### Multi-select delete - each name independently, one bad name doesn't block
+# the rest. Always 200; check each entry's own "ok" in results.
+POST {{baseUrl}}/repoview/delete
+Content-Type: application/json
+
+{ "names": ["rtest", "rtest-2"] }
+
+### --- Convert to Collection (the RMB pop-up) ---
+# New name: the Collection is created. Name already exists: 409 with
+# {"conflict": true, "options": ["merge", "rename"]} and nothing changes -
+# then retry with the user's choice below. Only endpoints that still exist
+# centrally (same URL + method) are added; the rest are listed in "skipped".
+
+### New (or existing - this is the one that gets the 409 warning)
+POST {{baseUrl}}/repoview/rtest-renamed/convert-to-collection
+Content-Type: application/json
+
+{ "collection": "my-collection" }
+
+### The user chose "merge" into the existing Collection
+POST {{baseUrl}}/repoview/rtest-renamed/convert-to-collection
+Content-Type: application/json
+
+{ "collection": "my-collection", "on_exists": "merge" }
+
+### The user chose "rename" - creates a new Collection with this name
+POST {{baseUrl}}/repoview/rtest-renamed/convert-to-collection
+Content-Type: application/json
+
+{ "collection": "my-collection", "on_exists": "rename", "new_name": "my-collection-2" }
+
+### --- Import / Export (takeout) ---
+# A RepoView is only a list, so this is the one place its EQP data is
+# touched. Takeout copies the data of every listed endpoint into
+# storage/takeout/{dest_name}/ with the SQLite index stripped (git/web
+# friendly), plus Tables-*.md and repoview-manifest.json (the endpoints'
+# URL/method/tags/QP status codes, which an EQP folder doesn't hold).
+#
+# Takeout and import are JOBS: they return 202 {job_id} at once and
+# edms-child does the copying. Watch GET /jobs/:id, or the WebSocket
+# GET /jobs/ws (ViewIoProgress while it runs, ViewIoDone when it finishes).
+
+### Take a RepoView out -> 202 {job_id}. 409 {conflict, options:["overwrite","rename"]}
+# straight away if a takeout of that name already exists.
+POST {{baseUrl}}/repoview/rtest-renamed/takeout
+Content-Type: application/json
+
+{}
+
+### Overwrite the existing takeout, or give it another name
+POST {{baseUrl}}/repoview/rtest-renamed/takeout
+Content-Type: application/json
+
+{ "dest_name": "rtest-for-git", "overwrite": true }
+
+### Ask how a job is doing: status running | done | failed | stalled, progress, result
+# (put the job_id from the 202 here)
+GET {{baseUrl}}/jobs/job-0000000000000-1
+
+### Recent jobs
+GET {{baseUrl}}/jobs
+
+### Import: put the takeout folder (e.g. from git) in
+# storage/imports/uncompressed/repo/ and name it here. Every endpoint gets a
+# FRESH EID (the same URL may already exist under another one), its EQP files
+# are renamed to match, and the RepoView's index and Tables are rebuilt.
+# 409 {conflict, options:["rename"]} if the RepoView name is taken - retry
+# with "name". The result (mapping, skipped, ...) is in the job.
+POST {{baseUrl}}/repoview/import
+Content-Type: application/json
+
+{ "folder": "rtest-for-git" }
+
+### Import under a different RepoView name
+POST {{baseUrl}}/repoview/import
+Content-Type: application/json
+
+{ "folder": "rtest-for-git", "name": "rtest-imported" }
+
+### Import a zipped takeout from storage/imports/compressed/repo/
+# It is unzipped first (strictly: any unsafe entry refuses the whole zip) into
+# uncompressed/repo/rtest-for-git/. 409 {options:["replace"]} if that folder is
+# already there - send "replace_extracted": true to replace it.
+POST {{baseUrl}}/repoview/import
+Content-Type: application/json
+
+{ "zip": "rtest-for-git.zip", "name": "rtest-from-zip" }
+
+### The Import/Export table: what is in storage/imports/ (scanned live)
+GET {{baseUrl}}/import-export/table
+
+### Format-check a row (a job): use the row's "section" and "path"
+POST {{baseUrl}}/import-export/check
+Content-Type: application/json
+
+{ "section": "compressed", "path": "repo/rtest-for-git.zip" }
+
+### --- Tags on the RepoView itself (the list-level tag ops) ---
+# Separate from dataTags, the tags of the endpoints inside it.
+
+### Add a tag to a repoview
+POST {{baseUrl}}/repoview/rtest-renamed/membership-tags/add
+Content-Type: application/json
+
+{ "tag": "production" }
+
+### Remove a tag from a repoview
+POST {{baseUrl}}/repoview/rtest-renamed/membership-tags/remove
+Content-Type: application/json
+
+{ "tag": "production" }
+
+### List a repoview's own tags
+GET {{baseUrl}}/repoview/rtest-renamed/membership-tags
+
+### Find every repoview carrying a given tag
+GET {{baseUrl}}/repoview/by-tag/production
+
+### --- Index Table generation ---
+# Two approaches, one active at a time (both write the same Tables-NNN.md /
+# Tables-meta.md names, so generating one replaces the other). Read from the
+# RepoView's own index. Not run automatically - call it to (re)generate.
+# Endpoint Segments columns: EID, CRUD Type, Endpoint (path, no host), Query
+# Parameter, QP, QP Count, Status Summary, Annotation, Tags, Data Size,
+# Created, Updated. Tables-meta.md also carries the view's own annotation and tags.
+# NOTE: a JSON body is always required, even if just {}.
+
+### Approach [B] Endpoint Segments (the default), default batch size (100)
+POST {{baseUrl}}/repoview/rtest-renamed/tables/generate
+Content-Type: application/json
+
+{}
+
+### Approach [B] with an explicit batch size
+POST {{baseUrl}}/repoview/rtest-renamed/tables/generate
+Content-Type: application/json
+
+{ "approach": "endpoint_segments", "batch_size": 50 }
+
+### Approach [A] Sorted Tags - tag -> segment-count pivot, untagged last
+POST {{baseUrl}}/repoview/rtest-renamed/tables/generate
+Content-Type: application/json
+
+{ "approach": "sorted_tags", "batch_size": 50 }
+
+### Which generated files exist, and which approach produced them
+GET {{baseUrl}}/repoview/rtest-renamed/tables
+
+### The markdown of the master/navigation file, then of one batch (what the
+# UI's "Endpoint Data table" click loads). Only Tables-meta.md and
+# Tables-<number>.md are ever served.
+GET {{baseUrl}}/repoview/rtest-renamed/tables/Tables-meta.md
+
+###
+GET {{baseUrl}}/repoview/rtest-renamed/tables/Tables-001.md
+
+### --- Same four "tags" routes as webview above, scoped to repoview ---
+# (central tag-count rollup, separate from the membership routes above)
 
 ### Create a repoview tag, or add to its count if it already exists
 POST {{baseUrl}}/repoview/tags/create
@@ -379,9 +661,13 @@ GET {{baseUrl}}/repoview/tags/list
 ### Delete a data folder
 POST {{baseUrl}}/dataview/my-folder/delete
 
-### Merge a data folder (fire-and-forget — returns 202 immediately,
-### result arrives later via POST /internal/callback -> ExportReady event)
+### Merge collections into my-folder (created if new, added to if it exists). This is the
+### path the Merge dialog calls; it is the same as POST /collections/my-folder/merge below.
+### 202 {job_id,...}; the result arrives as a ViewIoDone event (op "merge") on GET /jobs/ws and on GET /jobs/:id
 POST {{baseUrl}}/dataview/my-folder/merge
+Content-Type: application/json
+
+{ "sources": ["fun-apis", "open-data"] }
 
 ### WS ONLY — mark a folder active (syncs to disk, broadcasts FolderBecameActive): GET /dataview/{folder}/active
 
@@ -439,7 +725,8 @@ GET {{baseUrl}}/logs
 # Repo Export
 # ============================================================
 
-### Export a bookmark collection
+### Export a bookmark collection (the older route - for a real Collection export use
+### POST /collections/:name/takeout above)
 # Returns markdown immediately; also fires async zip export + markdown
 # generation jobs in the background (results via /internal/callback).
 GET {{baseUrl}}/repo/my-collection/export.zip/export

@@ -29,19 +29,19 @@ function renderHistory() {
 
         button.className = `
             flex w-full items-center
-            border-b border-slate-800
+            border-b border-slate-200 dark:border-slate-800
             px-3 py-2.5
             text-left text-xs
             transition
             ${isActive
-                ? "bg-slate-800 font-semibold text-white"
-                : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                ? "bg-slate-200 dark:bg-slate-800 font-semibold text-slate-800 dark:text-white"
+                : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-white"
             }
         `;
 
         if (isActive) {
             button.innerHTML = `
-                <span class="mr-2 text-cyan-400">●</span>
+                <span class="mr-2 text-cyan-600 dark:text-cyan-400">●</span>
                 <span>${date}</span>
             `;
         } else {
@@ -76,61 +76,13 @@ async function loadTags() {
 
     try {
 
-        const response =
-            await fetch("../data/collections.json");
+        const res = await EdmsAPI.listPopularTags();
 
-        const data =
-            await response.json();
+        if (!res.ok) {
+            throw new Error(`Failed to load tags: ${res.status}`);
+        }
 
-        const tagCounts = {};
-
-        // Count tags from collections
-        data.folders.forEach(folder => {
-
-            if (Array.isArray(folder.tags)) {
-
-                folder.tags.forEach(tag => {
-
-                    tagCounts[tag] =
-                        (tagCounts[tag] || 0) + 1;
-
-                });
-
-            }
-
-            // Count tags from endpoints
-            if (Array.isArray(folder.endpoints)) {
-
-                folder.endpoints.forEach(endpoint => {
-
-                    if (Array.isArray(endpoint.tags)) {
-
-                        endpoint.tags.forEach(tag => {
-
-                            tagCounts[tag] =
-                                (tagCounts[tag] || 0) + 1;
-
-                        });
-
-                    }
-
-                });
-
-            }
-
-        });
-
-
-        // Convert to array and sort
-        const tags =
-            Object.entries(tagCounts)
-                .map(([name, count]) => ({
-                    name,
-                    count
-                }))
-                .sort((a, b) => b.count - a.count);
-
-
+        const tags = Array.isArray(res.data) ? res.data : [];
 
         tags.slice(0, 13).forEach(tag => {
 
@@ -139,17 +91,18 @@ async function loadTags() {
 
             item.className =
                 "flex items-center gap-1.5 rounded-md " +
-                "border border-slate-700 bg-slate-800 " +
+                "border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 " +
                 "px-2 py-1";
 
             item.innerHTML = `
-                <span class="rounded border border-slate-600
-                             bg-slate-700 px-2 py-0.5
-                             text-xs text-slate-200">
+                <span class="rounded border border-slate-400 dark:border-slate-600
+                             bg-slate-200 dark:bg-slate-700
+                             px-2 py-0.5
+                             text-xs text-slate-800 dark:text-slate-200">
                     ${tag.name}
                 </span>
 
-                <span class="text-xs text-slate-400">
+                <span class="text-xs text-slate-500 dark:text-slate-400">
                     ${tag.count}
                 </span>
             `;
@@ -160,16 +113,16 @@ async function loadTags() {
 
 
         // More tags indicator
-        if (tags.length > 6) {
+        if (tags.length > 13) {
 
             const more =
                 document.createElement("span");
 
             more.className =
-                "px-2 py-1 text-xs text-slate-400";
+                "px-2 py-1 text-xs text-slate-500 dark:text-slate-400";
 
             more.textContent =
-                `... more (+${tags.length - 6})`;
+                `... more (+${tags.length - 13})`;
 
             tagsContainer.appendChild(more);
 

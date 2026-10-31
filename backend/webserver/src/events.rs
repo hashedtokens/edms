@@ -66,9 +66,40 @@ pub enum ServerEvent {
     /// without running a real HTTP test (per Shivanshu, 2026-09-29).
     QpCreated { endpoint_id: String, request_number: i32 },
 
+    /// A QP run or create was blocked because an identical request snapshot already exists.
+    DuplicateQpBlocked {
+        endpoint_id: String,
+        request_number: i32,
+        duplicate_of: i32,
+    },
+
     EndpointAnnotationUpdated { endpoint_id: String },
 
     ViewRefresh { view_type: String, count: usize },
+
+    /// Progress of a long Import/Export job (see `jobs.rs`), e.g. endpoints
+    /// copied so far. `progress` is `{step, done, total}`. Streamed on
+    /// `GET /jobs/ws`.
+    ViewIoProgress {
+        job_id: String,
+        op: String,
+        view: Option<String>,
+        name: Option<String>,
+        progress: serde_json::Value,
+    },
+
+    /// An Import/Export job finished, successfully or not: `result` is what
+    /// the HTTP request used to return directly, `error` is set when `ok` is
+    /// false.
+    ViewIoDone {
+        job_id: String,
+        op: String,
+        view: Option<String>,
+        name: Option<String>,
+        ok: bool,
+        result: Option<serde_json::Value>,
+        error: Option<String>,
+    },
 }
 
 #[cfg(test)]

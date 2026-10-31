@@ -120,6 +120,9 @@ pub async fn create_endpoint(
     match db::insert_endpoint(&state.core, &state.queries, &ep) {
         Ok(_) => {
             state.refresh_dashboard_snapshot();
+            let _ = state.events_tx.send(ServerEvent::CrudOperationsUpdated {
+                computed_at: chrono::Utc::now().to_rfc3339(),
+            });
 
             (
                 StatusCode::CREATED,
@@ -181,6 +184,12 @@ pub async fn get_or_create_endpoint(
         }
     }
 
+    // Dedup check before allocating a new EID (Query E8)
+    let m = method.as_deref().unwrap_or("GET");
+    if let Ok(Some(existing)) = db::find_endpoint_by_str_and_method(&state.core, &state.queries, endpoint_str, m) {
+        return Ok((existing, false));
+    }
+
     let (eid, was_allocated) = resolve_new_eid(state, endpoint_id)?;
     let ep = EndpointDto {
         endpoint_id: eid.clone(),
@@ -220,7 +229,15 @@ pub async fn delete_endpoint(
             // collection's own file are a separate, pre-existing gap this
             // doesn't touch (see Known limitations).
             let _ = db::delete_bookmarks_for_endpoint(&state.core, &state.queries, &endpoint_id);
+            let _ = db::delete_endpoint_data(&state.core, &endpoint_id);
+            let dir = state.endpoint_storage_dir(&endpoint_id);
+            if dir.exists() {
+                let _ = tokio::fs::remove_dir_all(&dir).await;
+            }
             state.refresh_dashboard_snapshot();
+            let _ = state.events_tx.send(ServerEvent::CrudOperationsUpdated {
+                computed_at: chrono::Utc::now().to_rfc3339(),
+            });
 
             (
                 StatusCode::OK,

@@ -42,7 +42,9 @@ pub struct IpcCallback {
 
 // ── Spawn helper ─────────────────────────────────────────────────────
 
-pub fn spawn_child(task: &str, payload: serde_json::Value, callback_port: u16) {
+/// Returns whether the child process was actually started (callers that
+/// have a job waiting on it fail the job when it wasn't; the rest ignore it).
+pub fn spawn_child(task: &str, payload: serde_json::Value, callback_port: u16) -> bool {
     let request = IpcRequest {
         task: task.to_string(),
         payload,
@@ -53,7 +55,7 @@ pub fn spawn_child(task: &str, payload: serde_json::Value, callback_port: u16) {
         Ok(j) => j,
         Err(e) => {
             error!("[ipc] Failed to serialize IpcRequest: {e}");
-            return;
+            return false;
         }
     };
 
@@ -99,6 +101,7 @@ pub fn spawn_child(task: &str, payload: serde_json::Value, callback_port: u16) {
             std::mem::forget(child);
 
             info!("[ipc] Child spawned and detached for task='{}'", task);
+            true
         }
         Err(e) => {
             error!(
@@ -106,6 +109,7 @@ pub fn spawn_child(task: &str, payload: serde_json::Value, callback_port: u16) {
                  Make sure you've run `cargo build` so the binary exists.",
                 child_bin
             );
+            false
         }
     }
 }
