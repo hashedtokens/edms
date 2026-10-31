@@ -293,6 +293,16 @@ The UI shows statistics per row (endpoint count, QP count, method counts, tags i
 
 ---
 
+## Dev API status codes
+
+The dev API (`/hashedtokens/edms/api/history/` and `/collections/`) lets a backend developer push one QP for one endpoint (endpoint, request, response, headers, plus EDMS data) without the UI. The route answers `202` and the final code arrives over the WebSocket, so the caller keeps a socket open and waits for it (about 15 seconds).
+
+The codes are linear: `0` is all good, `-1` is unknown (not assigned yet), and everything else counts up from `100` in the order it was added. A new code goes at the end and keeps its number. The one list for every language is [`pkg/status_codes.md`](../../pkg/status_codes.md); the Rust side is `compute/src/api_status.rs`, and a test fails if they differ.
+
+A result carries the status as `{code, name, message}` plus the fields that apply (`endpoint_id`, `request_number`, `duplicate_of`, `endpoint_created`, `collection_created`, `detail`). Only the codes a route can raise before any work starts get an HTTP status instead of `202`: `100` to `103` are `400`, `109` is `500`, `107` is `503`. Every other code only arrives in the WebSocket result.
+
+---
+
 ## Logs
 
 | Method | Path | Notes |
