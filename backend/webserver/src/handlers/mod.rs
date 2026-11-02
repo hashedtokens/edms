@@ -8,6 +8,7 @@ pub mod collection_ie;
 pub mod collection_merge;
 pub mod dashboard;
 pub mod dataview;
+pub mod dev_api;
 pub mod logs;
 pub mod repo;
 pub mod report_export;

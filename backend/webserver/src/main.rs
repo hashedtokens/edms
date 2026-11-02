@@ -35,6 +35,7 @@ use handlers::{
         refresh_crud_operations,
     },
     dataview::{dashboard, delete_folder, ws_make_folder_active},
+    dev_api::{api_collections, api_history, ws_api},
     endpoints::{create_endpoint, delete_endpoint, lookup_endpoint, update_endpoint_annotation},
     logs::get_logs,
     report_export::export_eqp_report,
@@ -389,6 +390,13 @@ async fn main() -> anyhow::Result<()> {
         .route("/import-export/check", post(import_export_check))
         .route("/jobs", get(list_jobs))
         .route("/jobs/ws", get(ws_jobs))
+        // Dev API: push one QP for one endpoint without the UI. The paths
+        // are served with and without the trailing slash.
+        .route("/hashedtokens/edms/api/history", post(api_history))
+        .route("/hashedtokens/edms/api/history/", post(api_history))
+        .route("/hashedtokens/edms/api/collections", post(api_collections))
+        .route("/hashedtokens/edms/api/collections/", post(api_collections))
+        .route("/hashedtokens/edms/api/ws", get(ws_api))
         .route("/jobs/:id", get(get_job))
         .route("/internal/callback", post(ipc_callback))
         .route("/logs", get(get_logs))
