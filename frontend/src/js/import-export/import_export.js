@@ -114,7 +114,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 "transition hover:bg-slate-200 dark:hover:bg-slate-800/40";
 
             row.innerHTML = `
-
+<td class="px-3 py-3 w-10">
+    <input type="checkbox" class="row-check h-3.5 w-3.5 cursor-pointer accent-cyan-500">
+</td>
             <!-- Folder Name -->
 
             <td class="px-5 py-3
@@ -167,9 +169,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 }
             );
+            row.querySelector(".row-check").addEventListener("change", syncSelectAll);
             table.appendChild(row);
 
         });
+        syncSelectAll();
     }
     // FORMAT CHECK BADGE
     function getFormatCheckBadge(result) {
@@ -217,6 +221,24 @@ document.addEventListener("DOMContentLoaded", () => {
             </span>
 
         `;
+    }
+    // SELECT ALL
+    const selectAll = document.getElementById("selectAll");
+
+    function syncSelectAll() {
+        if (!selectAll) return;
+        const checks = document.querySelectorAll(".row-check");
+        const checked = document.querySelectorAll(".row-check:checked");
+        selectAll.checked = checks.length > 0 && checked.length === checks.length;
+        selectAll.indeterminate = checked.length > 0 && checked.length < checks.length;
+    }
+
+    if (selectAll) {
+        selectAll.addEventListener("change", () => {
+            document.querySelectorAll(".row-check").forEach(c => {
+                c.checked = selectAll.checked;
+            });
+        });
     }
     // SEARCH
 
