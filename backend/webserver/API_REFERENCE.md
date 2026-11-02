@@ -293,9 +293,23 @@ The UI shows statistics per row (endpoint count, QP count, method counts, tags i
 
 ---
 
-## Dev API status codes
+## Dev API
 
-The dev API (`/hashedtokens/edms/api/history/` and `/collections/`) lets a backend developer push one QP for one endpoint (endpoint, request, response, headers, plus EDMS data) without the UI. The route answers `202` and the final code arrives over the WebSocket, so the caller keeps a socket open and waits for it (about 15 seconds).
+Lets a backend developer push one QP for one endpoint (endpoint, request, response, headers, plus EDMS data) without the UI. The routes are write-only: they check the body, start a compute op in `edms-child` and answer **202** with a `transaction_id`. The final code arrives over the WebSocket, so the caller keeps a socket open and waits for it (about 15 seconds). The open UI views refresh from the events the ops already send.
+
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/hashedtokens/edms/api/history/` | `ops: "test"`. Also served without the trailing slash |
+| POST | `/hashedtokens/edms/api/collections/` | `ops: "test_and_insert"` or `"insert"`. Also served without the trailing slash |
+| GET (WS) | `/hashedtokens/edms/api/ws` | On connect `{"type":"transactions","transactions":[...still running...]}`, then each result as `{"type":"event","event":{"type":"DevApiResult","payload":{transaction_id, op, result}}}`. `result` is the result below. A transaction that finished before the socket connected is read with `GET /jobs/:id` (`result` holds the same thing) |
+
+**Request** (JSON object; the mandatory params are provisional until the schema is confirmed). `ops` and `endpoint_str` are always required; `test` and `test_and_insert` also need `method` and an `http(s)` URL; the collections routes also need `collection` (a valid collection name; a missing collection is created); `insert` also needs `request_body` and `response_body`. Optional: `body`, `headers`, `timeout_ms` (1 to 120000), `annotation`, `collection_annotation`, `notes`, `endpoint_id`, `request_headers`, `response_headers`.
+
+**Answers.** `202 {ok, transaction_id, ops}` once the op has started. A request that is wrong or can't start gets a `4xx`/`5xx` with `{ok:false, status:{code, name, message}, detail}` and no transaction. If the compute process reports a failure the transaction closes with `109`; if it never reports back it closes with `108` after 30 seconds.
+
+**Compute ops** (Hemang for history, Manorath for collections) are `edms-child` tasks named `api_history_test`, `api_collections_test_and_insert` and `api_collections_insert`. The payload is the validated request plus `job_id` (the transaction id). The op replies on `/internal/callback` with `result = {job_id, status, ...}`, where `status` is a code from the list below (a number or `{code}`) and the other fields are the ones the result carries. Until an op exists, its calls end with `108`.
+
+### Status codes
 
 The codes are linear: `0` is all good, `-1` is unknown (not assigned yet), and everything else counts up from `100` in the order it was added. A new code goes at the end and keeps its number. The one list for every language is [`pkg/status_codes.md`](../../pkg/status_codes.md); the Rust side is `compute/src/api_status.rs`, and a test fails if they differ.
 

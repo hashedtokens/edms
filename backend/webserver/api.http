@@ -715,6 +715,50 @@ GET {{baseUrl}}/dashboard/crud-operations
 POST {{baseUrl}}/dashboard/crud-operations/refresh
 
 # ============================================================
+# Dev API (write-only: 202 + transaction_id, the final code arrives on the WebSocket)
+# ============================================================
+
+### Test an endpoint and put it into History
+# WS (keep open to get the result): ws://localhost:3000/hashedtokens/edms/api/ws
+POST {{baseUrl}}/hashedtokens/edms/api/history/
+Content-Type: application/json
+
+{
+  "ops": "test",
+  "endpoint_str": "https://jsonplaceholder.typicode.com/todos/1",
+  "method": "GET"
+}
+
+### Test an endpoint and insert it into a collection (the collection is created if missing)
+POST {{baseUrl}}/hashedtokens/edms/api/collections/
+Content-Type: application/json
+
+{
+  "ops": "test_and_insert",
+  "endpoint_str": "https://jsonplaceholder.typicode.com/todos/1",
+  "method": "GET",
+  "collection": "my-api"
+}
+
+### Insert the data as given (no test)
+POST {{baseUrl}}/hashedtokens/edms/api/collections/
+Content-Type: application/json
+
+{
+  "ops": "insert",
+  "endpoint_str": "https://api.example.com/v1/users",
+  "method": "POST",
+  "collection": "my-api",
+  "request_body": { "name": "ada" },
+  "response_body": { "id": 1, "name": "ada" },
+  "request_headers": { "content-type": "application/json" },
+  "response_headers": { "content-type": "application/json" }
+}
+
+### A finished transaction can be read back (same result the socket sent)
+GET {{baseUrl}}/jobs/job-0000000000000-1
+
+# ============================================================
 # Logs
 # ============================================================
 

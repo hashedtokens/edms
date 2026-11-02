@@ -25,9 +25,12 @@ pub async fn ipc_callback(
         if let Some(ref err) = callback.error {
             error!("[callback] task='{}' failed: {}", callback.task, err);
         }
-        // A job's child reports its failure here: fail the job too.
-        crate::handlers::repoview_ie::abort_import(&state, &callback);
-        crate::handlers::jobs::fail_from_callback(&state, &callback);
+        // A dev API call closes with its own code over its own socket;
+        // anything else with a job is an Import/Export job: fail it too.
+        if !crate::handlers::dev_api::fail_from_callback(&state.jobs, &state.events_tx, &callback) {
+            crate::handlers::repoview_ie::abort_import(&state, &callback);
+            crate::handlers::jobs::fail_from_callback(&state, &callback);
+        }
         let _ = state.events_tx.send(ServerEvent::Error {
             message: format!(
                 "IPC task '{}' failed: {}",
@@ -47,6 +50,9 @@ pub async fn ipc_callback(
         "export_merge"             => handle_export_merge(&state, &callback).await,
         "mark_active_folder"       => handle_mark_active_folder(&state, &callback).await,
         "compute_crud_operations"  => handle_compute_crud_operations(&state, &callback).await,
+        "api_history_test" | "api_collections_test_and_insert" | "api_collections_insert" => {
+            crate::handlers::dev_api::finish_from_callback(&state.jobs, &state.events_tx, &callback)
+        }
         "view_io_progress"         => crate::handlers::jobs::progress_from_callback(&state, &callback),
         "view_takeout"             => crate::handlers::jobs::complete_from_callback(&state, &callback),
         "view_import_copy"         => crate::handlers::repoview_ie::finish_import(&state, &callback).await,
