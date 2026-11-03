@@ -113,7 +113,11 @@ pub async fn save_to_collection(
                 return Err(format!("'{eid}' is not bookmarked in '{collection}'"));
             }
             let membership = open_existing_collection_membership(&st, &collection)?;
-            membership.add(&eid).map_err(|e| format!("{e:?}"))
+            let joining = crate::handlers::collection_size::not_yet_members(&membership, std::slice::from_ref(&eid))?;
+            crate::handlers::collection_size::ensure_size(&st, &membership)?;
+            let inserted = membership.add(&eid).map_err(|e| format!("{e:?}"))?;
+            crate::handlers::collection_size::members_added(&st, &membership, &joining);
+            Ok(inserted)
         }
     })
     .await;
@@ -151,7 +155,12 @@ pub async fn remove_from_collection(
         let collection = collection.clone();
         move || -> Result<usize, String> {
             let membership = open_existing_collection_membership(&st, &collection)?;
-            membership.remove(&eid).map_err(|e| format!("{e:?}"))
+            crate::handlers::collection_size::ensure_size(&st, &membership)?;
+            let deleted = membership.remove(&eid).map_err(|e| format!("{e:?}"))?;
+            if deleted > 0 {
+                crate::handlers::collection_size::members_removed(&st, &membership, std::slice::from_ref(&eid));
+            }
+            Ok(deleted)
         }
     })
     .await;

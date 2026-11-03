@@ -268,9 +268,14 @@ pub fn clear_history(core: &EdmsCore, queries: &QueryMap) -> EdmsResult<usize> {
 
 pub fn insert_history(core: &EdmsCore, queries: &QueryMap, endpoint_id: &str, action: &str, details: Option<&str>) -> EdmsResult<usize> {
     let q = queries.get_history_query("H3").ok_or(EdmsError::UnknownError)?;
+    // Domain of the endpoint at the time of the run, kept in its own column.
+    let base_url: Option<String> = get_endpoint(core, queries, endpoint_id)
+        .ok()
+        .flatten()
+        .and_then(|ep| edms::base_url::base_url_of(&ep.endpoint_str));
     core.proc(
         q,
-        &[&endpoint_id, &action, &details],
+        &[&endpoint_id, &action, &details, &base_url],
     )
 }
 
@@ -287,6 +292,7 @@ pub struct HistoryEntry {
     pub action: String,
     pub details: Option<String>,
     pub timestamp: String,
+    pub base_url: Option<String>,
 }
 
 pub fn list_history(core: &EdmsCore, queries: &QueryMap) -> EdmsResult<Vec<HistoryEntry>> {
@@ -298,6 +304,42 @@ pub fn list_history(core: &EdmsCore, queries: &QueryMap) -> EdmsResult<Vec<Histo
             action: row.get(2)?,
             details: row.get(3)?,
             timestamp: row.get(4)?,
+            base_url: row.get(5)?,
+        })
+    })
+}
+
+/// One History card: an endpoint with everything the card shows, so the
+/// frontend needs no per-card calls.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HistoryCard {
+    pub endpoint_id: String,
+    pub method: Option<String>,
+    pub endpoint_str: Option<String>,
+    pub base_url: Option<String>,
+    pub path: String,
+    pub last_run: String,
+    pub runs: i64,
+    pub qp_count: i64,
+    pub tag_count: i64,
+}
+
+/// Every endpoint that has history, newest run first, aggregated by one
+/// query (H6). `path` is `endpoint_str` without its base URL.
+pub fn list_history_cards(core: &EdmsCore, queries: &QueryMap) -> EdmsResult<Vec<HistoryCard>> {
+    let q = queries.get_history_query("H6").ok_or(EdmsError::UnknownError)?;
+    core.cproc(q, &[], |row| {
+        let endpoint_str: Option<String> = row.get(2)?;
+        Ok(HistoryCard {
+            endpoint_id: row.get(0)?,
+            method: row.get(1)?,
+            path: endpoint_str.as_deref().map(edms::base_url::path_of).unwrap_or_default(),
+            endpoint_str,
+            base_url: row.get(3)?,
+            last_run: row.get(4)?,
+            runs: row.get(5)?,
+            qp_count: row.get(6)?,
+            tag_count: row.get(7)?,
         })
     })
 }
@@ -478,4 +520,104 @@ pub fn reassign_qp_numbers(
     }
 
     Ok(renamed)
+}
+
+#[cfg(test)]
+mod history_card_tests {
+    use super::*;
+    use edms::base_url::{base_url_of, path_of};
+
+    fn fresh(name: &str) -> (EdmsCore, QueryMap, std::path::PathBuf) {
+        let dir = std::env::temp_dir().join(format!("edms-hist-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let core = EdmsCore::new(&dir.join("edms.db").display().to_string());
+        core.connect().unwrap();
+        (core, QueryMap::load(), dir)
+    }
+
+    #[test]
+    fn base_url_keeps_scheme_host_and_port_only() {
+        assert_eq!(base_url_of("https://api.microsoft.com:8443/v1/users?x=1"), Some("https://api.microsoft.com:8443".into()));
+        assert_eq!(base_url_of("HTTP://Example.COM"), Some("http://example.com".into()));
+        assert_eq!(base_url_of("http://example.com?q=1"), Some("http://example.com".into()));
+        assert_eq!(base_url_of("https://user:pw@host.test/a"), Some("https://host.test".into()));
+    }
+
+    #[test]
+    fn relative_or_broken_strings_have_no_base_url() {
+        for s in ["/v1/users", "not a url", "http:///x", ""] {
+            assert_eq!(base_url_of(s), None, "{s:?}");
+        }
+    }
+
+    #[test]
+    fn path_is_what_follows_the_base_url() {
+        assert_eq!(path_of("https://a.test/v1/u?x=1"), "/v1/u?x=1");
+        assert_eq!(path_of("https://a.test"), "");
+        assert_eq!(path_of("/v1/u"), "/v1/u");
+    }
+
+    #[test]
+    fn history_from_before_gets_its_base_url_filled_in() {
+        let dir = std::env::temp_dir().join(format!("edms-hist-mig-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let conn = rusqlite::Connection::open(dir.join("old.db")).unwrap();
+        conn.execute_batch(
+            "CREATE TABLE endpoints (endpoint_id TEXT PRIMARY KEY, endpoint_str TEXT NOT NULL, annotation TEXT,
+                method TEXT NOT NULL DEFAULT 'GET', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+             CREATE TABLE history (id INTEGER PRIMARY KEY AUTOINCREMENT, endpoint_id TEXT NOT NULL,
+                action TEXT NOT NULL, details TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+             INSERT INTO endpoints (endpoint_id, endpoint_str) VALUES ('E1', 'https://Api.Test:8443/v1/x?y=1'), ('E2', '/relative');
+             INSERT INTO history (endpoint_id, action) VALUES ('E1', 'test'), ('E1', 'test'), ('E2', 'test'), ('GONE', 'test');",
+        )
+        .unwrap();
+
+        let read = |c: &rusqlite::Connection| -> Vec<Option<String>> {
+            let mut st = c.prepare("SELECT base_url FROM history ORDER BY id").unwrap();
+            st.query_map([], |r| r.get(0)).unwrap().map(|r| r.unwrap()).collect()
+        };
+        edms::schema::initialize_schema(&conn).unwrap();
+        let want = vec![Some("https://api.test:8443".to_string()), Some("https://api.test:8443".to_string()), None, None];
+        assert_eq!(read(&conn), want);
+        // Running it again (every launch) changes nothing and does not fail on the existing column.
+        edms::schema::initialize_schema(&conn).unwrap();
+        assert_eq!(read(&conn), want);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_new_history_row_stores_the_base_url_and_cards_aggregate_per_endpoint() {
+        let (core, q, dir) = fresh("cards");
+        edms::schema::initialize_schema_from_core(&core).unwrap();
+        core.proc("INSERT INTO endpoints (endpoint_id, endpoint_str, method) VALUES ('E1', 'https://api.test/v1/users?x=1', 'POST')", &[]).unwrap();
+        core.proc("INSERT INTO endpoints (endpoint_id, endpoint_str, method) VALUES ('E2', 'http://other.test', 'GET')", &[]).unwrap();
+        core.proc("INSERT INTO request_metadata (endpoint_id, request_number, file_path, method) VALUES ('E1', 1, 'f', 'POST'), ('E1', 2, 'f', 'POST')", &[]).unwrap();
+        core.proc("INSERT INTO tags (endpoint_id, tag) VALUES ('E1', 'a'), ('E1', 'b'), ('E1', 'c')", &[]).unwrap();
+
+        insert_history(&core, &q, "E1", "test", Some("200 in 5ms")).unwrap();
+        insert_history(&core, &q, "E1", "test", Some("200 in 6ms")).unwrap();
+        insert_history(&core, &q, "E2", "test", None).unwrap();
+        insert_history(&core, &q, "NOPE", "test", None).unwrap();
+
+        let rows = list_history(&core, &q).unwrap();
+        assert!(rows.iter().any(|h| h.endpoint_id == "E1" && h.base_url.as_deref() == Some("https://api.test")));
+        assert!(rows.iter().any(|h| h.endpoint_id == "NOPE" && h.base_url.is_none()));
+
+        let cards = list_history_cards(&core, &q).unwrap();
+        assert_eq!(cards.len(), 3, "one card per endpoint, not per run");
+        assert_eq!(cards[0].endpoint_id, "NOPE", "newest run first, even within the same second");
+        let e1 = cards.iter().find(|c| c.endpoint_id == "E1").unwrap();
+        assert_eq!(e1.method.as_deref(), Some("POST"));
+        assert_eq!(e1.base_url.as_deref(), Some("https://api.test"));
+        assert_eq!(e1.path, "/v1/users?x=1");
+        assert_eq!((e1.runs, e1.qp_count, e1.tag_count), (2, 2, 3));
+        let e2 = cards.iter().find(|c| c.endpoint_id == "E2").unwrap();
+        assert_eq!((e2.base_url.as_deref(), e2.path.as_str(), e2.qp_count, e2.tag_count), (Some("http://other.test"), "", 0, 0));
+        let gone = cards.iter().find(|c| c.endpoint_id == "NOPE").unwrap();
+        assert_eq!((gone.method.clone(), gone.base_url.clone(), gone.path.as_str()), (None, None, ""));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

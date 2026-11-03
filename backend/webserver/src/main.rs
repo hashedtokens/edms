@@ -45,7 +45,7 @@ use handlers::{
         clear_bookmarks, clear_history, create_qp, delete_qp, get_saved_headers, get_saved_request,
         get_saved_response, list_qps, save_bookmark, save_history, stop, update_qp,
         ws_add_from_history_to_bookmark, ws_delete_from_bookmark, ws_load_bookmarks,
-        ws_load_endpoints, ws_load_history, ws_run,
+        history_cards, ws_load_endpoints, ws_load_history, ws_run,
     },
     view::{home, list_view, test_view, trigger_view_refresh},
     view_catalog::{
@@ -317,6 +317,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/test-view/endpoints/load", get(ws_load_endpoints))
         .route("/test-view/:collection/bookmarks/load", get(ws_load_bookmarks))
         .route("/test-view/history/load", get(ws_load_history))
+        .route("/test-view/history/cards", get(history_cards))
         .route("/test-view/run", get(ws_run))
         .route("/test-view/stop", post(stop))
         .route("/test-view/save/history", post(save_history))
