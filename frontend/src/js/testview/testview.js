@@ -1934,22 +1934,22 @@ function setupHistoryContextMenu() {
 
     menu.innerHTML = `
 
-        <button
-            type="button"
-            data-history-action="bookmark"
-            class="
-                w-full
-                px-4
-                py-2.5
-                text-left
-                text-sm
-                text-slate-700 dark:text-slate-200
-hover:bg-slate-100 dark:hover:bg-slate-800
-                hover:bg-slate-800
-            "
-        >
-            Add to Bookmark
-        </button>
+     <button
+    type="button"
+    data-history-action="bookmark"
+    class="
+        w-full
+        px-4
+        py-2.5
+        text-left
+        text-sm
+        text-slate-700 dark:text-slate-200
+        hover:bg-slate-100 dark:hover:bg-slate-800
+        hover:text-slate-900 dark:hover:text-white
+    "
+>
+    Add to Bookmark
+</button>
 
         <button
             type="button"
@@ -3539,6 +3539,7 @@ function setupTestSearch() {
 function setupMethodFilters() {
 
     [
+        "ALL",
         "GET",
         "POST",
         "PUT",
@@ -3575,14 +3576,13 @@ function setupMethodFilters() {
     );
 
 }
-
 // ============================================================
 // METHOD BUTTONS
 // ============================================================
 
 function updateMethodButtons() {
 
-    [
+    ["ALL",
         "GET",
         "POST",
         "PUT",

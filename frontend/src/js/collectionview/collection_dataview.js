@@ -51,8 +51,15 @@
     wireWindows();
 
     wireSidebar();
-
     await loadCollection();
+
+    if (typeof RefreshButton !== "undefined") {
+      RefreshButton.init({
+        buttonId: "refreshEndpoints",
+        debug: true,
+        onRefresh: loadCollection,
+      });
+    }
 
     if (typeof TagManager !== "undefined") {
       TagManager.init({
@@ -274,15 +281,18 @@
         await Promise.all(preloadTasks);
       }
 
-      state.filtered = [...state.endpoints];
+      // Drop selections for endpoints that no longer exist
+      const liveIds = new Set(state.endpoints.map(getEndpointId));
+      state.selected = new Set([...state.selected].filter((id) => liveIds.has(id)));
 
       renderCollectionInfo();
       updateSidebarStats();
       renderTags();
       renderSegments();
-      renderStats();
-      render();
-    } catch (error) {
+      applyFilters(); // sets state.filtered, clamps page, and calls render()
+      RefreshButton?.synced();
+    }
+    catch (error) {
       console.error("Failed to load collection:", error);
       renderError("Unable to load collection data.");
     }
@@ -550,20 +560,13 @@
 
               </td>
 
-              <td
+                         <td
                   class="px-3 py-2
                         text-center"
               >
 
                   <span
-                      class="inline-flex
-                            min-w-6
-                            justify-center
-                            rounded-md
-                            bg-slate-200 dark:bg-slate-800
-                            px-1.5 py-0.5
-                            text-[10px]
-                            text-slate-600 dark:text-slate-400"
+                      class="qp-count-badge inline-flex min-w-6 justify-center rounded-md bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-600 dark:text-slate-400"
                   >
                       ${getQPCount(endpoint)}
                   </span>
@@ -844,10 +847,10 @@
         ? String(response.status)
         : "";
       resStatus.className = `mt-0.5 text-[11px] font-semibold ${response.status >= 200 && response.status < 300
-          ? "text-emerald-600 dark:text-emerald-400"
-          : response.status >= 400
-            ? "text-rose-600 dark:text-rose-400"
-            : "text-slate-500 dark:text-slate-400"
+        ? "text-emerald-600 dark:text-emerald-400"
+        : response.status >= 400
+          ? "text-rose-600 dark:text-rose-400"
+          : "text-slate-500 dark:text-slate-400"
         }`;
     }
 
@@ -1040,43 +1043,7 @@
     openDetailsPanel(endpoint, qpData);
   }
 
-  // ============================================================
-  // STATS
-  // ============================================================
 
-  function renderStats() {
-    const endpoints = state.endpoints;
-
-    const tags = new Set();
-
-    let get = 0;
-
-    let write = 0;
-
-    endpoints.forEach((endpoint) => {
-      const method = String(endpoint.method || "").toUpperCase();
-
-      if (method === "GET") {
-        get++;
-      }
-
-      if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
-        write++;
-      }
-
-      const endpointTags = Array.isArray(endpoint.tags) ? endpoint.tags : [];
-
-      endpointTags.forEach((tag) => tags.add(tag));
-    });
-
-    document.getElementById("endpointCount").textContent = endpoints.length;
-
-    document.getElementById("tagCount").textContent = tags.size;
-
-    document.getElementById("getCount").textContent = get;
-
-    document.getElementById("writeCount").textContent = write;
-  }
 
   function renderCollectionInfo() {
     const folder = state.collection;
@@ -1441,9 +1408,7 @@
 
     // Tag filter removed as we now use sidebar
 
-    document
-      .getElementById("resetEndpointFilters")
-      .addEventListener("click", resetFilters);
+
 
     document
       .getElementById("clearEndpointSelection")
@@ -1486,27 +1451,6 @@
     });
   }
 
-  function resetFilters() {
-    state.search = "";
-
-    state.method = "all";
-
-    state.tags.clear();
-    state.segments.clear();
-
-    state.page = 1;
-
-    document.getElementById("endpointSearch").value = "";
-
-    document.getElementById("methodFilter").value = "all";
-
-    // Uncheck sidebar inputs
-    document
-      .querySelectorAll(".tag-checkbox, .segment-checkbox")
-      .forEach((cb) => (cb.checked = false));
-
-    applyFilters();
-  }
 
   // ============================================================
   // TABLE
@@ -2113,15 +2057,15 @@
           "Remove Endpoints",
           `
                     <div class="space-y-4">
-                        <p class="text-xs text-slate-300">
+                        <p class="text-xs text-slate-700 dark:text-slate-300">
                             Are you sure you want to remove ${state.selected.size} endpoint${state.selected.size === 1 ? "" : "s"} from this collection?
                         </p>
-                        <p class="text-[10px] text-slate-500">
+                        <p class="text-[10px] text-slate-500 dark:text-slate-400">
                             This will not delete the endpoints from the system, only from this collection.
                         </p>
                         <div class="flex justify-end gap-2 pt-2">
-                            <button type="button" class="rounded-md border border-slate-700 px-3 py-1.5 text-xs text-slate-400 hover:bg-slate-800" data-modal-close>Cancel</button>
-                            <button id="confirmRemove" type="button" class="rounded-md bg-rose-600/90 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-500">Remove</button>
+                            <button type="button" class="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800" data-modal-close>Cancel</button>
+                            <button id="confirmRemove" type="button" class="rounded-md bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-500 disabled:opacity-60 disabled:cursor-not-allowed">Remove</button>
                         </div>
                     </div>
                 `,

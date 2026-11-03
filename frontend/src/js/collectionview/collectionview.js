@@ -57,6 +57,23 @@
     wireModal();
 
     await loadFolders();
+    if (typeof RefreshButton !== "undefined") {
+      RefreshButton.init({
+        buttonId: "resetFilters",
+        debug: true, // remove once the event names are known
+        events: [
+          // fill in after checking the console, e.g.:
+          // "CollectionCreated", "CollectionDeleted", "CollectionRenamed",
+          // "CollectionEndpointAdded", "CollectionEndpointRemoved",
+          // "MembershipTagAdded", "MembershipTagRemoved", "ViewIoDone"
+        ],
+        onRefresh: async () => {
+          await loadFolders();
+          renderSidebar();
+          applyFilters();
+        },
+      });
+    }
 
     renderSidebar();
 
@@ -180,7 +197,6 @@
       }
 
       const items = getCollectionItems(response);
-
       const previousActive = state.activeFolderId;
 
       const previousActiveFolder = getFolder(previousActive);
@@ -1725,9 +1741,7 @@
         applyFilters();
       });
 
-    document
-      .getElementById("resetFilters")
-      ?.addEventListener("click", resetFilters);
+
 
     document
       .getElementById("newCollectionBtn")
@@ -1871,7 +1885,7 @@
       }
 
       await loadFolders();
-
+      RefreshButton?.synced();
       renderSidebar();
 
       applyFilters();
@@ -1927,7 +1941,7 @@
       }
 
       await loadFolders();
-
+      RefreshButton?.synced();
       renderSidebar();
 
       applyFilters();
@@ -1984,7 +1998,7 @@
     }
 
     await loadFolders();
-
+    RefreshButton?.synced();
     renderSidebar();
 
     applyFilters();
@@ -2568,6 +2582,7 @@
           await loadFolders();
           renderSidebar();
           applyFilters();
+          RefreshButton?.synced();   // add this
 
           const res = eventData?.result || eventData?.data || eventData;
           let successMsg = `Successfully merged collections into "${targetName}".`;
@@ -2626,6 +2641,7 @@
             clearSelection();
             closeModal();
             await loadFolders();
+            RefreshButton?.synced();
             renderSidebar();
             applyFilters();
             showAlert(`Collections merge into "${targetName}" completed.`);
@@ -3159,7 +3175,7 @@
           closeModal();
 
           await loadFolders();
-
+          RefreshButton?.synced();
           renderSidebar();
 
           applyFilters();
@@ -3316,7 +3332,7 @@
           closeModal();
 
           await loadFolders();
-
+          RefreshButton?.synced();
           renderSidebar();
 
           applyFilters();

@@ -8,28 +8,19 @@ document.addEventListener("DOMContentLoaded", () => {
     // LOAD DATA
     function loadImportExportData() {
 
-        fetch("../../data/import_export.json")
-
+        return fetch("../../data/import_export.json")
             .then(response => {
-
                 if (!response.ok) {
-
-                    throw new Error(
-                        "Failed to load import_export.json"
-                    );
+                    throw new Error("Failed to load import_export.json");
                 }
                 return response.json();
             })
             .then(data => {
                 importExportData = data;
                 createImportExportTable();
-
             })
             .catch(error => {
-                console.error(
-                    "Error loading Import / Export data:",
-                    error
-                );
+                console.error("Error loading Import / Export data:", error);
             });
     }
     // RENDER TABLE
@@ -291,37 +282,13 @@ document.addEventListener("DOMContentLoaded", () => {
         );
 
     }
-    // RESET
-
-    const resetFilters =
-        document.getElementById(
-            "resetFilters"
-        );
-
-    if (resetFilters) {
-
-        resetFilters.addEventListener(
-            "click",
-            () => {
-
-                if (searchInput) {
-
-                    searchInput.value = "";
-
-                }
-                if (typeFilter) {
-
-                    typeFilter.value = "all";
-
-                }
-                if (purposeFilter) {
-
-                    purposeFilter.value = "all";
-
-                }
-                createImportExportTable();
-            }
-        );
+    // REFRESH (turns yellow when another page changes data)
+    if (typeof RefreshButton !== "undefined") {
+        RefreshButton.init({
+            buttonId: "resetFilters",
+            debug: true, // remove once event names are known
+            onRefresh: () => loadImportExportData(),
+        });
     }
     // COMPRESSED
     const compressedTab =
@@ -411,22 +378,7 @@ document.addEventListener("DOMContentLoaded", () => {
         );
 
     }
-    // REFRESH
-    const refreshBtn =
-        document.getElementById(
-            "refreshBtn"
-        );
 
-    if (refreshBtn) {
-
-        refreshBtn.addEventListener(
-            "click",
-            () => {
-                loadImportExportData();
-            }
-        );
-
-    }
     // IMPORT
 
     const importBtn =
