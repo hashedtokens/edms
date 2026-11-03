@@ -52,6 +52,32 @@ pub async fn ws_load_history(ws: WebSocketUpgrade, State(state): State<AppState>
     })
 }
 
+/// GET /test-view/history/cards
+///
+/// Everything the History cards show, in one response: one card per
+/// endpoint (not per run) with method, path, base URL, last run, number of
+/// runs, QP pairs and tags, newest first. Aggregated in the backend by a
+/// single query, so the frontend makes no per-card calls.
+pub async fn history_cards(State(state): State<AppState>) -> (StatusCode, Json<serde_json::Value>) {
+    let res = tokio::task::spawn_blocking({
+        let st = state.clone();
+        move || db::list_history_cards(&st.core, &st.queries)
+    })
+    .await;
+
+    match res {
+        Ok(Ok(cards)) => (StatusCode::OK, Json(json!({ "ok": true, "count": cards.len(), "cards": cards }))),
+        Ok(Err(e)) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": format!("{e:?}") })),
+        ),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": e.to_string() })),
+        ),
+    }
+}
+
 pub async fn ws_run(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl IntoResponse {
     ws.on_upgrade(move |socket| async move {
         handle_ws_run(socket, state).await;
