@@ -874,6 +874,7 @@ pub async fn delete_qp(
     }
 
     // Delete QP files from disk
+    let size_before = crate::handlers::collection_size::size_before(&state, &endpoint_id).await;
     for kind in ["request", "response", "headers"] {
         let path = dir.join(format!("{endpoint_id}-{kind}-{request_number}.json"));
         let _ = tokio::fs::remove_file(path).await;
@@ -892,6 +893,7 @@ pub async fn delete_qp(
     let _ = tokio::task::spawn_blocking(move || {
         crate::db::reassign_qp_numbers(&st2.core, &eid2, &storage_dir)
     }).await;
+    crate::handlers::collection_size::settle(&state, &endpoint_id, size_before).await;
 
     state
         .emit(ServerEvent::QpDeleted {
@@ -1003,6 +1005,7 @@ pub async fn update_qp(
     let new_req_str = parse_qp_body(&payload.request_body).to_string();
     let new_res_str = parse_qp_body(&payload.response_body).to_string();
 
+    let size_before = crate::handlers::collection_size::size_before(&state, &endpoint_id).await;
     if let Err(e) = tokio::fs::write(&request_path, &new_req_str).await {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -1015,6 +1018,7 @@ pub async fn update_qp(
             Json(json!({ "ok": false, "error": format!("failed to write response file: {e}") })),
         );
     }
+    crate::handlers::collection_size::settle(&state, &endpoint_id, size_before).await;
 
     // Register new snapshot key in duplicate store
     let (method, endpoint_str) = {
@@ -1162,6 +1166,7 @@ pub async fn create_qp(
     let response_path = dir.join(format!("{endpoint_id}-response-{request_number}.json"));
     let headers_path = dir.join(format!("{endpoint_id}-headers-{request_number}.json"));
 
+    let size_before = crate::handlers::collection_size::size_before(&state, &endpoint_id).await;
     if let Err(e) = tokio::fs::create_dir_all(&dir).await {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -1187,6 +1192,7 @@ pub async fn create_qp(
             Json(json!({ "ok": false, "error": format!("failed to write headers file: {e}") })),
         );
     }
+    crate::handlers::collection_size::settle(&state, &endpoint_id, size_before).await;
 
     let insert_result = tokio::task::spawn_blocking({
         let st = state.clone();

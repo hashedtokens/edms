@@ -222,6 +222,20 @@ async fn handle_run_test(state: &AppState, callback: &IpcCallback) {
 
     state.duplicate_store.add_if_new(&snapshot_key);
 
+    // A new QP: its request, response and headers files are on disk (the
+    // child writes the last two next), so every collection holding this
+    // endpoint grows by their combined size. A duplicate returned above
+    // and keeps nothing.
+    {
+        let written = (req_content.len() + res_content.len() + hdr_content.len()) as i64;
+        let st = state.clone();
+        let eid = endpoint_id.clone();
+        let _ = tokio::task::spawn_blocking(move || {
+            crate::handlers::collection_size::endpoint_changed(&st, &eid, written);
+        })
+        .await;
+    }
+
     let response_file = dir
         .join(format!("{endpoint_id}-response-{request_number}.json"))
         .display()

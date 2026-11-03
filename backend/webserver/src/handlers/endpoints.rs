@@ -232,7 +232,9 @@ pub async fn delete_endpoint(
             let _ = db::delete_endpoint_data(&state.core, &endpoint_id);
             let dir = state.endpoint_storage_dir(&endpoint_id);
             if dir.exists() {
+                let size_before = crate::handlers::collection_size::size_before(&state, &endpoint_id).await;
                 let _ = tokio::fs::remove_dir_all(&dir).await;
+                crate::handlers::collection_size::settle(&state, &endpoint_id, size_before).await;
             }
             state.refresh_dashboard_snapshot();
             let _ = state.events_tx.send(ServerEvent::CrudOperationsUpdated {

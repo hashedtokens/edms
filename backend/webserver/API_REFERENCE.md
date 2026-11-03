@@ -132,8 +132,8 @@ Each collection is its own real file (`storage/collections/{name}.sqlite`), hold
 | Method | Path | Body | Notes |
 |---|---|---|---|
 | POST | `/collections/create` | `{"name","annotation"?}` | Creates the catalog row + the real file, empty. `annotation` is optional |
-| GET | `/collections/list` | — | All collections, each with `annotation` (`null` if unset) and `endpoint_count` (`null` if the collection has no file yet) |
-| GET | `/collections/:name` | — | One collection's catalog row, including `annotation` and `endpoint_count`; 404 if missing |
+| GET | `/collections/list` | — | All collections, each with `annotation` (`null` if unset), `endpoint_count` and `size_bytes` (`null` if the collection has no file yet) |
+| GET | `/collections/:name` | — | One collection's catalog row, including `annotation`, `endpoint_count` and `size_bytes`; 404 if missing |
 | POST | `/collections/:name/rename` | `{"new_name"}` | Renames the catalog entry + moves the file; rejects a name collision cleanly, no data loss |
 | POST | `/collections/:name/annotation` | `{"annotation"}` | Sets/replaces the collection's annotation. 404 if the collection doesn't exist |
 | POST | `/collections/:name/delete` | — | Removes the catalog row + deletes the file |

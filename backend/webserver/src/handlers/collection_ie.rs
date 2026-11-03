@@ -403,6 +403,8 @@ pub(crate) fn finish_blocking(state: &AppState, context: &ImportContext, importe
             db::insert_bookmark(&state.core, &state.queries, eid, name, None).map_err(|e| format!("{e:?}"))?;
         }
         membership.add_batch(&new_eids).map_err(|e| format!("{e:?}"))?;
+        // A brand-new collection: count what was just imported once.
+        let _ = crate::handlers::collection_size::ensure_size(state, &membership);
         catalog
             .register(ViewKind::Collections, name, Some(&file_path), manifest.repoview.annotation.as_deref())
             .map_err(|e| format!("{e:?}"))?;

@@ -6,6 +6,7 @@ pub mod bookmarks;
 pub mod callback;
 pub mod collection_ie;
 pub mod collection_merge;
+pub mod collection_size;
 pub mod dashboard;
 pub mod dataview;
 pub mod dev_api;
