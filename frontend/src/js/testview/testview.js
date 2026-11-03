@@ -13,6 +13,7 @@ function extractPayloadBody(data) {
 let endpoints = [];
 let bookmarks = [];
 let historyRecords = [];
+let historyCards = [];
 let filteredTestEndpoints = [];
 
 let selectedTestEndpoint = null;
@@ -956,7 +957,17 @@ function loadBookmarksFromBackend() {
 // ============================================================
 // BACKEND HISTORY SNAPSHOT
 // ============================================================
+async function loadHistoryCardsFromBackend() {
+    const response = await fetch(`${API_BASE}/test-view/history/cards`);
 
+    if (!response.ok) {
+        throw new Error(`History cards load failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    historyCards = Array.isArray(data?.cards) ? data.cards : [];
+}
 function loadHistoryFromBackend() {
 
     return new Promise(
@@ -983,7 +994,7 @@ function loadHistoryFromBackend() {
 
             ws.addEventListener(
                 "message",
-                event => {
+                async event => {
 
                     try {
 
@@ -1024,6 +1035,12 @@ function loadHistoryFromBackend() {
 
                                     })
                                 );
+                            try {
+                                await loadHistoryCardsFromBackend();
+                            } catch (error) {
+                                console.error("Failed to load history cards:", error);
+                                historyCards = [];
+                            }
 
                             const wasFinished = finished;
                             finished = true;
@@ -1305,64 +1322,30 @@ function restoreLocalQPs() {
 
 function getActiveSidebarItems() {
 
-    if (
-        activeSidebarTab ===
-        "history"
-    ) {
+    if (activeSidebarTab === "history") {
 
-        return historyRecords.map(
-            history => {
+        return historyCards.map(card => {
 
-                const endpoint =
-                    findEndpoint(
-                        history.endpointId
-                    );
+            const endpointId = card.endpoint_id;
 
-                return {
+            const endpoint = findEndpoint(endpointId);
 
-                    type:
-                        "history",
+            return {
+                type: "history",
+                id: endpointId,
+                endpointId,
+                qpId: undefined,
+                method: card.method || endpoint?.method || "",
+                endpoint: card.path ?? endpoint?.endpoint ?? "",
+                updated: card.last_run,
+                status: undefined,
+                saved: isEndpointBookmarked(endpointId),
+                card,
+                source: { ...card, id: endpointId, endpointId },
+                endpointRef: endpoint
+            };
 
-                    id:
-                        history.id,
-
-                    endpointId:
-                        history.endpointId,
-
-                    qpId:
-                        history.qpId ?? history.requestNumber,
-
-                    method:
-                        history.method ||
-                        endpoint?.method ||
-                        "",
-
-                    endpoint:
-                        history.endpoint ||
-                        endpoint?.endpoint ||
-                        "",
-
-                    updated:
-                        history.testedAt,
-
-                    status:
-                        history.status,
-
-                    saved:
-                        isEndpointBookmarked(
-                            history.endpointId
-                        ),
-
-                    source:
-                        history,
-
-                    endpointRef:
-                        endpoint
-
-                };
-
-            }
-        );
+        });
 
     }
 
@@ -1615,15 +1598,25 @@ function createTestEndpointCard(item) {
     // 2. Date (Time)
     const dateStr = escapeHTML(formatEndpointDate(item.updated || endpoint.updated));
     // 3. QP Count 
-    const qpLabel = escapeHTML(getQPCountLabel(endpoint));
-    // 4. Tag Count
-    const tagLabel = escapeHTML(getTagCountLabel(endpoint));
-    // 5. Base URL 
+    const qpLabel = escapeHTML(
+        isHistory && item.card
+            ? `${item.card.qp_count ?? 0} QP${item.card.qp_count === 1 ? "" : "s"}`
+            : getQPCountLabel(endpoint)
+    );
+
+    const tagLabel = escapeHTML(
+        isHistory && item.card
+            ? `${item.card.tag_count ?? 0} Tag${item.card.tag_count === 1 ? "" : "s"}`
+            : getTagCountLabel(endpoint)
+    );
+
     const baseUrl = escapeHTML(
-        endpoint.baseUrl ||
-        (endpoint.endpoint_str && endpoint.endpoint_str.startsWith("http")
-            ? new URL(endpoint.endpoint_str).origin
-            : "")
+        isHistory && item.card
+            ? (item.card.base_url || "")
+            : (endpoint.baseUrl ||
+                (endpoint.endpoint_str && endpoint.endpoint_str.startsWith("http")
+                    ? new URL(endpoint.endpoint_str).origin
+                    : ""))
     );
     // 6. Path 
     const path = escapeHTML(item.endpoint || endpoint.endpoint || "");
@@ -1743,7 +1736,7 @@ function createTestEndpointCard(item) {
         card.querySelector(".history-delete").addEventListener("click", async event => {
             event.stopPropagation();
             try {
-                await deleteHistoryItem(itemId);
+                await deleteHistoryForEndpoint(itemId);
                 await loadHistoryFromBackend();
                 applyTestFilters();
             } catch (error) {
@@ -1784,7 +1777,16 @@ function hideHistoryIdLocally(historyId) {
     hidden.add(String(historyId));
     localStorage.setItem(HIDDEN_HISTORY_KEY, JSON.stringify([...hidden]));
 }
+async function deleteHistoryForEndpoint(endpointId) {
 
+    const ids = historyRecords
+        .filter(h => String(h.endpointId) === String(endpointId))
+        .map(h => h.id);
+
+    await Promise.all(ids.map(id => deleteHistoryItem(id)));
+
+    selectedHistoryIds.delete(String(endpointId));
+}
 async function deleteHistoryItem(historyId) {
 
     if (!historyId) return;
@@ -1817,7 +1819,7 @@ function setHistoryCheckbox(checkbox, checked) {
 }
 
 function doSelectAllHistory() {
-    selectedHistoryIds = new Set(historyRecords.map(h => String(h.id)));
+    selectedHistoryIds = new Set(historyCards.map(c => String(c.endpoint_id)));
     document.querySelectorAll(".history-checkbox")
         .forEach(cb => setHistoryCheckbox(cb, true));
 }
@@ -1843,7 +1845,7 @@ async function doDeleteSelectedHistory() {
 
     await Promise.all(
         [...selectedHistoryIds].map(id =>
-            deleteHistoryItem(id).catch(error => {
+            deleteHistoryForEndpoint(id).catch(error => {
                 console.error(`Error deleting history ${id}:`, error);
             })
         )

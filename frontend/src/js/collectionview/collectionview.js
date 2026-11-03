@@ -10,7 +10,7 @@
   const API_BASE = "http://localhost:3000";
 
   let nextId = 9000;
-
+  let sizeUnits = {};
   // ============================================================
   // STATE
   // ============================================================
@@ -226,7 +226,7 @@
             datatype: undefined,
 
             annotation: item.annotation ?? undefined,
-
+            sizeBytes: Number(item?.size_bytes ?? item?.sizeBytes ?? 0),
             source: undefined,
 
             tags: [],
@@ -876,15 +876,15 @@
             ${crudCountBadge(counts.DELETE, "text-rose-400")}
         </td>
 
-
-        <td
-            class="px-2 py-2
-                   text-slate-400"
-        >
-            —
-        </td>
-
-
+<td class="px-2 py-2 whitespace-nowrap">
+    <button
+        type="button"
+        class="folder-size-btn text-slate-800 dark:text-slate-300 hover:text-cyan-600 dark:hover:text-cyan-400"
+        title="Click to change unit"
+    >
+        ${formatSize(folder.sizeBytes, sizeUnits[folder.id])}
+    </button>
+</td>
         <td class="px-2 py-2">
 
             <span
@@ -937,7 +937,10 @@
         applyFilters();
       });
     });
-
+    row.querySelector(".folder-size-btn").addEventListener("click", (event) => {
+      event.stopPropagation();
+      cycleSizeUnit(id);
+    });
     row.addEventListener("click", (event) => {
       if (event.target.closest("button,input")) {
         return;
@@ -3817,6 +3820,33 @@ bg-slate-100 dark:bg-slate-950/60 p-3"
 
     return text ? text.charAt(0).toUpperCase() + text.slice(1) : "";
   }
+  function cycleSizeUnit(id) {
+    const units = ["B", "KB", "MB", "GB"];
+
+    const current = sizeUnits[id] || "MB";
+
+    const index = units.indexOf(current);
+
+    sizeUnits[id] = units[(index + 1) % units.length];
+
+    renderTable();
+  }
+  function formatSize(bytes, unit) {
+    const value = Number(bytes) || 0;
+
+    switch (unit) {
+      case "B":
+        return `${value.toFixed(0)} B`;
+      case "KB":
+        return `${(value / 1024).toFixed(1)} KB`;
+      case "GB":
+        return `${(value / 1024 / 1024 / 1024).toFixed(2)} GB`;
+      case "MB":
+      default:
+        return `${(value / 1024 / 1024).toFixed(1)} MB`;
+    }
+  }
+
 
   function methodClass(method) {
     return (
