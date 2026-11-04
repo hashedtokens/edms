@@ -96,6 +96,8 @@
 
 
 
+
+
       <!-- =====================================================
                  TOOLBAR
             ====================================================== -->
@@ -138,15 +140,27 @@
           Refresh
         </button>
 
-        <div class="ml-auto flex items-center gap-2">
-          <button id="tagsManager" type="button" disabled title="Manage tags"
-            class="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 text-xs text-slate-700 dark:text-slate-300 transition hover:border-slate-400 dark:hover:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-30">
-            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-              <path d="M20.5 13.5 13.5 20.5 a2 2 0 0 1-2.8 0L4 13.8V4h9.8l6.7 6.7 a2 2 0 0 1 0 2.8Z" />
-              <circle cx="8.5" cy="8.5" r="1" />
-            </svg>
-            Tags
-          </button>
+          <div class="ml-auto flex items-center gap-2">
+            <button
+              id="tagsManager"
+              type="button"
+              title="Manage tags"
+              class="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 text-xs text-slate-700 dark:text-slate-300 transition hover:border-slate-400 dark:hover:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+            >
+              <svg
+                class="h-3.5 w-3.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+              >
+                <path
+                  d="M20.5 13.5 13.5 20.5 a2 2 0 0 1-2.8 0L4 13.8V4h9.8l6.7 6.7 a2 2 0 0 1 0 2.8Z"
+                />
+                <circle cx="8.5" cy="8.5" r="1" />
+              </svg>
+              Tags
+            </button>
 
           <button id="deleteSelected" type="button" disabled title="Remove selected endpoints from collection"
             class="inline-flex h-8 items-center gap-1.5 rounded-md border border-rose-500/20 bg-rose-500/10 px-2.5 text-xs font-medium text-rose-600 dark:text-rose-400 transition hover:bg-rose-500/15 disabled:cursor-not-allowed disabled:opacity-35">
@@ -175,51 +189,105 @@
                  WORKSPACE
             ====================================================== -->
 
-      <div class="relative min-h-0 flex-1 flex overflow-hidden">
-        <!-- Sidebar -->
-        <aside id="filterSidebar"
-          class="relative flex w-64 shrink-0 flex-col overflow-hidden border-r border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 transition-all duration-200">
-          <div
-            class="flex shrink-0 items-center justify-between border-b border-slate-300 dark:border-slate-800 px-3 py-2.5">
-            <span id="sidebarTitle" class="text-xs font-semibold text-slate-800 dark:text-slate-200">Filters</span>
-            <button id="sidebarToggle" type="button" title="Collapse sidebar"
-              class="rounded-md p-1 text-slate-500 transition hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white">
-              <svg id="sidebarToggleIcon" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                stroke-width="1.8">
-                <path d="m15 18-6-6 6-6" />
-              </svg>
-            </button>
-          </div>
-          <div id="sidebarContent"
-            class="min-h-0 flex-1 overflow-y-auto p-3 scrollbar scrollbar-thin scrollbar-thumb-slate-400 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent">
-
-            <section class="mb-5">
-              <div class="mb-2 border-b border-slate-300 dark:border-slate-800 pb-1.5">
-                <h3 class="text-xs font-semibold text-slate-700 dark:text-slate-300">Stats</h3>
+        <div class="relative min-h-0 flex-1 flex overflow-hidden">
+          <!-- Sidebar -->
+          <aside
+            id="filterSidebar"
+            class="relative flex w-52 shrink-0 flex-col overflow-hidden border-r border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 transition-all duration-200"
+          >
+            <!-- Sidebar header: tabs + collapse -->
+            <!-- Sidebar header: tabs + collapse -->
+            <div
+              class="flex shrink-0 items-center justify-between border-b border-slate-300 dark:border-slate-800 px-2 py-1.5"
+            >
+              <!-- Tab switcher -->
+              <div
+                id="sidebarTabs"
+                class="flex flex-1 items-center gap-0.5 rounded-md bg-slate-200 dark:bg-slate-800 p-0.5"
+              >
+                <button
+                  id="tabStats"
+                  type="button"
+                  class="flex-1 rounded px-2 py-1 text-[11px] font-semibold text-white bg-slate-700 dark:bg-slate-600 transition"
+                >
+                  Stats
+                </button>
+                <button
+                  id="tabFilters"
+                  type="button"
+                  class="flex-1 rounded px-2 py-1 text-[11px] font-medium text-slate-500 dark:text-slate-400 transition hover:text-slate-800 dark:hover:text-slate-200"
+                >
+                  Filters
+                </button>
               </div>
+              <button
+                id="sidebarToggle"
+                type="button"
+                title="Collapse sidebar"
+                class="ml-1.5 shrink-0 rounded-md p-1 text-slate-500 transition hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"
+              >
+                <svg
+                  id="sidebarToggleIcon"
+                  class="h-4 w-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                >
+                  <path d="m15 18-6-6 6-6" />
+                </svg>
+              </button>
+            </div>
 
-              <dl class="flex flex-col gap-1 text-[11px]">
-                <div class="flex items-center justify-between">
-                  <dt class="text-slate-500 dark:text-slate-400">Endpoints</dt>
-                  <dd id="endpointStat" class="font-medium text-slate-800 dark:text-slate-200">0</dd>
-                </div>
-                <div class="flex items-center justify-between">
-                  <dt class="text-slate-500 dark:text-slate-400">Tags</dt>
-                  <dd id="tagStat" class="font-medium text-slate-800 dark:text-slate-200">0</dd>
-                </div>
-                <div class="flex items-center justify-between">
-                  <dt class="text-slate-500 dark:text-slate-400">Segments</dt>
-                  <dd id="segmentStat" class="font-medium text-slate-800 dark:text-slate-200">0</dd>
-                </div>
-              </dl>
-            </section>
+            <!-- STATS PANEL (default visible) -->
+            <!-- STATS PANEL (default visible) -->
+            <div
+              id="sidebarStats"
+              class="min-h-0 flex-1 overflow-y-auto p-3 scrollbar scrollbar-thin scrollbar-thumb-slate-400 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent"
+            >
+              <!-- Stat boxes — row-wise stacked -->
+              <div class="flex flex-col gap-2">
 
-            <section class="mb-5">
-              <div class="mb-2 border-b border-slate-300 dark:border-slate-800 pb-1.5">
-                <h3 class="text-xs font-semibold text-slate-700 dark:text-slate-300">Tags</h3>
+                <div class="rounded-lg border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950/40 px-3 py-2">
+                  <p class="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-600">Endpoints</p>
+                  <p id="endpointCount" class="mt-0.5 text-sm font-semibold text-slate-800 dark:text-slate-200">0</p>
+                </div>
+
+                <div class="rounded-lg border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950/40 px-3 py-2">
+                  <p class="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-600">Tags</p>
+                  <p id="tagCount" class="mt-0.5 text-sm font-semibold text-slate-800 dark:text-slate-200">0</p>
+                </div>
+
+                <div class="rounded-lg border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950/40 px-3 py-2">
+                  <p class="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-600">GET</p>
+                  <p id="getCount" class="mt-0.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400">0</p>
+                </div>
+
+                <div class="rounded-lg border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950/40 px-3 py-2">
+                  <p class="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-600">Write Operations</p>
+                  <p id="writeCount" class="mt-0.5 text-sm font-semibold text-sky-600 dark:text-sky-400">0</p>
+                </div>
+
               </div>
-              <div id="tagsContainer" class="flex flex-col gap-1.5"></div>
-            </section>
+            </div>
+
+            <!-- FILTERS PANEL (hidden by default) -->
+            <div
+              id="sidebarContent"
+              class="hidden min-h-0 flex-1 overflow-y-auto p-3 scrollbar scrollbar-thin scrollbar-thumb-slate-400 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent"
+            >
+              <section class="mb-5">
+                <div
+                  class="mb-2 border-b border-slate-300 dark:border-slate-800 pb-1.5"
+                >
+                  <h3
+                    class="text-xs font-semibold text-slate-700 dark:text-slate-300"
+                  >
+                    Tags
+                  </h3>
+                </div>
+                <div id="tagsContainer" class="flex flex-col gap-1.5"></div>
+              </section>
 
             <section>
               <div class="mb-2 border-b border-slate-300 dark:border-slate-800 pb-1.5">

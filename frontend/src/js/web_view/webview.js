@@ -115,7 +115,6 @@
           segmentFrequency: item.segmentFrequency || {},
           eidCount: item.eidCount ?? item.endpoint_count ?? 0,
           qpCount: item.qpCount ?? 0,
-          indexLists: item.indexLists ?? 0,
           dataSizeBytes: item.dataSizeBytes ?? 0,
           dateCreated: item.dateCreated || (item.created_at ? item.created_at.split(" ")[0] : ""),
         };
@@ -134,7 +133,6 @@
           dataTags: ["eqp-demo"],
           tags: ["demo"],
           qpCount: 2,
-          indexLists: 1,
           crud: { GET: 2, POST: 1, PUT: 0, PATCH: 0, DELETE: 1 },
         });
       }
@@ -291,7 +289,7 @@
     if (items.length === 0) {
       tbody.innerHTML = `
                 <tr>
-                    <td colspan="18" class="px-4 py-16 text-center">
+                    <td colspan="17" class="px-4 py-16 text-center">
                         <p class="text-sm font-medium text-slate-500 dark:text-slate-400">No web views found</p>
                         <p class="mt-1 text-xs text-slate-400 dark:text-slate-600">Try changing the current search or filters.</p>
                     </td>
@@ -411,9 +409,6 @@
 
             <!-- QP Count -->
             <td class="px-2 py-2 text-slate-800 dark:text-slate-300">${web.qpCount ?? 0}</td>
-
-            <!-- Index Lists -->
-            <td class="px-2 py-2 text-slate-800 dark:text-slate-300">${web.indexLists ?? 0}</td>
 
             <!-- Preview -->
             <td class="px-2 py-2 text-center">

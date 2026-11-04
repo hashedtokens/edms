@@ -1071,30 +1071,68 @@
   function wireSidebar() {
     const btn = document.getElementById("sidebarToggle");
     const sidebar = document.getElementById("filterSidebar");
-    const content = document.getElementById("sidebarContent");
-    const title = document.getElementById("sidebarTitle");
+    const statsPanel = document.getElementById("sidebarStats");
+    const filtersPanel = document.getElementById("sidebarContent");
+    const tabStats = document.getElementById("tabStats");
+    const tabFilters = document.getElementById("tabFilters");
+    const tabs = document.getElementById("sidebarTabs");
     const icon = document.getElementById("sidebarToggleIcon");
 
     if (!btn || !sidebar) return;
 
+    // ---- Tab switching ----
+    const activeTabClasses = [
+      "font-semibold", "text-white", "bg-slate-700", "dark:bg-slate-600",
+    ];
+    const inactiveTabClasses = [
+      "font-medium", "text-slate-500", "dark:text-slate-400",
+    ];
+
+    function switchToStats() {
+      statsPanel?.classList.remove("hidden");
+      filtersPanel?.classList.add("hidden");
+      tabStats?.classList.add(...activeTabClasses);
+      tabStats?.classList.remove(...inactiveTabClasses);
+      tabFilters?.classList.add(...inactiveTabClasses);
+      tabFilters?.classList.remove(...activeTabClasses);
+    }
+
+    function switchToFilters() {
+      filtersPanel?.classList.remove("hidden");
+      statsPanel?.classList.add("hidden");
+      tabFilters?.classList.add(...activeTabClasses);
+      tabFilters?.classList.remove(...inactiveTabClasses);
+      tabStats?.classList.add(...inactiveTabClasses);
+      tabStats?.classList.remove(...activeTabClasses);
+    }
+
+    tabStats?.addEventListener("click", switchToStats);
+    tabFilters?.addEventListener("click", switchToFilters);
+
+    // Default: Stats tab active on load
+    switchToStats();
+
+    // ---- Collapse / expand ----
     let sidebarCollapsed = false;
 
     btn.addEventListener("click", () => {
       sidebarCollapsed = !sidebarCollapsed;
 
       if (sidebarCollapsed) {
-        sidebar.classList.remove("w-64");
+        sidebar.classList.remove("w-52");
         sidebar.classList.add("w-10");
-        content?.classList.add("hidden");
-        title?.classList.add("hidden");
+        statsPanel?.classList.add("hidden");
+        filtersPanel?.classList.add("hidden");
+        tabs?.classList.add("hidden");
         if (icon) {
           icon.innerHTML = '<path d="m9 18 6-6-6-6" />';
         }
       } else {
         sidebar.classList.remove("w-10");
-        sidebar.classList.add("w-64");
-        content?.classList.remove("hidden");
-        title?.classList.remove("hidden");
+        sidebar.classList.add("w-52");
+        tabs?.classList.remove("hidden");
+        // Restore whichever panel was active (default stats)
+        switchToStats();
         if (icon) {
           icon.innerHTML = '<path d="m15 18-6-6 6-6" />';
         }
@@ -1102,22 +1140,61 @@
     });
   }
 
-  function updateSidebarStats() {
-    const elEndpoints = document.getElementById("endpointStat");
-    const elTags = document.getElementById("tagStat");
-    const elSegments = document.getElementById("segmentStat");
+  // ============================================================
+  // STATS
+  // ============================================================
 
-    if (elEndpoints) elEndpoints.textContent = state.endpoints.length;
+  function renderStats() {
+    const endpoints = state.endpoints;
 
     const tags = new Set();
-    const segments = new Set();
-    state.endpoints.forEach((ep) => {
-      (Array.isArray(ep.tags) ? ep.tags : []).forEach((t) => tags.add(t));
-      getEndpointSegments(ep.endpoint).forEach((s) => segments.add(s));
+
+    let get = 0;
+
+    let write = 0;
+
+    endpoints.forEach((endpoint) => {
+      const method = String(endpoint.method || "").toUpperCase();
+
+      if (method === "GET") {
+        get++;
+      }
+
+      if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+        write++;
+      }
+
+      const endpointTags = Array.isArray(endpoint.tags) ? endpoint.tags : [];
+
+      endpointTags.forEach((tag) => tags.add(tag));
     });
 
-    if (elTags) elTags.textContent = tags.size;
-    if (elSegments) elSegments.textContent = segments.size;
+    const endpointCountEl = document.getElementById("endpointCount");
+    const tagCountEl = document.getElementById("tagCount");
+    const getCountEl = document.getElementById("getCount");
+    const writeCountEl = document.getElementById("writeCount");
+
+    if (endpointCountEl) {
+      endpointCountEl.textContent = endpoints.length;
+    }
+
+    if (tagCountEl) {
+      tagCountEl.textContent = tags.size;
+    }
+
+    if (getCountEl) {
+      getCountEl.textContent = get;
+    }
+
+    if (writeCountEl) {
+      writeCountEl.textContent = write;
+    }
+  }
+
+  function updateSidebarStats() {
+    // Delegate to renderStats() which populates the sidebar stat boxes:
+    // endpointCount, tagCount, getCount, writeCount
+    renderStats();
   }
 
   function renderTags() {
@@ -1355,14 +1432,17 @@
       label.textContent = `${count} selected`;
       label.classList.remove("hidden");
       clear.classList.remove("hidden");
-      if (tagsBtn) tagsBtn.disabled = false;
       if (deleteBtn) deleteBtn.disabled = false;
     } else {
       label.classList.add("hidden");
       clear.classList.add("hidden");
-      if (tagsBtn) tagsBtn.disabled = true;
       if (deleteBtn) deleteBtn.disabled = true;
     }
+
+    // The tag manager is intentionally always enabled: when nothing is
+    // selected it operates across every endpoint in the view
+    // (see TagManager.getItems in this file).
+    if (tagsBtn) tagsBtn.disabled = false;
 
     updateSelectAllState();
   }
