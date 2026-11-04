@@ -98,7 +98,7 @@
             } else if (Array.isArray(data)) {
                 list = data;
             }
-
+            console.log("repo list => ", list)
             // Map the backend items to the structure expected by the frontend table
             state.repos = list.map((item, index) => {
                 return {
@@ -106,13 +106,14 @@
                     name: item.name,
                     annotation: item.annotation || '',
                     dateCreated: item.created_at ? item.created_at.split(' ')[0] : '',
-                    dataSizeBytes: 0,
-                    eidCount: item.endpoint_count || 0,
-                    segments: 0,
-                    dataTags: [],
-                    tags: [], // Tags aren't attached to the list view in the backend yet
-                    qpCount: 0,
-                    indexLists: 0
+                    dataSizeBytes: item.dataSizeBytes,
+                    eidCount: item.eidCount || 0,
+                    segments: item.segments,
+                    dataTags: item.dataTags,
+                    tags: item.tags | [], // Tags aren't attached to the list view in the backend yet
+                    qpCount: item.qpCount,
+                    indexLists: item.indexLists,
+                    crud: item.crud
                 };
             });
 
