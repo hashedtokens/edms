@@ -96,6 +96,7 @@
 
 
 
+
       <!-- =====================================================
                  TOOLBAR
             ====================================================== -->
@@ -175,51 +176,104 @@
                  WORKSPACE
             ====================================================== -->
 
-      <div class="relative min-h-0 flex-1 flex overflow-hidden">
-        <!-- Sidebar -->
-        <aside id="filterSidebar"
-          class="relative flex w-64 shrink-0 flex-col overflow-hidden border-r border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 transition-all duration-200">
-          <div
-            class="flex shrink-0 items-center justify-between border-b border-slate-300 dark:border-slate-800 px-3 py-2.5">
-            <span id="sidebarTitle" class="text-xs font-semibold text-slate-800 dark:text-slate-200">Filters</span>
-            <button id="sidebarToggle" type="button" title="Collapse sidebar"
-              class="rounded-md p-1 text-slate-500 transition hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white">
-              <svg id="sidebarToggleIcon" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                stroke-width="1.8">
-                <path d="m15 18-6-6 6-6" />
-              </svg>
-            </button>
-          </div>
-          <div id="sidebarContent"
-            class="min-h-0 flex-1 overflow-y-auto p-3 scrollbar scrollbar-thin scrollbar-thumb-slate-400 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent">
-
-            <section class="mb-5">
-              <div class="mb-2 border-b border-slate-300 dark:border-slate-800 pb-1.5">
-                <h3 class="text-xs font-semibold text-slate-700 dark:text-slate-300">Stats</h3>
+        <div class="relative min-h-0 flex-1 flex overflow-hidden">
+          <!-- Sidebar -->
+          <aside
+            id="filterSidebar"
+            class="relative flex w-52 shrink-0 flex-col overflow-hidden border-r border-slate-300 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 transition-all duration-200"
+          >
+            <!-- Sidebar header: tabs + collapse -->
+            <div
+              class="flex shrink-0 items-center justify-between border-b border-slate-300 dark:border-slate-800 px-2 py-1.5"
+            >
+              <!-- Tab switcher -->
+              <div
+                id="sidebarTabs"
+                class="flex flex-1 items-center gap-0.5 rounded-md bg-slate-200 dark:bg-slate-800 p-0.5"
+              >
+                <button
+                  id="tabStats"
+                  type="button"
+                  class="flex-1 rounded px-2 py-1 text-[11px] font-semibold text-white bg-slate-700 dark:bg-slate-600 transition"
+                >
+                  Stats
+                </button>
+                <button
+                  id="tabFilters"
+                  type="button"
+                  class="flex-1 rounded px-2 py-1 text-[11px] font-medium text-slate-500 dark:text-slate-400 transition hover:text-slate-800 dark:hover:text-slate-200"
+                >
+                  Filters
+                </button>
               </div>
 
-              <dl class="flex flex-col gap-1 text-[11px]">
-                <div class="flex items-center justify-between">
-                  <dt class="text-slate-500 dark:text-slate-400">Endpoints</dt>
-                  <dd id="endpointStat" class="font-medium text-slate-800 dark:text-slate-200">0</dd>
-                </div>
-                <div class="flex items-center justify-between">
-                  <dt class="text-slate-500 dark:text-slate-400">Tags</dt>
-                  <dd id="tagStat" class="font-medium text-slate-800 dark:text-slate-200">0</dd>
-                </div>
-                <div class="flex items-center justify-between">
-                  <dt class="text-slate-500 dark:text-slate-400">Segments</dt>
-                  <dd id="segmentStat" class="font-medium text-slate-800 dark:text-slate-200">0</dd>
-                </div>
-              </dl>
-            </section>
+              <button
+                id="sidebarToggle"
+                type="button"
+                title="Collapse sidebar"
+                class="ml-1.5 shrink-0 rounded-md p-1 text-slate-500 transition hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"
+              >
+                <svg
+                  id="sidebarToggleIcon"
+                  class="h-4 w-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                >
+                  <path d="m15 18-6-6 6-6" />
+                </svg>
+              </button>
+            </div>
 
-            <section class="mb-5">
-              <div class="mb-2 border-b border-slate-300 dark:border-slate-800 pb-1.5">
-                <h3 class="text-xs font-semibold text-slate-700 dark:text-slate-300">Tags</h3>
+            <!-- STATS PANEL (default visible) -->
+            <div
+              id="sidebarStats"
+              class="min-h-0 flex-1 overflow-y-auto p-3 scrollbar scrollbar-thin scrollbar-thumb-slate-400 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent"
+            >
+              <!-- Stat boxes — row-wise stacked -->
+              <div class="flex flex-col gap-2">
+
+                <div class="rounded-lg border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950/40 px-3 py-2">
+                  <p class="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-600">Endpoints</p>
+                  <p id="endpointCount" class="mt-0.5 text-sm font-semibold text-slate-800 dark:text-slate-200">0</p>
+                </div>
+
+                <div class="rounded-lg border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950/40 px-3 py-2">
+                  <p class="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-600">Tags</p>
+                  <p id="tagCount" class="mt-0.5 text-sm font-semibold text-slate-800 dark:text-slate-200">0</p>
+                </div>
+
+                <div class="rounded-lg border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950/40 px-3 py-2">
+                  <p class="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-600">GET</p>
+                  <p id="getCount" class="mt-0.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400">0</p>
+                </div>
+
+                <div class="rounded-lg border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950/40 px-3 py-2">
+                  <p class="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-600">Write Operations</p>
+                  <p id="writeCount" class="mt-0.5 text-sm font-semibold text-sky-600 dark:text-sky-400">0</p>
+                </div>
+
               </div>
-              <div id="tagsContainer" class="flex flex-col gap-1.5"></div>
-            </section>
+            </div>
+
+            <!-- FILTERS PANEL (hidden by default) -->
+            <div
+              id="sidebarContent"
+              class="hidden min-h-0 flex-1 overflow-y-auto p-3 scrollbar scrollbar-thin scrollbar-thumb-slate-400 dark:scrollbar-thumb-slate-700 scrollbar-track-transparent"
+            >
+              <section class="mb-5">
+                <div
+                  class="mb-2 border-b border-slate-300 dark:border-slate-800 pb-1.5"
+                >
+                  <h3
+                    class="text-xs font-semibold text-slate-700 dark:text-slate-300"
+                  >
+                    Tags
+                  </h3>
+                </div>
+                <div id="tagsContainer" class="flex flex-col gap-1.5"></div>
+              </section>
 
             <section>
               <div class="mb-2 border-b border-slate-300 dark:border-slate-800 pb-1.5">
