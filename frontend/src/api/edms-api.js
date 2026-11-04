@@ -12,7 +12,7 @@
     // ============================================================
 
     if (typeof window.showToast !== 'function') {
-        window.showToast = function(message, type = 'info') {
+        window.showToast = function (message, type = 'info') {
             let container = document.getElementById('edms-toast-container');
             if (!container) {
                 container = document.createElement('div');
@@ -24,17 +24,32 @@
             const bg = type === 'warning' ? '#d97706' : (type === 'error' ? '#dc2626' : '#2563eb');
             const icon = type === 'warning' ? '⚠️ ' : (type === 'error' ? '❌ ' : 'ℹ️ ');
             toast.style.cssText = `background:${bg};color:#ffffff;padding:12px 20px;border-radius:8px;font-size:14px;font-family:sans-serif;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,0.35);opacity:0;transform:translateY(-12px);transition:all 0.3s cubic-bezier(0.16, 1, 0.3, 1);pointer-events:auto;display:flex;align-items:center;gap:10px;`;
-            toast.textContent = `${icon}${message}`;
-            container.appendChild(toast);
+            const text = document.createElement('span');
+            text.style.flex = '1';
+            text.textContent = `${icon}${message}`;
+
+            const close = document.createElement('button');
+            close.type = 'button';
+            close.setAttribute('aria-label', 'Dismiss notification');
+            close.textContent = '×';
+            close.style.cssText = 'background:none;border:none;color:#ffffff;font-size:20px;line-height:1;cursor:pointer;opacity:0.8;padding:0 0 0 8px;';
+
+            toast.append(text, close); container.appendChild(toast);
             requestAnimationFrame(() => {
                 toast.style.opacity = '1';
                 toast.style.transform = 'translateY(0)';
             });
-            setTimeout(() => {
+            let removed = false;
+            const dismiss = () => {
+                if (removed) return;
+                removed = true;
                 toast.style.opacity = '0';
                 toast.style.transform = 'translateY(-12px)';
                 setTimeout(() => toast.remove(), 350);
-            }, 4500);
+            };
+
+            close.addEventListener('click', dismiss);
+            setTimeout(dismiss, 4500);
         };
     }
 
@@ -481,7 +496,7 @@
                             );
                             const origQp = event.payload?.duplicate_of ?? event.payload?.request_number ?? event.duplicate_of ?? event.request_number ?? 1;
                             if (typeof window.showToast === 'function') {
-                                window.showToast(`Duplicate request detected. Existing QP #${origQp} selected.`, 'warning');
+                                window.showToast('Duplicate request detected. Existing QP selected.', 'warning');
                             }
                         }
 
@@ -801,7 +816,7 @@
 
                 details:
                     details === undefined ||
-                    details === null
+                        details === null
                         ? undefined
                         : typeof details === 'string'
                             ? details
@@ -904,7 +919,7 @@
 
                             ws.close();
 
-                        } catch {}
+                        } catch { }
 
 
                         callback(
@@ -1189,7 +1204,7 @@
 
                             ws.close();
 
-                        } catch {}
+                        } catch { }
 
 
                         callback(
@@ -1412,104 +1427,104 @@
     }
     async function deleteActiveBookmark(endpointId) {
 
-    return new Promise((resolve, reject) => {
+        return new Promise((resolve, reject) => {
 
-        const ws =
-            createWebSocket(
-                "/test-view/active/delete"
-            );
-
-        let settled = false;
-
-        const finish = (
-            callback,
-            value
-        ) => {
-
-            if (settled) return;
-
-            settled = true;
-
-            try {
-                ws.close();
-            } catch {}
-
-            callback(value);
-        };
-
-        ws.addEventListener(
-            "open",
-            () => {
-
-                ws.send(
-                    JSON.stringify({
-                        endpoint_id:
-                            endpointId
-                    })
+            const ws =
+                createWebSocket(
+                    "/test-view/active/delete"
                 );
 
-            }
-        );
+            let settled = false;
 
-        ws.addEventListener(
-            "message",
-            event => {
+            const finish = (
+                callback,
+                value
+            ) => {
+
+                if (settled) return;
+
+                settled = true;
 
                 try {
+                    ws.close();
+                } catch { }
 
-                    const message =
-                        JSON.parse(
-                            event.data
-                        );
+                callback(value);
+            };
 
-                    if (
-                        message.type === "error"
-                    ) {
+            ws.addEventListener(
+                "open",
+                () => {
 
-                        finish(
-                            reject,
-                            new Error(
-                                message.message ||
-                                "Bookmark deletion failed."
-                            )
-                        );
-
-                        return;
-                    }
-
-                    finish(
-                        resolve,
-                        message
-                    );
-
-                } catch (error) {
-
-                    finish(
-                        reject,
-                        error
+                    ws.send(
+                        JSON.stringify({
+                            endpoint_id:
+                                endpointId
+                        })
                     );
 
                 }
+            );
 
-            }
-        );
+            ws.addEventListener(
+                "message",
+                event => {
 
-        ws.addEventListener(
-            "error",
-            () => {
+                    try {
 
-                finish(
-                    reject,
-                    new Error(
-                        "Bookmark delete WebSocket failed."
-                    )
-                );
+                        const message =
+                            JSON.parse(
+                                event.data
+                            );
 
-            }
-        );
+                        if (
+                            message.type === "error"
+                        ) {
 
-    });
-}
+                            finish(
+                                reject,
+                                new Error(
+                                    message.message ||
+                                    "Bookmark deletion failed."
+                                )
+                            );
+
+                            return;
+                        }
+
+                        finish(
+                            resolve,
+                            message
+                        );
+
+                    } catch (error) {
+
+                        finish(
+                            reject,
+                            error
+                        );
+
+                    }
+
+                }
+            );
+
+            ws.addEventListener(
+                "error",
+                () => {
+
+                    finish(
+                        reject,
+                        new Error(
+                            "Bookmark delete WebSocket failed."
+                        )
+                    );
+
+                }
+            );
+
+        });
+    }
 
 
     async function listEndpointTags(
@@ -1607,7 +1622,7 @@
                     ws.onerror = null;
                     ws.onclose = null;
                     ws.close();
-                } catch {}
+                } catch { }
             });
             sockets.length = 0;
         };
@@ -1663,7 +1678,7 @@
                     }
                 };
 
-                ws.onerror = () => {};
+                ws.onerror = () => { };
             } catch (err) {
                 console.warn(`[EDMS-API] Could not connect WS to ${path}:`, err);
             }
@@ -2722,7 +2737,7 @@
 
             if (ws) {
 
-                try { ws.close(); } catch {}
+                try { ws.close(); } catch { }
 
             }
 
@@ -2779,7 +2794,7 @@
 
                     }
 
-                } catch {}
+                } catch { }
 
                 if (attempts >= maxAttempts) {
 

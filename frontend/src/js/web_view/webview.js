@@ -1118,9 +1118,17 @@
         applyFilters();
       });
 
-    document
-      .getElementById("resetFilters")
-      ?.addEventListener("click", resetFilters);
+    if (typeof RefreshButton !== "undefined") {
+      RefreshButton.init({
+        buttonId: "resetFilters",
+        debug: true, // remove once event names are known
+        onRefresh: async () => {
+          await loadData();
+          renderSidebar();
+          applyFilters();
+        },
+      });
+    }
 
     document
       .getElementById("createWebBtn")
@@ -1142,21 +1150,6 @@
     });
   }
 
-  function resetFilters() {
-    state.search = "";
-    state.crud = "all";
-    state.tags.clear();
-    state.segments.clear();
-    state.page = 1;
-
-    const search = document.getElementById("webSearch");
-    if (search) search.value = "";
-
-    const crud = document.getElementById("crudFilter");
-    if (crud) crud.value = "all";
-
-    applyFilters();
-  }
 
   // ============================================================
   // TAG INPUT COMPONENT HELPER
@@ -1406,7 +1399,7 @@
       showAlert(`Web View "${name}" created successfully.`);
       closeModal();
       await loadData();
-
+      RefreshButton?.synced();
       state.selected.clear();
       state.page = 1;
 
@@ -1456,6 +1449,7 @@
     // Refresh from backend or keep in local memory if endpoint is pending backend implementation
     const prevCount = state.webs.length;
     await loadData();
+    RefreshButton?.synced();
     if (state.webs.length === prevCount) {
       const copy = structuredClone(source);
       copy.id = copyName;
@@ -1544,6 +1538,7 @@
 
     // Refresh from backend, plus clean up local state
     await loadData();
+    RefreshButton?.synced();
     state.webs = state.webs.filter(
       (web) => !normalizedIds.includes(String(web.id || web.name)) && !names.includes(web.name),
     );
@@ -1815,6 +1810,7 @@
       showAlert(`Web views combined into "${finalName}".`);
       closeModal();
       await loadData();
+      RefreshButton?.synced();
       state.selected.clear();
       renderSidebar();
       applyFilters();
@@ -1924,6 +1920,7 @@
       showAlert(`Web View "${web.name}" successfully converted to Collection "${finalName}".`);
       closeModal();
       await loadData();
+      RefreshButton?.synced();
       state.selected.clear();
       renderSidebar();
       applyFilters();

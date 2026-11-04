@@ -51,8 +51,15 @@
     wireWindows();
 
     wireSidebar();
-
     await loadCollection();
+
+    if (typeof RefreshButton !== "undefined") {
+      RefreshButton.init({
+        buttonId: "refreshEndpoints",
+        debug: true,
+        onRefresh: loadCollection,
+      });
+    }
 
     if (typeof TagManager !== "undefined") {
       TagManager.init({
@@ -60,8 +67,8 @@
         getItems: () =>
           state.selected.size > 0
             ? state.endpoints.filter((ep) =>
-                state.selected.has(getEndpointId(ep)),
-              )
+              state.selected.has(getEndpointId(ep)),
+            )
             : state.endpoints,
         getTags: (endpoint) =>
           Array.isArray(endpoint.tags) ? endpoint.tags : [],
@@ -274,15 +281,18 @@
         await Promise.all(preloadTasks);
       }
 
-      state.filtered = [...state.endpoints];
+      // Drop selections for endpoints that no longer exist
+      const liveIds = new Set(state.endpoints.map(getEndpointId));
+      state.selected = new Set([...state.selected].filter((id) => liveIds.has(id)));
 
       renderCollectionInfo();
       updateSidebarStats();
       renderTags();
       renderSegments();
-      renderStats();
-      render();
-    } catch (error) {
+      applyFilters(); // sets state.filtered, clamps page, and calls render()
+      RefreshButton?.synced();
+    }
+    catch (error) {
       console.error("Failed to load collection:", error);
       renderError("Unable to load collection data.");
     }
@@ -514,11 +524,10 @@
                             gap-1"
                   >
 
-                      ${
-                        tags.length
-                          ? tags
-                              .map(
-                                (tag) => `
+                      ${tags.length
+        ? tags
+          .map(
+            (tag) => `
 
                                           <button
                                               type="button"
@@ -535,9 +544,9 @@
                                           </button>
 
                                       `,
-                              )
-                              .join("")
-                          : `
+          )
+          .join("")
+        : `
                                   <span
                                       class="text-[10px]
                                              text-slate-400 dark:text-slate-600"
@@ -545,27 +554,19 @@
                                       —
                                   </span>
                                 `
-                      }
+      }
 
                   </div>
 
               </td>
 
-
-              <td
+                         <td
                   class="px-3 py-2
                         text-center"
               >
 
                   <span
-                      class="inline-flex
-                            min-w-6
-                            justify-center
-                            rounded-md
-                            bg-slate-200 dark:bg-slate-800
-                            px-1.5 py-0.5
-                            text-[10px]
-                            text-slate-600 dark:text-slate-400"
+                      class="qp-count-badge inline-flex min-w-6 justify-center rounded-md bg-slate-200 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-600 dark:text-slate-400"
                   >
                       ${getQPCount(endpoint)}
                   </span>
@@ -845,13 +846,12 @@
       resStatus.textContent = response.status
         ? String(response.status)
         : "";
-      resStatus.className = `mt-0.5 text-[11px] font-semibold ${
-        response.status >= 200 && response.status < 300
-          ? "text-emerald-600 dark:text-emerald-400"
-          : response.status >= 400
-            ? "text-rose-600 dark:text-rose-400"
-            : "text-slate-500 dark:text-slate-400"
-      }`;
+      resStatus.className = `mt-0.5 text-[11px] font-semibold ${response.status >= 200 && response.status < 300
+        ? "text-emerald-600 dark:text-emerald-400"
+        : response.status >= 400
+          ? "text-rose-600 dark:text-rose-400"
+          : "text-slate-500 dark:text-slate-400"
+        }`;
     }
 
     // Response body
@@ -859,10 +859,10 @@
     if (resBodyEl) {
       resBodyEl.textContent = formatData(
         response.body ??
-          response ?? {
-            endpoint: endpoint.endpoint,
-            message: "No response payload defined.",
-          },
+        response ?? {
+          endpoint: endpoint.endpoint,
+          message: "No response payload defined.",
+        },
       );
     }
 
@@ -1043,43 +1043,7 @@
     openDetailsPanel(endpoint, qpData);
   }
 
-  // ============================================================
-  // STATS
-  // ============================================================
 
-  function renderStats() {
-    const endpoints = state.endpoints;
-
-    const tags = new Set();
-
-    let get = 0;
-
-    let write = 0;
-
-    endpoints.forEach((endpoint) => {
-      const method = String(endpoint.method || "").toUpperCase();
-
-      if (method === "GET") {
-        get++;
-      }
-
-      if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
-        write++;
-      }
-
-      const endpointTags = Array.isArray(endpoint.tags) ? endpoint.tags : [];
-
-      endpointTags.forEach((tag) => tags.add(tag));
-    });
-
-    document.getElementById("endpointCount").textContent = endpoints.length;
-
-    document.getElementById("tagCount").textContent = tags.size;
-
-    document.getElementById("getCount").textContent = get;
-
-    document.getElementById("writeCount").textContent = write;
-  }
 
   function renderCollectionInfo() {
     const folder = state.collection;
@@ -1444,9 +1408,7 @@
 
     // Tag filter removed as we now use sidebar
 
-    document
-      .getElementById("resetEndpointFilters")
-      .addEventListener("click", resetFilters);
+
 
     document
       .getElementById("clearEndpointSelection")
@@ -1489,27 +1451,6 @@
     });
   }
 
-  function resetFilters() {
-    state.search = "";
-
-    state.method = "all";
-
-    state.tags.clear();
-    state.segments.clear();
-
-    state.page = 1;
-
-    document.getElementById("endpointSearch").value = "";
-
-    document.getElementById("methodFilter").value = "all";
-
-    // Uncheck sidebar inputs
-    document
-      .querySelectorAll(".tag-checkbox, .segment-checkbox")
-      .forEach((cb) => (cb.checked = false));
-
-    applyFilters();
-  }
 
   // ============================================================
   // TABLE
@@ -1873,206 +1814,239 @@
   // ============================================================
   // CONTEXT MENU
   // ============================================================
-
   function openEndpointContextMenu(event, endpoint) {
     if (!contextMenu) return;
 
-    const count = state.selected.size;
+    const id = getEndpointId(endpoint);
 
-    let menuHtml = `
-<div class="border-b border-slate-200 dark:border-slate-800
-            px-3 py-2 text-[10px] font-semibold tracking-wide
-            uppercase text-slate-500 dark:text-slate-400">
-              ${count > 1 ? `${count} Endpoints Selected` : "Endpoint Options"}
-            </div>
-            
-            <div class="p-1">
-        `;
+    // Bulk only if the clicked row is part of a multi-selection.
+    // Otherwise the menu applies to the clicked row alone.
+    const isBulk = state.selected.has(id) && state.selected.size > 1;
+    const targetIds = isBulk ? [...state.selected] : [id];
 
-    if (count === 1) {
-      menuHtml += `
-                <button type="button" id="ctxEditTags" class="flex w-full items-center gap-2 rounded px-2 py-1.5
-       text-left text-xs
-       text-slate-700 dark:text-slate-300
-       hover:bg-slate-100 dark:hover:bg-slate-800
-       hover:text-slate-900 dark:hover:text-white
-       transition">
-                    <svg class="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                        <path d="M20.5 13.5 13.5 20.5 a2 2 0 0 1-2.8 0L4 13.8V4h9.8l6.7 6.7 a2 2 0 0 1 0 2.8Z" />
-                        <circle cx="8.5" cy="8.5" r="1" />
-                    </svg>
-                    Modify
-                </button>
-            `;
-    }
+    const itemCls = `flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs
+    text-slate-700 dark:text-slate-300
+    hover:bg-slate-100 dark:hover:bg-slate-800
+    hover:text-slate-900 dark:hover:text-white transition`;
 
-    menuHtml += `
-                <button type="button" id="ctxManageTags" class="flex w-full items-center gap-2 rounded px-2 py-1.5
-       text-left text-xs
-       text-slate-700 dark:text-slate-300
-       hover:bg-slate-100 dark:hover:bg-slate-800
-       hover:text-slate-900 dark:hover:text-white
-       transition">
-                    <svg class="h-3.5 w-3.5 text-slate-500 dark:text-slate-400"" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                        <path d="M20.5 13.5 13.5 20.5 a2 2 0 0 1-2.8 0L4 13.8V4h9.8l6.7 6.7 a2 2 0 0 1 0 2.8Z" />
-                        <circle cx="8.5" cy="8.5" r="1" />
-                    </svg>
-                    Manage Tags (Bulk)
-                </button>
-            </div>
-            
-           <div class="border-t border-slate-200 dark:border-slate-800 p-1">
-                <button type="button" id="ctxRemoveEndpoint" class="flex w-full items-center gap-2 rounded px-2 py-1.5
-       text-left text-xs
-       text-rose-600 dark:text-rose-400
-       hover:bg-rose-500/10
-       hover:text-rose-700 dark:hover:text-rose-300
-       transition">
-                    <svg class="h-3.5 w-3.5 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                        <path d="M4 7h16" />
-                        <path d="M10 11v6M14 11v6" />
-                        <path d="M6 7l1 13h10l1-13" />
-                        <path d="M9 7V4h6v3" />
-                    </svg>
-                    Remove from Collection
-                </button>
-            </div>
-        `;
+    const tagIcon = `
+    <svg class="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <path d="M20.5 13.5 13.5 20.5a2 2 0 0 1-2.8 0L4 13.8V4h9.8l6.7 6.7a2 2 0 0 1 0 2.8Z" />
+      <circle cx="8.5" cy="8.5" r="1" />
+    </svg>`;
 
-    contextMenu.innerHTML = menuHtml;
+    contextMenu.innerHTML = `
+    <div class="border-b border-slate-200 dark:border-slate-800 px-3 py-2 text-[10px]
+                font-semibold tracking-wide uppercase text-slate-500 dark:text-slate-400">
+      ${isBulk ? `${targetIds.length} Endpoints Selected` : "Endpoint Options"}
+    </div>
+
+    <div class="p-1">
+      ${isBulk
+        ? `<button type="button" id="ctxManageTags" class="${itemCls}">${tagIcon}Manage Tags (Bulk)</button>`
+        : `<button type="button" id="ctxModify" class="${itemCls}">${tagIcon}Modify</button>`}
+    </div>
+
+    <div class="border-t border-slate-200 dark:border-slate-800 p-1">
+      <button type="button" id="ctxRemoveEndpoint" class="flex w-full items-center gap-2 rounded px-2 py-1.5
+              text-left text-xs text-rose-600 dark:text-rose-400
+              hover:bg-rose-500/10 hover:text-rose-700 dark:hover:text-rose-300 transition">
+        <svg class="h-3.5 w-3.5 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M4 7h16" /><path d="M10 11v6M14 11v6" /><path d="M6 7l1 13h10l1-13" /><path d="M9 7V4h6v3" />
+        </svg>
+        Remove from Collection
+      </button>
+    </div>
+  `;
+
+    // Position (show first so we can measure)
     contextMenu.classList.remove("hidden");
-
-    // Position menu
     const rect = contextMenu.getBoundingClientRect();
-    let x = event.clientX;
-    let y = event.clientY;
-
-    if (x + rect.width > window.innerWidth)
-      x = window.innerWidth - rect.width - 5;
-    if (y + rect.height > window.innerHeight)
-      y = window.innerHeight - rect.height - 5;
-
+    let x = event.clientX, y = event.clientY;
+    if (x + rect.width > window.innerWidth) x = window.innerWidth - rect.width - 5;
+    if (y + rect.height > window.innerHeight) y = window.innerHeight - rect.height - 5;
     contextMenu.style.left = `${x}px`;
     contextMenu.style.top = `${y}px`;
 
-    // Bind events
-    if (count === 1) {
-      document.getElementById("ctxEditTags")?.addEventListener("click", () => {
-        closeContextMenu();
-        openTagEditor(endpoint);
-      });
-    }
-
-    document.getElementById("ctxManageTags").addEventListener("click", () => {
+    // Modify: this row only
+    document.getElementById("ctxModify")?.addEventListener("click", () => {
       closeContextMenu();
-      const btn = document.getElementById("tagsManager");
-      if (btn) btn.click();
+      openTagEditor(endpoint);
     });
 
-    document
-      .getElementById("ctxRemoveEndpoint")
-      .addEventListener("click", () => {
-        closeContextMenu();
-        const btn = document.getElementById("deleteSelected");
-        if (btn) btn.click();
-      });
+    // Bulk tags: unchanged behaviour
+    document.getElementById("ctxManageTags")?.addEventListener("click", () => {
+      closeContextMenu();
+      document.getElementById("tagsManager")?.click();
+    });
+
+    // Remove: make sure the target rows are the selected ones first
+    document.getElementById("ctxRemoveEndpoint")?.addEventListener("click", () => {
+      closeContextMenu();
+      state.selected = new Set(targetIds);
+      updateSelectionUI();            // enables #deleteSelected
+      renderTable();
+      document.getElementById("deleteSelected")?.click();
+    });
   }
-
   function openTagEditor(endpoint) {
-    const currentTags = Array.isArray(endpoint.tags)
-      ? endpoint.tags.join(", ")
-      : "";
     const currentAnnotation = endpoint.annotation || "";
-
     const endpointId = getEndpointId(endpoint);
-    const pathText = endpoint.endpoint
-      ? ` — ${escapeHtml(endpoint.endpoint)}`
-      : "";
+
+    // Working copy of the tags while the popup is open
+    let editTags = Array.isArray(endpoint.tags) ? [...endpoint.tags] : [];
+
+    const inputCls = `w-full rounded-md border border-slate-300 dark:border-slate-700
+    bg-white dark:bg-slate-950 px-3 text-xs text-slate-800 dark:text-slate-100
+    outline-none focus:border-cyan-500`;
 
     openModal(
-      `Endpoint — ${escapeHtml(endpointId)}${pathText}`,
+      `Modify — ${escapeHtml(endpoint.endpoint || endpointId)}`,
       `
-                <div class="space-y-4">
-                    <div>
-                        <label class="mb-1 block text-xs text-slate-500">Tags</label>
-                        <input id="tagEditorInput" value="${escapeAttr(currentTags)}" class="h-9 w-full rounded-md border border-slate-700 bg-slate-950 px-3 text-xs outline-none focus:border-cyan-500">
-                        <p class="mt-1 text-[10px] text-slate-600">Separate tags with commas.</p>
-                    </div>
-                    <div>
-                        <label class="mb-1 block text-xs text-slate-500">Annotation</label>
-                        <textarea id="annotationEditorInput" class="h-20 w-full rounded-md border border-slate-700 bg-slate-950 p-2 text-xs outline-none focus:border-cyan-500" placeholder="Optional notes...">${escapeHtml(currentAnnotation)}</textarea>
-                    </div>
-                    <div class="flex justify-end gap-2">
-                        <button type="button" data-modal-close class="rounded-md border border-slate-700 px-3 py-1.5 text-xs text-slate-400 hover:bg-slate-800">Cancel</button>
-                        <button id="saveTagsBtn" type="button" class="rounded-md bg-cyan-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-cyan-500">Save</button>
-                    </div>
-                </div>
-            `,
+    <div class="space-y-4">
+
+      <!-- TAGS -->
+      <div>
+        <label class="mb-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">Tags</label>
+
+        <!-- Chips: fixed height, scrolls when there are many -->
+        <div id="tagChips"
+             class="mb-2 flex max-h-20 min-h-[2rem] flex-wrap content-start gap-1.5 overflow-y-auto
+                    scrollbar scrollbar-thin scrollbar-thumb-slate-400
+                    dark:scrollbar-thumb-slate-700 scrollbar-track-transparent"></div>
+
+        <div class="flex gap-2">
+          <input id="tagEditorInput" type="text" placeholder="Type a tag and press Enter"
+                 class="h-9 flex-1 ${inputCls}">
+          <button id="tagAddBtn" type="button"
+                  class="h-9 rounded-md border border-slate-300 dark:border-slate-700 px-3 text-xs
+                         font-medium text-slate-700 dark:text-slate-300
+                         hover:bg-slate-200 dark:hover:bg-slate-800">Add</button>
+        </div>
+      </div>
+
+      <!-- ANNOTATION -->
+      <div>
+        <label class="mb-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">Annotation</label>
+        <textarea id="annotationEditorInput" class="h-20 py-2 ${inputCls}"
+                  placeholder="Optional notes...">${escapeHtml(currentAnnotation)}</textarea>
+      </div>
+
+      <div class="flex justify-end gap-2">
+        <button type="button" data-modal-close
+                class="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-xs
+                       text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800">Cancel</button>
+        <button id="saveTagsBtn" type="button"
+                class="rounded-md bg-slate-900 dark:bg-cyan-500 px-3 py-1.5 text-xs font-semibold
+                       text-white dark:text-slate-950 hover:bg-slate-800 dark:hover:bg-cyan-400">Save</button>
+      </div>
+    </div>
+    `,
     );
 
-    document
-      .getElementById("saveTagsBtn")
-      ?.addEventListener("click", async () => {
-        const btn = document.getElementById("saveTagsBtn");
-        const input = document.getElementById("tagEditorInput");
-        const annotationInput = document.getElementById(
-          "annotationEditorInput",
-        );
+    const chipsEl = document.getElementById("tagChips");
+    const tagInput = document.getElementById("tagEditorInput");
 
-        btn.disabled = true;
-        btn.textContent = "Saving...";
+    // ---------- chip rendering ----------
+    function renderChips() {
+      chipsEl.innerHTML = editTags
+        .map(
+          (tag, i) => `
+        <span class="inline-flex items-center gap-1.5 rounded-md border
+                     border-cyan-300 dark:border-cyan-700
+                     bg-cyan-50 dark:bg-cyan-900/30
+                     px-2 py-1 text-xs text-cyan-800 dark:text-cyan-200">
+          ${escapeHtml(tag)}
+          <button type="button" data-remove="${i}" title="Remove"
+                  class="text-cyan-600 dark:text-cyan-400 hover:text-rose-500 dark:hover:text-rose-400">×</button>
+        </span>`,
+        )
+        .join("");
+    }
 
-        const newTags = input.value
-          .split(",")
-          .map((tag) => tag.trim())
-          .filter(Boolean);
-        const oldTags = Array.isArray(endpoint.tags) ? [...endpoint.tags] : [];
-        const oldTagSet = new Set(oldTags);
-        const newTagSet = new Set(newTags);
+    function addTagFromInput() {
+      const value = tagInput.value.trim();
+      if (value && !editTags.includes(value)) {
+        editTags.push(value);
+        renderChips();
+      }
+      tagInput.value = "";
+      tagInput.focus();
+    }
 
-        const tagsToAdd = newTags.filter((tag) => !oldTagSet.has(tag));
-        const tagsToRemove = oldTags.filter((tag) => !newTagSet.has(tag));
+    chipsEl.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-remove]");
+      if (!btn) return;
+      editTags.splice(Number(btn.dataset.remove), 1);
+      renderChips();
+    });
 
-        const newAnnotation = annotationInput.value;
-        const isAnnotationChanged = newAnnotation !== currentAnnotation;
+    tagInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();      // don't submit / close the modal
+        addTagFromInput();
+      }
+    });
 
-        const api = window.EdmsAPI;
-        if (!api || typeof api.addEndpointTag !== "function") {
-          console.error("API unavailable");
-          return;
+    document.getElementById("tagAddBtn").addEventListener("click", addTagFromInput);
+
+    renderChips();
+    tagInput.focus();
+
+    // ---------- save ----------
+    document.getElementById("saveTagsBtn")?.addEventListener("click", async () => {
+      const btn = document.getElementById("saveTagsBtn");
+      const annotationInput = document.getElementById("annotationEditorInput");
+
+      // If something is typed but Enter/Add wasn't pressed, include it
+      const pending = tagInput.value.trim();
+      if (pending && !editTags.includes(pending)) editTags.push(pending);
+
+      btn.disabled = true;
+      btn.textContent = "Saving...";
+
+      const newTags = [...editTags];
+      const oldTags = Array.isArray(endpoint.tags) ? [...endpoint.tags] : [];
+      const oldTagSet = new Set(oldTags);
+      const newTagSet = new Set(newTags);
+
+      const tagsToAdd = newTags.filter((tag) => !oldTagSet.has(tag));
+      const tagsToRemove = oldTags.filter((tag) => !newTagSet.has(tag));
+
+      const newAnnotation = annotationInput.value;
+      const isAnnotationChanged = newAnnotation !== currentAnnotation;
+
+      const api = window.EdmsAPI;
+      if (!api || typeof api.addEndpointTag !== "function") {
+        console.error("API unavailable");
+        btn.disabled = false;
+        btn.textContent = "Save";
+        return;
+      }
+
+      try {
+        for (const tag of tagsToRemove) {
+          await api.removeEndpointTag(getEndpointId(endpoint), tag);
+        }
+        for (const tag of tagsToAdd) {
+          await api.addEndpointTag(getEndpointId(endpoint), tag);
         }
 
-        try {
-          for (const tag of tagsToRemove) {
-            await api.removeEndpointTag(getEndpointId(endpoint), tag);
-          }
-          for (const tag of tagsToAdd) {
-            await api.addEndpointTag(getEndpointId(endpoint), tag);
-          }
-
-          if (
-            isAnnotationChanged &&
-            typeof api.setEndpointAnnotation === "function"
-          ) {
-            await api.setEndpointAnnotation(
-              getEndpointId(endpoint),
-              newAnnotation,
-            );
-            endpoint.annotation = newAnnotation;
-          }
-
-          // Instead of completely reloading, update local state
-          endpoint.tags = newTags;
-          renderTable();
-          closeModal();
-        } catch (err) {
-          console.error(err);
-          btn.disabled = false;
-          btn.textContent = "Error";
+        if (isAnnotationChanged && typeof api.setEndpointAnnotation === "function") {
+          await api.setEndpointAnnotation(getEndpointId(endpoint), newAnnotation);
+          endpoint.annotation = newAnnotation;
         }
-      });
+
+        endpoint.tags = newTags;
+        renderTable();
+        closeModal();
+      } catch (err) {
+        console.error(err);
+        btn.disabled = false;
+        btn.textContent = "Error";
+      }
+    });
   }
-
   function wireRemoveAction() {
     const delBtn = document.getElementById("deleteSelected");
     if (delBtn) {
@@ -2083,15 +2057,15 @@
           "Remove Endpoints",
           `
                     <div class="space-y-4">
-                        <p class="text-xs text-slate-300">
+                        <p class="text-xs text-slate-700 dark:text-slate-300">
                             Are you sure you want to remove ${state.selected.size} endpoint${state.selected.size === 1 ? "" : "s"} from this collection?
                         </p>
-                        <p class="text-[10px] text-slate-500">
+                        <p class="text-[10px] text-slate-500 dark:text-slate-400">
                             This will not delete the endpoints from the system, only from this collection.
                         </p>
                         <div class="flex justify-end gap-2 pt-2">
-                            <button type="button" class="rounded-md border border-slate-700 px-3 py-1.5 text-xs text-slate-400 hover:bg-slate-800" data-modal-close>Cancel</button>
-                            <button id="confirmRemove" type="button" class="rounded-md bg-rose-600/90 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-500">Remove</button>
+                            <button type="button" class="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800" data-modal-close>Cancel</button>
+                            <button id="confirmRemove" type="button" class="rounded-md bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-500 disabled:opacity-60 disabled:cursor-not-allowed">Remove</button>
                         </div>
                     </div>
                 `,

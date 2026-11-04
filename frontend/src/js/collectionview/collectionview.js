@@ -10,7 +10,7 @@
   const API_BASE = "http://localhost:3000";
 
   let nextId = 9000;
-
+  let sizeUnits = {};
   // ============================================================
   // STATE
   // ============================================================
@@ -57,6 +57,23 @@
     wireModal();
 
     await loadFolders();
+    if (typeof RefreshButton !== "undefined") {
+      RefreshButton.init({
+        buttonId: "resetFilters",
+        debug: true, // remove once the event names are known
+        events: [
+          // fill in after checking the console, e.g.:
+          // "CollectionCreated", "CollectionDeleted", "CollectionRenamed",
+          // "CollectionEndpointAdded", "CollectionEndpointRemoved",
+          // "MembershipTagAdded", "MembershipTagRemoved", "ViewIoDone"
+        ],
+        onRefresh: async () => {
+          await loadFolders();
+          renderSidebar();
+          applyFilters();
+        },
+      });
+    }
 
     renderSidebar();
 
@@ -180,7 +197,6 @@
       }
 
       const items = getCollectionItems(response);
-
       const previousActive = state.activeFolderId;
 
       const previousActiveFolder = getFolder(previousActive);
@@ -210,7 +226,7 @@
             datatype: undefined,
 
             annotation: item.annotation ?? undefined,
-
+            sizeBytes: Number(item?.size_bytes ?? item?.sizeBytes ?? 0),
             source: undefined,
 
             tags: [],
@@ -860,15 +876,15 @@
             ${crudCountBadge(counts.DELETE, "text-rose-400")}
         </td>
 
-
-        <td
-            class="px-2 py-2
-                   text-slate-400"
-        >
-            —
-        </td>
-
-
+<td class="px-2 py-2 whitespace-nowrap">
+    <button
+        type="button"
+        class="folder-size-btn text-slate-800 dark:text-slate-300 hover:text-cyan-600 dark:hover:text-cyan-400"
+        title="Click to change unit"
+    >
+        ${formatSize(folder.sizeBytes, sizeUnits[folder.id])}
+    </button>
+</td>
         <td class="px-2 py-2">
 
             <span
@@ -921,7 +937,10 @@
         applyFilters();
       });
     });
-
+    row.querySelector(".folder-size-btn").addEventListener("click", (event) => {
+      event.stopPropagation();
+      cycleSizeUnit(id);
+    });
     row.addEventListener("click", (event) => {
       if (event.target.closest("button,input")) {
         return;
@@ -1660,14 +1679,14 @@
 
                         <span
                             class="shrink-0
-                                   rounded-md
-                                   border
-                                   border-cyan-500/20
-                                   bg-cyan-500/10
-                                   px-2 py-1
-                                   font-mono
-                                   text-[10px]
-                                   text-cyan-300"
+       rounded-md
+       border
+       border-cyan-600/30 dark:border-cyan-500/20
+       bg-cyan-500/10
+       px-2 py-1
+       font-mono
+       text-[10px]
+       text-cyan-800 dark:text-cyan-300"
                         >
                             ${escapeHtml(folder.name)}
                         </span>
@@ -1725,9 +1744,7 @@
         applyFilters();
       });
 
-    document
-      .getElementById("resetFilters")
-      ?.addEventListener("click", resetFilters);
+
 
     document
       .getElementById("newCollectionBtn")
@@ -1871,7 +1888,7 @@
       }
 
       await loadFolders();
-
+      RefreshButton?.synced();
       renderSidebar();
 
       applyFilters();
@@ -1927,7 +1944,7 @@
       }
 
       await loadFolders();
-
+      RefreshButton?.synced();
       renderSidebar();
 
       applyFilters();
@@ -1984,7 +2001,7 @@
     }
 
     await loadFolders();
-
+    RefreshButton?.synced();
     renderSidebar();
 
     applyFilters();
@@ -2039,160 +2056,157 @@
       availableTagsMap[f.name] = [...new Set(initialTags.filter(Boolean))];
       tagSelections[f.name] = new Set();
     });
+    const MODE_BASE =
+      "flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition border";
+    const MODE_ACTIVE = `${MODE_BASE} text-slate-900 dark:text-white bg-white dark:bg-slate-800 shadow-sm border-slate-200 dark:border-slate-700/60`;
+    const MODE_INACTIVE = `${MODE_BASE} text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 border-transparent`;
+
 
     openModal(`
-      <div class="space-y-4">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-          <div>
-            <h2 class="text-sm font-semibold text-white flex items-center gap-2">
-              <svg class="h-4 w-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M8 7v10M16 7v10M8 12h8" />
-              </svg>
-              Merge Collections
-            </h2>
-            <p class="mt-0.5 text-[11px] text-slate-400">
-              Combine endpoints from selected collections into a target collection.
-            </p>
-          </div>
-          <button
-            type="button"
-            data-modal-close
-            class="rounded-md p-1 text-slate-500 hover:bg-slate-800 hover:text-white"
-            title="Close"
-          >
-            ${iconClose()}
-          </button>
-        </div>
-
-        <!-- Mode Segmented Control -->
-        <div>
-          <div class="flex items-center justify-between mb-1.5">
-            <label class="block text-xs font-medium text-slate-300">
-              Merge Mode
-            </label>
-            <span id="mergeModeHint" class="text-[11px] text-slate-400">
-              Merge all endpoints from source collections
-            </span>
-          </div>
-          <div class="grid grid-cols-2 gap-1 rounded-lg bg-slate-900 p-1 border border-slate-800 text-xs">
-            <button
-              type="button"
-              id="modeBtnCollection"
-              class="flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition text-white bg-slate-800 shadow-sm border border-slate-700/60"
-            >
-              <svg class="h-3.5 w-3.5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-              Collection Mode
-            </button>
-            <button
-              type="button"
-              id="modeBtnTag"
-              class="flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition text-slate-400 hover:text-slate-200 border border-transparent"
-            >
-              <svg class="h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-              </svg>
-              Tag Mode
-            </button>
-          </div>
-        </div>
-
-        <!-- Collection Mode Section -->
-        <div id="mergeCollectionModeSection">
-          <label class="mb-1.5 block text-xs font-medium text-slate-300">
-            Selected Collections (${sourceFolders.length})
-          </label>
-          <div class="max-h-36 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950/70 p-2 space-y-1.5 scrollbar-thin scrollbar-thumb-slate-800">
-            ${sourceFolders
-              .map(
-                (f) => `
-                <div class="flex items-center justify-between rounded px-2.5 py-1.5 bg-slate-900/80 border border-slate-800/80">
-                  <div class="flex items-center gap-2 min-w-0">
-                    <span class="inline-block h-2 w-2 rounded-full bg-cyan-400"></span>
-                    <span class="text-xs font-mono font-medium text-slate-200 truncate">${escapeHtml(f.name)}</span>
-                    ${f.annotation ? `<span class="text-[10px] text-slate-400 truncate">(${escapeHtml(f.annotation)})</span>` : ""}
-                  </div>
-                  <span class="shrink-0 text-[10px] text-cyan-400/80 font-mono">
-                    ${Array.isArray(f.endpoints) ? f.endpoints.length : (f.endpoint_count ?? 0)} endpoints
-                  </span>
-                </div>
-              `,
-              )
-              .join("")}
-          </div>
-        </div>
-
-        <!-- Tag Mode Section -->
-        <div id="mergeTagModeSection" class="hidden space-y-2">
-          <div class="flex items-center justify-between">
-            <label class="block text-xs font-medium text-slate-300">
-              Filter Endpoints by Tag
-            </label>
-            <span class="text-[10px] text-slate-400">
-              Only matching endpoints will merge into target
-            </span>
-          </div>
-          <div id="mergeTagSourcesList" class="max-h-56 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950/70 p-2 space-y-2.5 scrollbar-thin scrollbar-thumb-slate-800">
-            <!-- Dynamically populated -->
-          </div>
-        </div>
-
-        <!-- Primary / Target Collection Section -->
-        <div>
-          <label class="mb-1.5 block text-xs font-medium text-slate-300">
-            Primary / Target Collection <span class="text-rose-400">*</span>
-          </label>
-          <select
-            id="mergeTargetSelect"
-            class="mb-2 h-9 w-full rounded-md border border-slate-700 bg-slate-950 px-3 text-xs text-slate-200 outline-none focus:border-cyan-500"
-          >
-            ${sourceFolders
-              .map(
-                (f, idx) => `
-                <option value="${escapeAttr(f.name)}" ${idx === 0 ? "selected" : ""}>
-                  ${escapeHtml(f.name)} (Merge sources into this collection)
-                </option>
-              `,
-              )
-              .join("")}
-            <option value="__custom__">+ Enter custom / new target collection name...</option>
-          </select>
-          <input
-            id="customMergeTargetInput"
-            type="text"
-            placeholder="Enter target collection name"
-            class="hidden h-9 w-full rounded-md border border-slate-700 bg-slate-950 px-3 text-xs text-slate-200 outline-none focus:border-cyan-500"
-          />
-        </div>
-
-        <div id="mergeStatusArea" class="hidden rounded-lg border px-3 py-2 text-xs"></div>
-
-        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
-          <button
-            type="button"
-            id="cancelMergeBtn"
-            data-modal-close
-            class="rounded-md border border-slate-700 px-3 py-1.5 text-xs text-slate-400 hover:bg-slate-800"
-          >
-            Cancel
-          </button>
-          <button
-            id="confirmMergeBtn"
-            type="button"
-            class="inline-flex items-center gap-1.5 rounded-md bg-cyan-600 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-cyan-500 transition shadow-sm"
-          >
-            <span id="mergeBtnSpinner" class="hidden">
-              <svg class="h-3.5 w-3.5 animate-spin text-white" viewBox="0 0 24 24" fill="none">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-              </svg>
-            </span>
-            <span id="mergeBtnText">Merge Collections</span>
-          </button>
-        </div>
+  <div class="space-y-4">
+    <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+      <div>
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+          <svg class="h-4 w-4 text-cyan-600 dark:text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M8 7v10M16 7v10M8 12h8" />
+          </svg>
+          Merge Collections
+        </h2>
+        <p class="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+          Combine endpoints from selected collections into a target collection.
+        </p>
       </div>
-    `);
+      <button
+        type="button"
+        data-modal-close
+        class="rounded-md p-1 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"
+        title="Close"
+      >
+        ${iconClose()}
+      </button>
+    </div>
+
+    <!-- Mode Segmented Control -->
+    <div>
+      <div class="flex items-center justify-between mb-1.5">
+        <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">
+          Merge Mode
+        </label>
+        <span id="mergeModeHint" class="text-[11px] text-slate-500 dark:text-slate-400">
+          Merge all endpoints from source collections
+        </span>
+      </div>
+      <div class="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 dark:bg-slate-900 p-1 border border-slate-200 dark:border-slate-800 text-xs">
+        <button type="button" id="modeBtnCollection" class="${MODE_ACTIVE}">
+          <svg class="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+          </svg>
+          Collection Mode
+        </button>
+        <button type="button" id="modeBtnTag" class="${MODE_INACTIVE}">
+          <svg class="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+          </svg>
+          Tag Mode
+        </button>
+      </div>
+    </div>
+
+    <!-- Collection Mode Section -->
+    <div id="mergeCollectionModeSection">
+      <label class="mb-1.5 block text-xs font-medium text-slate-700 dark:text-slate-300">
+        Selected Collections (${sourceFolders.length})
+      </label>
+      <div class="max-h-36 overflow-y-auto rounded-lg border border-slate-300 dark:border-slate-800 bg-slate-100 dark:bg-slate-950/70 p-2 space-y-1.5 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-800">
+        ${sourceFolders
+        .map(
+          (f) => `
+            <div class="flex items-center justify-between rounded px-2.5 py-1.5 bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800/80">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="inline-block h-2 w-2 rounded-full bg-cyan-500"></span>
+                <span class="text-xs font-mono font-medium text-slate-800 dark:text-slate-200 truncate">${escapeHtml(f.name)}</span>
+                ${f.annotation ? `<span class="text-[10px] text-slate-500 dark:text-slate-400 truncate">(${escapeHtml(f.annotation)})</span>` : ""}
+              </div>
+              <span class="shrink-0 text-[10px] text-cyan-700 dark:text-cyan-400/80 font-mono">
+                ${Array.isArray(f.endpoints) ? f.endpoints.length : (f.endpoint_count ?? 0)} endpoints
+              </span>
+            </div>
+          `,
+        )
+        .join("")}
+      </div>
+    </div>
+
+    <!-- Tag Mode Section -->
+    <div id="mergeTagModeSection" class="hidden space-y-2">
+      <div class="flex items-center justify-between">
+        <label class="block text-xs font-medium text-slate-700 dark:text-slate-300">
+          Filter Endpoints by Tag
+        </label>
+        <span class="text-[10px] text-slate-500 dark:text-slate-400">
+          Only matching endpoints will merge into target
+        </span>
+      </div>
+      <div id="mergeTagSourcesList" class="max-h-56 overflow-y-auto rounded-lg border border-slate-300 dark:border-slate-800 bg-slate-100 dark:bg-slate-950/70 p-2 space-y-2.5 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-800">
+        <!-- Dynamically populated -->
+      </div>
+    </div>
+
+    <!-- Primary / Target Collection Section -->
+    <div>
+      <label class="mb-1.5 block text-xs font-medium text-slate-700 dark:text-slate-300">
+        Primary / Target Collection <span class="text-rose-500">*</span>
+      </label>
+      <select
+        id="mergeTargetSelect"
+        class="mb-2 h-9 w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-xs text-slate-800 dark:text-slate-200 outline-none focus:border-cyan-500"
+      >
+        ${sourceFolders
+        .map(
+          (f, idx) => `
+            <option value="${escapeAttr(f.name)}" ${idx === 0 ? "selected" : ""}>
+              ${escapeHtml(f.name)} (Merge sources into this collection)
+            </option>
+          `,
+        )
+        .join("")}
+        <option value="__custom__">+ Enter custom / new target collection name...</option>
+      </select>
+      <input
+        id="customMergeTargetInput"
+        type="text"
+        placeholder="Enter target collection name"
+        class="hidden h-9 w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 outline-none focus:border-cyan-500"
+      />
+    </div>
+
+    <div id="mergeStatusArea" class="hidden rounded-lg border px-3 py-2 text-xs"></div>
+
+    <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+      <button
+        type="button"
+        id="cancelMergeBtn"
+        data-modal-close
+        class="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-xs text-slate-700 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+      >
+        Cancel
+      </button>
+      <button
+        id="confirmMergeBtn"
+        type="button"
+        class="inline-flex items-center gap-1.5 rounded-md bg-cyan-600 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-cyan-500 transition shadow-sm"
+      >
+        <span id="mergeBtnSpinner" class="hidden">
+          <svg class="h-3.5 w-3.5 animate-spin text-white" viewBox="0 0 24 24" fill="none">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+        </span>
+        <span id="mergeBtnText">Merge Collections</span>
+      </button>
+    </div>
+  </div>
+`);
 
     const modeBtnCollection = document.getElementById("modeBtnCollection");
     const modeBtnTag = document.getElementById("modeBtnTag");
@@ -2224,10 +2238,10 @@
 
       if (activeSources.length === 0) {
         tagSourcesList.innerHTML = `
-          <div class="py-4 text-center text-xs text-slate-500">
-            No source collections available for the current target.
-          </div>
-        `;
+      <div class="py-4 text-center text-xs text-slate-500 dark:text-slate-400">
+        No source collections available for the current target.
+      </div>
+    `;
         return;
       }
 
@@ -2240,106 +2254,103 @@
           const selectedChips = Array.from(selected)
             .map(
               (tag) => `
-              <span class="inline-flex items-center gap-1 rounded bg-cyan-950/80 border border-cyan-700/60 px-2 py-0.5 text-[11px] font-mono text-cyan-300">
-                <span>${escapeHtml(tag)}</span>
-                <button
-                  type="button"
-                  data-remove-tag="${escapeAttr(tag)}"
-                  data-col="${escapeAttr(f.name)}"
-                  class="text-cyan-400 hover:text-cyan-100 hover:bg-cyan-800/50 rounded p-0.5 ml-0.5 transition"
-                  title="Remove tag"
-                >
-                  <svg class="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                  </svg>
-                </button>
-              </span>
-            `,
+          <span class="inline-flex items-center gap-1 rounded bg-cyan-50 dark:bg-cyan-950/80 border border-cyan-300 dark:border-cyan-700/60 px-2 py-0.5 text-[11px] font-mono text-cyan-800 dark:text-cyan-300">
+            <span>${escapeHtml(tag)}</span>
+            <button
+              type="button"
+              data-remove-tag="${escapeAttr(tag)}"
+              data-col="${escapeAttr(f.name)}"
+              class="text-cyan-600 dark:text-cyan-400 hover:text-cyan-900 dark:hover:text-cyan-100 hover:bg-cyan-200 dark:hover:bg-cyan-800/50 rounded p-0.5 ml-0.5 transition"
+              title="Remove tag"
+            >
+              <svg class="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </span>
+        `,
             )
             .join("");
 
           const availPills = unselectedAvail
             .map(
               (tag) => `
-              <button
-                type="button"
-                data-add-tag="${escapeAttr(tag)}"
-                data-col="${escapeAttr(f.name)}"
-                class="inline-flex items-center rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-1.5 py-0.5 text-[10px] font-mono transition border border-slate-700/60"
-                title="Add tag ${escapeAttr(tag)}"
-              >
-                + ${escapeHtml(tag)}
-              </button>
-            `,
+          <button
+            type="button"
+            data-add-tag="${escapeAttr(tag)}"
+            data-col="${escapeAttr(f.name)}"
+            class="inline-flex items-center rounded bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white px-1.5 py-0.5 text-[10px] font-mono transition border border-slate-300 dark:border-slate-700/60"
+            title="Add tag ${escapeAttr(tag)}"
+          >
+            + ${escapeHtml(tag)}
+          </button>
+        `,
             )
             .join("");
 
           return `
-            <div class="rounded-md border border-slate-800/80 bg-slate-900/80 p-2.5 space-y-2">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-1.5 min-w-0">
-                  <span class="inline-block h-2 w-2 rounded-full bg-cyan-400"></span>
-                  <span class="text-xs font-mono font-medium text-slate-200 truncate">${escapeHtml(f.name)}</span>
-                  <span class="text-[10px] text-cyan-400/80 font-mono">
-                    (${Array.isArray(f.endpoints) ? f.endpoints.length : (f.endpoint_count ?? 0)} eps)
-                  </span>
-                </div>
-                <div class="flex items-center gap-2">
-                  ${
-                    unselectedAvail.length > 0
-                      ? `
-                    <button
-                      type="button"
-                      data-select-all-tags="${escapeAttr(f.name)}"
-                      class="text-[10px] text-cyan-400 hover:text-cyan-300 underline font-mono"
-                    >
-                      Add all (${unselectedAvail.length})
-                    </button>
-                  `
-                      : ""
-                  }
-                  <span class="text-[10px] font-mono ${selected.size === 0 ? "text-amber-400 font-semibold" : "text-slate-400"}">
-                    ${selected.size === 0 ? "0 tags (required)" : `${selected.size} selected`}
-                  </span>
-                </div>
-              </div>
-
-              <!-- Selected Tag Chips -->
-              <div class="flex flex-wrap items-center gap-1.5 min-h-[26px] p-1 rounded bg-slate-950/70 border ${selected.size === 0 ? "border-amber-500/30" : "border-slate-800"}">
-                ${
-                  selected.size > 0
-                    ? selectedChips
-                    : `<span class="text-[11px] text-amber-400/70 italic px-1">No tags selected. Click an available tag below or type custom tag.</span>`
-                }
-              </div>
-
-              <!-- Available & custom tag input -->
-              <div class="flex flex-wrap items-center gap-1.5 pt-0.5">
-                ${availPills}
-                <div class="inline-flex items-center gap-1 ml-auto">
-                  <input
-                    type="text"
-                    data-tag-input-for="${escapeAttr(f.name)}"
-                    placeholder="+ custom tag"
-                    class="h-6 w-24 rounded border border-slate-700 bg-slate-950 px-2 text-[11px] text-slate-200 outline-none focus:border-cyan-500 focus:w-32 transition-all"
-                  />
-                  <button
-                    type="button"
-                    data-tag-btn-for="${escapeAttr(f.name)}"
-                    class="h-6 px-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold border border-slate-700"
-                    title="Add tag"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
+        <div class="rounded-md border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-900/80 p-2.5 space-y-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="inline-block h-2 w-2 rounded-full bg-cyan-500"></span>
+              <span class="text-xs font-mono font-medium text-slate-800 dark:text-slate-200 truncate">${escapeHtml(f.name)}</span>
+              <span class="text-[10px] text-cyan-700 dark:text-cyan-400/80 font-mono">
+                (${Array.isArray(f.endpoints) ? f.endpoints.length : (f.endpoint_count ?? 0)} eps)
+              </span>
             </div>
-          `;
+            <div class="flex items-center gap-2">
+              ${unselectedAvail.length > 0
+              ? `
+                <button
+                  type="button"
+                  data-select-all-tags="${escapeAttr(f.name)}"
+                  class="text-[10px] text-cyan-700 dark:text-cyan-400 hover:text-cyan-900 dark:hover:text-cyan-300 underline font-mono"
+                >
+                  Add all (${unselectedAvail.length})
+                </button>
+              `
+              : ""
+            }
+              <span class="text-[10px] font-mono ${selected.size === 0 ? "text-amber-600 dark:text-amber-400 font-semibold" : "text-slate-500 dark:text-slate-400"}">
+                ${selected.size === 0 ? "0 tags (required)" : `${selected.size} selected`}
+              </span>
+            </div>
+          </div>
+
+          <!-- Selected Tag Chips -->
+          <div class="flex flex-wrap items-center gap-1.5 min-h-[26px] p-1 rounded bg-slate-50 dark:bg-slate-950/70 border ${selected.size === 0 ? "border-amber-500/40 dark:border-amber-500/30" : "border-slate-200 dark:border-slate-800"}">
+            ${selected.size > 0
+              ? selectedChips
+              : `<span class="text-[11px] text-amber-600 dark:text-amber-400/70 italic px-1">No tags selected. Click an available tag below or type custom tag.</span>`
+            }
+          </div>
+
+          <!-- Available & custom tag input -->
+          <div class="flex flex-wrap items-center gap-1.5 pt-0.5">
+            ${availPills}
+            <div class="inline-flex items-center gap-1 ml-auto">
+              <input
+                type="text"
+                data-tag-input-for="${escapeAttr(f.name)}"
+                placeholder="+ custom tag"
+                class="h-6 w-24 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 text-[11px] text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 outline-none focus:border-cyan-500 focus:w-32 transition-all"
+              />
+              <button
+                type="button"
+                data-tag-btn-for="${escapeAttr(f.name)}"
+                class="h-6 px-1.5 rounded bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-semibold border border-slate-300 dark:border-slate-700"
+                title="Add tag"
+              >
+                +
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
         })
         .join("");
     }
-
     tagSourcesList?.addEventListener("click", (e) => {
       const removeBtn = e.target.closest("[data-remove-tag]");
       if (removeBtn) {
@@ -2445,18 +2456,14 @@
     function setMode(mode) {
       mergeMode = mode;
       if (mode === "collection") {
-        modeBtnCollection.className =
-          "flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition text-white bg-slate-800 shadow-sm border border-slate-700/60";
-        modeBtnTag.className =
-          "flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition text-slate-400 hover:text-slate-200 border border-transparent";
+        modeBtnCollection.className = MODE_ACTIVE;
+        modeBtnTag.className = MODE_INACTIVE;
         collectionModeSection?.classList.remove("hidden");
         tagModeSection?.classList.add("hidden");
         if (modeHint) modeHint.textContent = "Merge all endpoints from source collections";
       } else {
-        modeBtnTag.className =
-          "flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition text-white bg-slate-800 shadow-sm border border-slate-700/60";
-        modeBtnCollection.className =
-          "flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition text-slate-400 hover:text-slate-200 border border-transparent";
+        modeBtnTag.className = MODE_ACTIVE;
+        modeBtnCollection.className = MODE_INACTIVE;
         collectionModeSection?.classList.add("hidden");
         tagModeSection?.classList.remove("hidden");
         if (modeHint) modeHint.textContent = "Merge only endpoints matching selected tags";
@@ -2464,7 +2471,6 @@
         fetchMissingTags();
       }
     }
-
     modeBtnCollection?.addEventListener("click", () => setMode("collection"));
     modeBtnTag?.addEventListener("click", () => setMode("tag"));
 
@@ -2579,6 +2585,7 @@
           await loadFolders();
           renderSidebar();
           applyFilters();
+          RefreshButton?.synced();   // add this
 
           const res = eventData?.result || eventData?.data || eventData;
           let successMsg = `Successfully merged collections into "${targetName}".`;
@@ -2637,6 +2644,7 @@
             clearSelection();
             closeModal();
             await loadFolders();
+            RefreshButton?.synced();
             renderSidebar();
             applyFilters();
             showAlert(`Collections merge into "${targetName}" completed.`);
@@ -2669,29 +2677,17 @@
       if (modeBtnTag) modeBtnTag.disabled = loading;
     }
 
+    const STATUS_COLOR_CLASSES = {
+      error: ["border-rose-500/40", "bg-rose-500/10", "text-rose-700", "dark:text-rose-300"],
+      success: ["border-cyan-500/40", "bg-cyan-500/10", "text-cyan-700", "dark:text-cyan-300"],
+      info: ["border-amber-500/40", "bg-amber-500/10", "text-amber-700", "dark:text-amber-300"],
+    };
+
     function showMergeStatus(msg, type) {
       if (!statusArea) return;
-      statusArea.classList.remove(
-        "hidden",
-        "border-rose-500/40",
-        "bg-rose-500/10",
-        "text-rose-300",
-        "border-cyan-500/40",
-        "bg-cyan-500/10",
-        "text-cyan-300",
-        "border-amber-500/40",
-        "bg-amber-500/10",
-        "text-amber-300",
-      );
-
-      if (type === "error") {
-        statusArea.classList.add("border-rose-500/40", "bg-rose-500/10", "text-rose-300");
-      } else if (type === "success") {
-        statusArea.classList.add("border-cyan-500/40", "bg-cyan-500/10", "text-cyan-300");
-      } else {
-        statusArea.classList.add("border-amber-500/40", "bg-amber-500/10", "text-amber-300");
-      }
-
+      Object.values(STATUS_COLOR_CLASSES).forEach((c) => statusArea.classList.remove(...c));
+      statusArea.classList.remove("hidden");
+      statusArea.classList.add(...(STATUS_COLOR_CLASSES[type] || STATUS_COLOR_CLASSES.info));
       statusArea.textContent = msg;
     }
   }
@@ -2840,8 +2836,8 @@
             const items = Array.isArray(listRes?.data?.items)
               ? listRes.data.items
               : Array.isArray(listRes?.data)
-              ? listRes.data
-              : [];
+                ? listRes.data
+                : [];
             if (
               items.some(
                 (repo) => (repo.name || "").toLowerCase() === name.toLowerCase()
@@ -3182,7 +3178,7 @@
           closeModal();
 
           await loadFolders();
-
+          RefreshButton?.synced();
           renderSidebar();
 
           applyFilters();
@@ -3339,7 +3335,7 @@
           closeModal();
 
           await loadFolders();
-
+          RefreshButton?.synced();
           renderSidebar();
 
           applyFilters();
@@ -3824,6 +3820,33 @@ bg-slate-100 dark:bg-slate-950/60 p-3"
 
     return text ? text.charAt(0).toUpperCase() + text.slice(1) : "";
   }
+  function cycleSizeUnit(id) {
+    const units = ["B", "KB", "MB", "GB"];
+
+    const current = sizeUnits[id] || "MB";
+
+    const index = units.indexOf(current);
+
+    sizeUnits[id] = units[(index + 1) % units.length];
+
+    renderTable();
+  }
+  function formatSize(bytes, unit) {
+    const value = Number(bytes) || 0;
+
+    switch (unit) {
+      case "B":
+        return `${value.toFixed(0)} B`;
+      case "KB":
+        return `${(value / 1024).toFixed(1)} KB`;
+      case "GB":
+        return `${(value / 1024 / 1024 / 1024).toFixed(2)} GB`;
+      case "MB":
+      default:
+        return `${(value / 1024 / 1024).toFixed(1)} MB`;
+    }
+  }
+
 
   function methodClass(method) {
     return (

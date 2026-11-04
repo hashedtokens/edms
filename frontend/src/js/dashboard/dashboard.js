@@ -246,40 +246,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
         {
-            name: "History",
-
-            methods: {
-
-                GET: {
-                    percentage: "38%",
-                    count: 15
-                },
-
-                POST: {
-                    percentage: "35%",
-                    count: 14
-                },
-
-                PUT: {
-                    percentage: "15%",
-                    count: 6
-                },
-
-                PATCH: {
-                    percentage: "5%",
-                    count: 2
-                },
-
-                DELETE: {
-                    percentage: "3%",
-                    count: 1
-                }
-
-            }
-        },
-
-
-        {
             name: "QP Pairs",
 
             methods: {
@@ -310,6 +276,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
 
             }
+        },
+        {
+            name: "Query Params",
+            methods: {
+                GET: { percentage: "55%", count: 30 },
+                POST: { percentage: "28%", count: 12 },
+                PUT: { percentage: "12%", count: 6 },
+                PATCH: { percentage: "8%", count: 4 },
+                DELETE: { percentage: "3%", count: 2 }
+            }
         }
 
     ];
@@ -317,18 +293,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // TEST VIEW
 
-    createStatsTable({
+    const sections = [
+        { containerId: "historyTable", title: "History" },      // formerly Test View
+        { containerId: "repoTable", title: "Repo View" },
+        { containerId: "webTable", title: "Web View" },
+        { containerId: "collectionTable", title: "Collections" },
+        { containerId: "bookmarkTable", title: "Bookmarks" }     // was "Bookmark View"
+    ];
 
-        containerId: "testTable",
-
-        title: "Test View",
-
-        entries: 520,
-
-        rows: tableRows
-
-    });
-
+    sections.forEach(s =>
+        createStatsTable({ ...s, entries: 520, rows: tableRows })
+    );
     // REPO VIEW
 
     createStatsTable({
@@ -350,7 +325,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         containerId: "collectionTable",
 
-        title: "Collections View",
+        title: "Collections",
 
         entries: 520,
 
@@ -365,7 +340,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         containerId: "bookmarkTable",
 
-        title: "Bookmark View",
+        title: "Bookmarks",
 
         entries: 520,
 

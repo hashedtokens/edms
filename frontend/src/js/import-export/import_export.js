@@ -8,28 +8,19 @@ document.addEventListener("DOMContentLoaded", () => {
     // LOAD DATA
     function loadImportExportData() {
 
-        fetch("../../data/import_export.json")
-
+        return fetch("../../data/import_export.json")
             .then(response => {
-
                 if (!response.ok) {
-
-                    throw new Error(
-                        "Failed to load import_export.json"
-                    );
+                    throw new Error("Failed to load import_export.json");
                 }
                 return response.json();
             })
             .then(data => {
                 importExportData = data;
                 createImportExportTable();
-
             })
             .catch(error => {
-                console.error(
-                    "Error loading Import / Export data:",
-                    error
-                );
+                console.error("Error loading Import / Export data:", error);
             });
     }
     // RENDER TABLE
@@ -114,7 +105,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 "transition hover:bg-slate-200 dark:hover:bg-slate-800/40";
 
             row.innerHTML = `
-
+<td class="px-3 py-3 w-10">
+    <input type="checkbox" class="row-check h-3.5 w-3.5 cursor-pointer accent-cyan-500">
+</td>
             <!-- Folder Name -->
 
             <td class="px-5 py-3
@@ -167,9 +160,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 }
             );
+            row.querySelector(".row-check").addEventListener("change", syncSelectAll);
             table.appendChild(row);
 
         });
+        syncSelectAll();
     }
     // FORMAT CHECK BADGE
     function getFormatCheckBadge(result) {
@@ -217,6 +212,24 @@ document.addEventListener("DOMContentLoaded", () => {
             </span>
 
         `;
+    }
+    // SELECT ALL
+    const selectAll = document.getElementById("selectAll");
+
+    function syncSelectAll() {
+        if (!selectAll) return;
+        const checks = document.querySelectorAll(".row-check");
+        const checked = document.querySelectorAll(".row-check:checked");
+        selectAll.checked = checks.length > 0 && checked.length === checks.length;
+        selectAll.indeterminate = checked.length > 0 && checked.length < checks.length;
+    }
+
+    if (selectAll) {
+        selectAll.addEventListener("change", () => {
+            document.querySelectorAll(".row-check").forEach(c => {
+                c.checked = selectAll.checked;
+            });
+        });
     }
     // SEARCH
 
@@ -269,37 +282,13 @@ document.addEventListener("DOMContentLoaded", () => {
         );
 
     }
-    // RESET
-
-    const resetFilters =
-        document.getElementById(
-            "resetFilters"
-        );
-
-    if (resetFilters) {
-
-        resetFilters.addEventListener(
-            "click",
-            () => {
-
-                if (searchInput) {
-
-                    searchInput.value = "";
-
-                }
-                if (typeFilter) {
-
-                    typeFilter.value = "all";
-
-                }
-                if (purposeFilter) {
-
-                    purposeFilter.value = "all";
-
-                }
-                createImportExportTable();
-            }
-        );
+    // REFRESH (turns yellow when another page changes data)
+    if (typeof RefreshButton !== "undefined") {
+        RefreshButton.init({
+            buttonId: "resetFilters",
+            debug: true, // remove once event names are known
+            onRefresh: () => loadImportExportData(),
+        });
     }
     // COMPRESSED
     const compressedTab =
@@ -389,22 +378,7 @@ document.addEventListener("DOMContentLoaded", () => {
         );
 
     }
-    // REFRESH
-    const refreshBtn =
-        document.getElementById(
-            "refreshBtn"
-        );
 
-    if (refreshBtn) {
-
-        refreshBtn.addEventListener(
-            "click",
-            () => {
-                loadImportExportData();
-            }
-        );
-
-    }
     // IMPORT
 
     const importBtn =

@@ -268,7 +268,7 @@
 
                     </svg>
 
-                    Reset
+                    Refresh
 
                 </button>
 
@@ -369,6 +369,10 @@
            bg-slate-100 dark:bg-slate-900
            backdrop-blur">
                                     <tr class="text-slate-500 dark:text-slate-400">
+                                        <th class="w-10 px-3 py-2.5">
+                                            <input id="selectAll" type="checkbox"
+                                                class="h-3.5 w-3.5 cursor-pointer accent-cyan-500">
+                                        </th>
                                         <th class="px-3 py-2.5 font-medium">
                                             Folder Name
                                         </th>
@@ -384,9 +388,7 @@
                                         <th class="px-3 py-2.5 font-medium">
                                             EDMS Format Check
                                         </th>
-
                                     </tr>
-
                                 </thead>
                                 <tbody id="importExportTable"
                                     class="divide-y divide-slate-200 dark:divide-slate-800 bg-white dark:bg-transparent">
@@ -576,6 +578,8 @@
     <script src="../js/nav-bar.js"></script>
     <script src="../js/theme.js"></script>
     <script src="../js/import-export/import_export.js"></script>
+    <script src="../js/components/refresh-button.js"></script>
+
 
 </body>
 

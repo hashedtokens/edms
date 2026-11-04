@@ -164,16 +164,7 @@
 
                 <!-- Purpose -->
 
-                <select id="purposeFilter" class="h-8 rounded-md
-               border border-slate-300 dark:border-slate-800
-               bg-white dark:bg-slate-800 px-2.5 text-xs
-               text-slate-800 dark:text-slate-100
-               outline-none
-               focus:border-cyan-500">
-                    <option value="all">All Purpose</option>
-                    <option value="importable">Importable</option>
-                    <option value="exportable">Exportable</option>
-                </select>
+
 
 
                 <!-- Reset -->
@@ -193,7 +184,7 @@
                         <path d="M3 21v-5h5" />
                     </svg>
 
-                    Reset
+                    Refresh
 
                 </button>
 
@@ -287,16 +278,20 @@
 
 
                 <button id="tagsManager" type="button" class="shrink-0 text-xs
-                           text-cyan-400
-                           hover:text-cyan-300 border-2 border-cyan-500 rounded-md px-2 py-1">
+           text-cyan-700 dark:text-cyan-400
+           hover:text-cyan-900 dark:hover:text-cyan-300
+           border-2 border-cyan-600 dark:border-cyan-500
+           hover:bg-cyan-500/10
+           rounded-md px-2 py-1 transition">
                     Tags operations
                 </button>
 
-                <!-- <button id="clearFolderSelection" type="button" class="shrink-0 text-xs -->
-                <button
-                    id="mergeCollectionsBtn" type="button" class="shrink-0 text-xs
-                           text-cyan-400
-                           hover:text-cyan-300 border-2 border-cyan-500 rounded-md px-2 py-1">
+                <button id="mergeCollectionsBtn" type="button" class="shrink-0 text-xs
+           text-cyan-700 dark:text-cyan-400
+           hover:text-cyan-900 dark:hover:text-cyan-300
+           border-2 border-cyan-600 dark:border-cyan-500
+           hover:bg-cyan-500/10
+           rounded-md px-2 py-1 transition">
                     Merge Collections
                 </button>
 
@@ -675,6 +670,8 @@
     <script src="../js/collectionview/rmbcv.js"></script>
     <script src="../js/nav-bar.js"></script>
     <script src="../js/theme.js"></script>
+    <script src="../js/components/refresh-button.js"></script>
+
 
 </body>
 
