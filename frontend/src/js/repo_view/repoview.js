@@ -146,7 +146,6 @@
                     dataTags: item.dataTags,
                     tags: item.tags || [],
                     qpCount: item.qpCount,
-                    indexLists: item.indexLists,
                     crud: item.crud
                 };
             });
@@ -329,7 +328,7 @@
 
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="15" class="px-4 py-16 text-center">
+                    <td colspan="14" class="px-4 py-16 text-center">
                         <p class="text-sm font-medium text-slate-500 dark:text-slate-400">No repo views found</p>
                         <p class="mt-1 text-xs text-slate-400 dark:text-slate-600">Try changing the current search or filters.</p>
                     </td>
@@ -453,9 +452,6 @@
 
             <!-- QP Count -->
             <td class="px-2 py-2 text-slate-800 dark:text-slate-300">${repo.qpCount ?? 0}</td>
-
-            <!-- Index Lists -->
-            <td class="px-2 py-2 text-slate-800 dark:text-slate-300">${repo.indexLists ?? 0}</td>
 
 
         `;
