@@ -3807,6 +3807,12 @@ bg-slate-100 dark:bg-slate-950/60 p-3"
     }
   }
 
+  // Expose modal helpers to window so the universal TagManager
+  // (tags_manager.js) can open/close its confirm modals inside this
+  // view's overlay instead of falling back to its own modal.
+  window.openModal = openModal;
+  window.closeModal = closeModal;
+
   // ============================================================
   // UTILITIES
   // ============================================================
