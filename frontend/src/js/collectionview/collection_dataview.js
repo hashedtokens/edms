@@ -1140,6 +1140,57 @@
     });
   }
 
+  // ============================================================
+  // STATS
+  // ============================================================
+
+  function renderStats() {
+    const endpoints = state.endpoints;
+
+    const tags = new Set();
+
+    let get = 0;
+
+    let write = 0;
+
+    endpoints.forEach((endpoint) => {
+      const method = String(endpoint.method || "").toUpperCase();
+
+      if (method === "GET") {
+        get++;
+      }
+
+      if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+        write++;
+      }
+
+      const endpointTags = Array.isArray(endpoint.tags) ? endpoint.tags : [];
+
+      endpointTags.forEach((tag) => tags.add(tag));
+    });
+
+    const endpointCountEl = document.getElementById("endpointCount");
+    const tagCountEl = document.getElementById("tagCount");
+    const getCountEl = document.getElementById("getCount");
+    const writeCountEl = document.getElementById("writeCount");
+
+    if (endpointCountEl) {
+      endpointCountEl.textContent = endpoints.length;
+    }
+
+    if (tagCountEl) {
+      tagCountEl.textContent = tags.size;
+    }
+
+    if (getCountEl) {
+      getCountEl.textContent = get;
+    }
+
+    if (writeCountEl) {
+      writeCountEl.textContent = write;
+    }
+  }
+
   function updateSidebarStats() {
     // Delegate to renderStats() which populates the sidebar stat boxes:
     // endpointCount, tagCount, getCount, writeCount
