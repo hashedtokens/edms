@@ -139,16 +139,15 @@
                     id: nextId + index,
                     name: item.name,
                     annotation: item.annotation || '',
-                    dateCreated: item.created_at ? String(item.created_at).split(/[ T]/)[0] : '',
-                    dataSizeBytes: Number(pick(item, ['dataSizeBytes', 'data_size_bytes', 'size_bytes', 'size'], 0)),
-                    eidCount: Number(pick(item, ['eidCount', 'eid_count', 'endpoint_count'], 0)),
-                    segments,
-                    segmentCount: Number(pick(item, ['segmentCount', 'segment_count'], segments.length)),
-                    dataTags: toArray(pick(item, ['dataTags', 'data_tags', 'eqp_tags'], [])),
-                    tags: toArray(pick(item, ['tags', 'membership_tags'], [])),
-                    qpCount: Number(pick(item, ['qpCount', 'qp_count'], 0)),
-                    indexLists: Number(pick(item, ['indexLists', 'index_lists', 'index_list_count'], 0)),
-                    crud
+                    dateCreated: item.created_at ? item.created_at.split(' ')[0] : '',
+                    dataSizeBytes: item.dataSizeBytes,
+                    eidCount: item.eidCount || 0,
+                    segments: item.segments,
+                    dataTags: item.dataTags,
+                    tags: item.tags | [], // Tags aren't attached to the list view in the backend yet
+                    qpCount: item.qpCount,
+                    indexLists: item.indexLists,
+                    crud: item.crud
                 };
             });
 
