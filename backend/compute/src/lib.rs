@@ -16,6 +16,8 @@ pub mod file_converter;
 
 pub mod qp_service;
 
+pub mod qp_store;
 pub mod collections_ops;
+pub mod collections_store;
 
 pub mod api_status;

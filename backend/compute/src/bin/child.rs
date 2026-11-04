@@ -363,6 +363,13 @@ async fn dispatch(task: &str, payload: Value) -> (bool, Value, Option<String>) {
 
         "run_test" => run(payload, |p: RunTestRequest| run_test_inner(p)).await,
 
+        // Dev API, collections: the result is an `ApiResult` (plus `job_id`).
+        // A failure is reported inside it, with its own status code, so the
+        // callback itself is always a success.
+        "api_collections_insert" | "api_collections_test_and_insert" => {
+            (true, compute::collections_ops::run_task(payload).await, None)
+        }
+
         // ── Tag operations ──────────────────────────────────────────────────
         // Each task receives a typed payload that includes db_path.
         // The inner fn runs on a blocking thread and returns the Activity Log
