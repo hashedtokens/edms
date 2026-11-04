@@ -1381,14 +1381,17 @@
       label.textContent = `${count} selected`;
       label.classList.remove("hidden");
       clear.classList.remove("hidden");
-      if (tagsBtn) tagsBtn.disabled = false;
       if (deleteBtn) deleteBtn.disabled = false;
     } else {
       label.classList.add("hidden");
       clear.classList.add("hidden");
-      if (tagsBtn) tagsBtn.disabled = true;
       if (deleteBtn) deleteBtn.disabled = true;
     }
+
+    // The tag manager is intentionally always enabled: when nothing is
+    // selected it operates across every endpoint in the view
+    // (see TagManager.getItems in this file).
+    if (tagsBtn) tagsBtn.disabled = false;
 
     updateSelectAllState();
   }

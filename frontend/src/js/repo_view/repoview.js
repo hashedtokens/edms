@@ -144,7 +144,7 @@
                     eidCount: item.eidCount || 0,
                     segments: item.segments,
                     dataTags: item.dataTags,
-                    tags: item.tags | [], // Tags aren't attached to the list view in the backend yet
+                    tags: item.tags || [],
                     qpCount: item.qpCount,
                     indexLists: item.indexLists,
                     crud: item.crud
