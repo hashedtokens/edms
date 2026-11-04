@@ -298,6 +298,12 @@ const TagManager = (() => {
         const counts = getTagCounts();
 
         const content = `
+        <h2
+            class="mb-4 text-sm font-semibold
+                   text-slate-900 dark:text-white"
+        >
+            Tag-operation - Collection View
+        </h2>
 
     <div class="space-y-4">
 
@@ -367,8 +373,8 @@ const TagManager = (() => {
                             id="tmClearSelection"
                             class="
                                 text-[11px]
-                                text-slate-500
-                                hover:text-white
+                                text-slate-600 dark:text-slate-400
+                                hover:text-slate-900 dark:hover:text-white
                             "
                         >
                             Clear
@@ -383,13 +389,13 @@ const TagManager = (() => {
                             id="tmRename"
                             class="
                                 rounded-md
-                                border border-slate-700
-                                bg-slate-800
+                                border border-slate-300 dark:border-slate-700
+                                bg-slate-100 dark:bg-slate-800
                                 px-2.5 py-1.5
                                 text-[11px]
-                                text-slate-300
+                                text-slate-800 dark:text-slate-300
                                 transition
-                                hover:bg-slate-700
+                                hover:bg-slate-200 dark:hover:bg-slate-700
                             "
                         >
                             Rename
@@ -400,13 +406,13 @@ const TagManager = (() => {
                             id="tmMerge"
                             class="
                                 rounded-md
-                                border border-slate-700
-                                bg-slate-800
+                                border border-slate-300 dark:border-slate-700
+                                bg-slate-100 dark:bg-slate-800
                                 px-2.5 py-1.5
                                 text-[11px]
-                                text-slate-300
+                                text-slate-800 dark:text-slate-300
                                 transition
-                                hover:bg-slate-700
+                                hover:bg-slate-200 dark:hover:bg-slate-700
                             "
                         >
                             Merge
@@ -448,7 +454,7 @@ const TagManager = (() => {
                             class="
                                 text-[11px]
                                 font-medium
-                                text-slate-500
+                                text-slate-700 dark:text-slate-400
                             "
                         >
                             Tags
@@ -457,7 +463,7 @@ const TagManager = (() => {
                         <span
                             class="
                                 text-[10px]
-                                text-slate-600
+                                text-slate-500 dark:text-slate-500
                             "
                         >
                             Select tags to manage
@@ -471,7 +477,8 @@ const TagManager = (() => {
                             max-h-[45vh]
                             overflow-y-auto
                             rounded-lg
-                            border border-slate-300 dark:border-slate-800
+                            border border-slate-200 dark:border-slate-800
+                            bg-white dark:bg-slate-900
                         "
                     >
                         ${renderTagList(counts)}
@@ -483,7 +490,7 @@ const TagManager = (() => {
                 <div
                     class="
                         flex justify-end
-                        border-t border-slate-300 dark:border-slate-800
+                        border-t border-slate-200 dark:border-slate-800
                         pt-3
                     "
                 >
@@ -497,7 +504,7 @@ const TagManager = (() => {
         px-3 py-1.5
         text-xs
         text-slate-800 dark:text-slate-400
-        hover:bg-slate-200 dark:hover:bg-slate-800
+        hover:bg-slate-100 dark:hover:bg-slate-800
         hover:border-slate-400 dark:hover:border-slate-600
     "
 >
@@ -513,7 +520,6 @@ const TagManager = (() => {
         if (typeof window.openModal === "function") {
 
             window.openModal(
-                `${config.title} — ${capitalize(config.view)}`,
                 content
             );
 
@@ -540,11 +546,11 @@ const TagManager = (() => {
 
                 <div class="px-4 py-8 text-center">
 
-                    <p class="text-xs text-slate-500">
+                    <p class="text-xs text-slate-700 dark:text-slate-400">
                         No tags found
                     </p>
 
-                    <p class="mt-1 text-[10px] text-slate-500 dark:text-slate-300">
+                    <p class="mt-1 text-[10px] text-slate-500 dark:text-slate-500">
                         Tags will appear here when
                         items contain tags.
                     </p>
@@ -568,11 +574,11 @@ const TagManager = (() => {
                     class="
                         flex cursor-pointer
                         items-center gap-3
-                        border-b border-slate-800
+                        border-b border-slate-200 dark:border-slate-800
                         px-3 py-2
                         last:border-0
                         transition
-                        hover:bg-slate-800/50
+                        hover:bg-slate-100 dark:hover:bg-slate-800/50
                     "
                 >
 
@@ -592,7 +598,7 @@ const TagManager = (() => {
                             min-w-0 flex-1
                             truncate
                             text-xs
-                            text-slate-300
+                            text-slate-800 dark:text-slate-300
                         "
                     >
                         ${escape(tag)}
@@ -602,10 +608,10 @@ const TagManager = (() => {
                         class="
                             shrink-0
                             rounded-md
-                            bg-slate-800
+                            bg-slate-200 dark:bg-slate-800
                             px-1.5 py-0.5
                             text-[10px]
-                            text-slate-500
+                            text-slate-600 dark:text-slate-500
                         "
                     >
                         ${count}
@@ -778,7 +784,7 @@ const TagManager = (() => {
                         class="
                             mb-1 block
                             text-xs
-                            text-slate-500
+                            text-slate-600 dark:text-slate-400
                         "
                     >
                         New tag name
@@ -790,11 +796,11 @@ const TagManager = (() => {
                         class="
                             h-9 w-full
                             rounded-md
-                            border border-slate-700
-                            bg-slate-950
+                            border border-slate-300 dark:border-slate-700
+                            bg-white dark:bg-slate-950
                             px-3
                             text-xs
-                            text-slate-300
+                            text-slate-900 dark:text-slate-300
                             outline-none
                             focus:border-cyan-500
                         "
@@ -805,16 +811,16 @@ const TagManager = (() => {
                 <div
                     class="
                         rounded-lg
-                        border border-slate-800
-                        bg-slate-950/40
+                        border border-slate-200 dark:border-slate-800
+                        bg-slate-50 dark:bg-slate-950/40
                         p-3
                     "
                 >
 
-                    <p class="text-[11px] text-slate-500">
+                    <p class="text-[11px] text-slate-600 dark:text-slate-500">
 
                         This will rename
-                        <span class="font-medium text-slate-300">
+                        <span class="font-medium text-slate-900 dark:text-slate-300">
                             ${escape(oldTag)}
                         </span>
                         everywhere in the current view.
@@ -830,11 +836,11 @@ const TagManager = (() => {
                         data-modal-close
                         class="
                             rounded-md
-                            border border-slate-700
+                            border border-slate-300 dark:border-slate-700
                             px-3 py-1.5
                             text-xs
-                            text-slate-400
-                            hover:bg-slate-800
+                            text-slate-700 dark:text-slate-400
+                            hover:bg-slate-100 dark:hover:bg-slate-800
                         "
                     >
                         Cancel
@@ -1066,10 +1072,10 @@ const TagManager = (() => {
                 <span
                     class="
                         rounded-md
-                        bg-slate-800
+                        bg-slate-200 dark:bg-slate-800
                         px-2 py-1
                         text-[10px]
-                        text-slate-300
+                        text-slate-800 dark:text-slate-300
                     "
                 >
                     ${escape(tag)}
@@ -1087,7 +1093,7 @@ const TagManager = (() => {
                         class="
                             mb-2
                             text-xs
-                            text-slate-500
+                            text-slate-600 dark:text-slate-400
                         "
                     >
                         Tags to merge
@@ -1105,7 +1111,7 @@ const TagManager = (() => {
                         class="
                             mb-1 block
                             text-xs
-                            text-slate-500
+                            text-slate-600 dark:text-slate-400
                         "
                     >
                         New tag name
@@ -1116,11 +1122,11 @@ const TagManager = (() => {
                         class="
                             h-9 w-full
                             rounded-md
-                            border border-slate-700
-                            bg-slate-950
+                            border border-slate-300 dark:border-slate-700
+                            bg-white dark:bg-slate-950
                             px-3
                             text-xs
-                            text-slate-300
+                            text-slate-900 dark:text-slate-300
                             outline-none
                             focus:border-cyan-500
                         "
@@ -1153,11 +1159,11 @@ const TagManager = (() => {
                         data-modal-close
                         class="
                             rounded-md
-                            border border-slate-700
+                            border border-slate-300 dark:border-slate-700
                             px-3 py-1.5
                             text-xs
-                            text-slate-400
-                            hover:bg-slate-800
+                            text-slate-700 dark:text-slate-400
+                            hover:bg-slate-100 dark:hover:bg-slate-800
                         "
                     >
                         Cancel
@@ -1378,10 +1384,10 @@ const TagManager = (() => {
                 <span
                     class="
                         rounded-md
-                        bg-slate-800
+                        bg-slate-200 dark:bg-slate-800
                         px-2 py-1
                         text-[10px]
-                        text-slate-300
+                        text-slate-800 dark:text-slate-300
                     "
                 >
                     ${escape(tag)}
@@ -1399,7 +1405,7 @@ const TagManager = (() => {
                         class="
                             mb-2
                             text-xs
-                            text-slate-500
+                            text-slate-600 dark:text-slate-400
                         "
                     >
                         Tags to delete
@@ -1435,11 +1441,11 @@ const TagManager = (() => {
                         data-modal-close
                         class="
                             rounded-md
-                            border border-slate-700
+                            border border-slate-300 dark:border-slate-700
                             px-3 py-1.5
                             text-xs
-                            text-slate-400
-                            hover:bg-slate-800
+                            text-slate-700 dark:text-slate-400
+                            hover:bg-slate-100 dark:hover:bg-slate-800
                         "
                     >
                         Cancel
@@ -1692,7 +1698,7 @@ const TagManager = (() => {
         wrapper.className = `
             fixed inset-0 z-[100]
             flex items-center justify-center
-            bg-slate-950/70 p-4
+            bg-slate-900/40 dark:bg-slate-950/70 p-4
             backdrop-blur-sm
         `;
 
@@ -1703,8 +1709,8 @@ const TagManager = (() => {
                     w-full max-w-lg
                     overflow-hidden
                     rounded-xl
-                    border border-slate-700
-                    bg-slate-900
+                    border border-slate-200 dark:border-slate-700
+                    bg-white dark:bg-slate-900
                     shadow-2xl
                 "
             >
@@ -1713,7 +1719,7 @@ const TagManager = (() => {
                     class="
                         flex items-center
                         justify-between
-                        border-b border-slate-800
+                        border-b border-slate-200 dark:border-slate-800
                         px-4 py-3
                     "
                 >
@@ -1722,7 +1728,7 @@ const TagManager = (() => {
                         class="
                             text-sm
                             font-semibold
-                            text-white
+                            text-slate-900 dark:text-white
                         "
                     >
                         ${escape(
@@ -1737,9 +1743,9 @@ const TagManager = (() => {
                         class="
                             rounded-md
                             p-1
-                            text-slate-500
-                            hover:bg-slate-800
-                            hover:text-white
+                            text-slate-600 dark:text-slate-400
+                            hover:bg-slate-100 dark:hover:bg-slate-800
+                            hover:text-slate-900 dark:hover:text-white
                         "
                     >
                         ×
