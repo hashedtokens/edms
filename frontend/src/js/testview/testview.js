@@ -6956,40 +6956,34 @@ function applyFullAddressToSplit() {
 
     if (!urlFullInput) return;
 
-    const value =
-        urlFullInput.value.trim();
+    const value = urlFullInput.value.trim();
 
-    const match =
-        value.match(
-            /^(https?:\/\/[^/]+)(\/.*)?$/i
-        );
+    // Supports URLs with or without http/https
+    const match = value.match(
+        /^(https?:\/\/)?([^/]+)(\/.*)?$/i
+    );
 
     if (match) {
 
+        const protocol = match[1] || "";
+        const host = match[2];
+        const path = match[3] || "";
+
         if (baseUrl) {
-
-            baseUrl.value =
-                match[1];
-
+            baseUrl.value = protocol + host;
         }
 
         if (endpointPath) {
-
-            endpointPath.value =
-                match[2] ||
-                "";
-
+            endpointPath.value = path;
         }
 
     } else if (endpointPath) {
 
-        endpointPath.value =
-            value;
+        endpointPath.value = value;
 
     }
 
 }
-
 // ============================================================
 // HELPERS
 // ============================================================
