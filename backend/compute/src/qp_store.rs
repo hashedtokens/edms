@@ -192,24 +192,38 @@ impl QpStore {
 
     /// Takes back an endpoint this call just created, after a later step
     /// failed, so a failed call does not leave a half-made endpoint (or its
-    /// EID) behind.
+    /// EID) behind. A failed `store_qp` rolled back its own rows, so a QP
+    /// found here belongs to another call that reused the endpoint in the
+    /// meantime, and then the endpoint stays.
     pub fn discard_endpoint(&self, eid: &str) -> Result<(), String> {
-        for sql in [
-            "DELETE FROM request_metadata WHERE endpoint_id = ?",
-            "DELETE FROM response_metadata WHERE endpoint_id = ?",
-            "DELETE FROM history WHERE endpoint_id = ?",
-            "DELETE FROM tags WHERE endpoint_id = ?",
-            "DELETE FROM metadata WHERE endpoint_id = ?",
-            "DELETE FROM bookmarks WHERE endpoint_id = ?",
-            "DELETE FROM endpoints WHERE endpoint_id = ?",
-        ] {
-            self.core.proc(sql, &[&eid]).map_err(err)?;
+        let discarded = self.locked(|| {
+            let qps: Vec<i64> = self
+                .core
+                .cproc("SELECT COUNT(*) FROM request_metadata WHERE endpoint_id = ?", &[&eid], |row| row.get(0))
+                .map_err(err)?;
+            if qps.first().copied().unwrap_or(0) > 0 {
+                return Ok(false);
+            }
+            for sql in [
+                "DELETE FROM response_metadata WHERE endpoint_id = ?",
+                "DELETE FROM history WHERE endpoint_id = ?",
+                "DELETE FROM tags WHERE endpoint_id = ?",
+                "DELETE FROM metadata WHERE endpoint_id = ?",
+                "DELETE FROM bookmarks WHERE endpoint_id = ?",
+                "DELETE FROM endpoints WHERE endpoint_id = ?",
+            ] {
+                self.core.proc(sql, &[&eid]).map_err(err)?;
+            }
+            let dir = self.eqp_dir(eid);
+            if dir.exists() {
+                let _ = std::fs::remove_dir_all(&dir);
+            }
+            Ok(true)
+        })?;
+        // outside the lock: the allocator has its own transaction on the same file
+        if discarded {
+            let _ = self.allocator.release(eid);
         }
-        let dir = self.eqp_dir(eid);
-        if dir.exists() {
-            let _ = std::fs::remove_dir_all(&dir);
-        }
-        let _ = self.allocator.release(eid);
         Ok(())
     }
 

@@ -1,6 +1,7 @@
 // Dev API /api/history/ tests
 
 use compute::devapi::history::{history_ops_inner, parse_history_request};
+use compute::qp_store::{NewQp, QpStore, Stored};
 use rusqlite::Connection;
 use serde_json::{Value, json};
 use std::path::PathBuf;
@@ -193,6 +194,7 @@ async fn test_stores_endpoint_qp_files_and_history() {
     assert_eq!(r["target_status"], 201);
     assert_eq!(r["request_number"], 1);
     assert_eq!(r["job_id"], "t1");
+    assert_eq!(r["view_type"], "History");
     assert!(r.get("duplicate_of").is_none());
 
     let eid = r["endpoint_id"].as_str().unwrap();
@@ -225,6 +227,7 @@ async fn same_qp_twice_is_blocked_new_body_is_stored() {
     assert_eq!(again["endpoint_created"], false);
     assert_eq!(again["duplicate_of"], 1);
     assert_eq!(again["target_status"], 201);
+    assert!(again.get("view_type").is_none(), "nothing new to refresh");
     assert_eq!(again["endpoint_id"], first["endpoint_id"]);
 
     let other = e.run(echo(port, json!({ "n": 2 }))).await;
@@ -291,6 +294,41 @@ async fn history_row_has_the_base_url() {
     assert!(base.is_some());
 }
 
+#[test]
+fn discard_only_removes_an_endpoint_with_no_qps() {
+    let e = env();
+    let db = QpStore::open(e.db.to_str().unwrap(), &e.root).unwrap();
+    let url = "http://localhost:9/a";
+
+    let (empty, _) = db.find_or_create_endpoint(None, url, "GET", None).unwrap();
+    db.discard_endpoint(&empty).unwrap();
+    assert_eq!(e.count("endpoints"), 0);
+
+    // another call reused the endpoint and stored a QP before the discard
+    let (eid, _) = db.find_or_create_endpoint(None, url, "GET", None).unwrap();
+    let stored = db
+        .store_qp(&NewQp {
+            endpoint_id: &eid,
+            endpoint_str: url,
+            method: "GET",
+            request: "null",
+            response: "{}",
+            headers: "{}",
+            status_code: Some(200),
+            response_time_ms: Some(1),
+        })
+        .unwrap();
+    assert_eq!(stored, Stored::New(1));
+    db.record_history(&eid, "test", Some("200 in 1ms")).unwrap();
+
+    db.discard_endpoint(&eid).unwrap();
+    assert_eq!(e.count("endpoints"), 1);
+    assert_eq!(e.count("request_metadata"), 1);
+    assert_eq!(e.count("response_metadata"), 1);
+    assert_eq!(e.count("history"), 1);
+    assert!(e.file(&eid, "request", 1).exists());
+}
+
 #[tokio::test]
 async fn non_2xx_is_stored_like_test_view() {
     let (e, port) = (env(), start_target().await);
@@ -334,6 +372,7 @@ async fn unreachable_target_stores_nothing() {
         .await;
     assert_eq!(code(&r), 105, "{r}");
     assert_eq!(r["status"]["name"], "TEST_FAILED");
+    assert!(r.get("view_type").is_none());
     assert!(r.get("target_status").is_none());
     assert_eq!(e.count("endpoints"), 0);
 }

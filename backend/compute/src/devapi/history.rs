@@ -55,6 +55,10 @@ pub async fn history_ops_inner(payload: Value) -> Result<String, String> {
     };
     let mut out = json!(result);
     out["job_id"] = payload.get("job_id").cloned().unwrap_or(Value::Null);
+    // a new QP: the callback turns this into a ViewRefresh for the open views
+    if result.request_number.is_some() {
+        out["view_type"] = json!("History");
+    }
     Ok(out.to_string())
 }
 
