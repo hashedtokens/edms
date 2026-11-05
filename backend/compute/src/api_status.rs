@@ -154,6 +154,18 @@ pub struct ApiResult {
     /// is stored, so a `404` here still comes with `Ok`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_status: Option<i64>,
+    /// The tags the call put on the endpoint (collections ops, when `tags`
+    /// was given and stored).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<String>>,
+    /// The tags the call put on the collection (collections ops, when
+    /// `collection_tags` was given and stored).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub collection_tags: Option<Vec<String>>,
+    /// What the tested API answered (`{status, headers, body, time_ms}`):
+    /// `test_and_insert` with `return_response: true`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub response: Option<serde_json::Value>,
     /// Extra text for the person reading the log (what was wrong, the error).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
@@ -169,6 +181,9 @@ impl ApiResult {
             endpoint_created: None,
             collection_created: None,
             target_status: None,
+            tags: None,
+            collection_tags: None,
+            response: None,
             detail: None,
         }
     }

@@ -125,6 +125,32 @@ fn check_headers(obj: &Map<String, Value>, key: &str) -> Result<(), ApiError> {
     }
 }
 
+const MAX_TAGS: usize = 100;
+const MAX_TAG_LEN: usize = 100;
+
+/// A list of tags: strings, not too many, not too long. Blank ones are fine
+/// (they are left out when stored).
+fn check_tags(obj: &Map<String, Value>, key: &str) -> Result<(), ApiError> {
+    let bad = |why: String| err(ApiStatus::InvalidParam, format!("'{key}' {why}"));
+    match obj.get(key) {
+        None | Some(Value::Null) => Ok(()),
+        Some(Value::Array(tags)) => {
+            if tags.len() > MAX_TAGS {
+                return Err(bad(format!("can't have more than {MAX_TAGS} tags")));
+            }
+            for tag in tags {
+                match tag.as_str() {
+                    Some(t) if t.trim().chars().count() <= MAX_TAG_LEN => {}
+                    Some(_) => return Err(bad(format!("can't have a tag longer than {MAX_TAG_LEN} characters"))),
+                    None => return Err(bad("must be a list of strings".to_string())),
+                }
+            }
+            Ok(())
+        }
+        Some(_) => Err(bad("must be a list of strings".to_string())),
+    }
+}
+
 pub fn validate(route: Route, raw: &[u8]) -> Result<Validated, ApiError> {
     let body: Value = serde_json::from_slice(raw)
         .map_err(|e| err(ApiStatus::InvalidRequest, format!("the body is not valid JSON: {e}")))?;
@@ -189,6 +215,13 @@ pub fn validate(route: Route, raw: &[u8]) -> Result<Validated, ApiError> {
     }
     for key in ["annotation", "collection_annotation", "notes", "endpoint_id"] {
         opt_str(&obj, key)?;
+    }
+    if route == Route::Collections {
+        check_tags(&obj, "tags")?;
+        check_tags(&obj, "collection_tags")?;
+        if obj.get("return_response").is_some_and(|v| !v.is_null() && !v.is_boolean()) {
+            return Err(err(ApiStatus::InvalidParam, "'return_response' must be true or false"));
+        }
     }
 
     obj.insert("ops".into(), json!(op));
@@ -317,7 +350,11 @@ pub fn events_for(task: &str, result: &Value) -> Vec<ServerEvent> {
             events.push(ServerEvent::HistoryUpdated { count: 1 });
         }
     }
-    if r.endpoint_created == Some(true) || r.request_number.is_some() {
+    if r.endpoint_created == Some(true)
+        || r.request_number.is_some()
+        || r.tags.is_some()
+        || r.collection_tags.is_some()
+    {
         events.push(ServerEvent::CrudOperationsUpdated { computed_at: chrono::Utc::now().to_rfc3339() });
     }
     events
@@ -436,6 +473,28 @@ mod tests {
         assert_eq!(code(history(json!({"endpoint_str": "https://a.io", "method": "GET"}))), 101);
         assert_eq!(code(history(json!({"ops": "test", "method": "GET"}))), 101);
         assert_eq!(code(history(json!({"ops": "test", "endpoint_str": "https://a.io"}))), 101);
+    }
+
+    #[test]
+    fn tags_and_return_response_are_checked_for_the_collections_route() {
+        let base = |extra: Value| {
+            let mut b = json!({"ops": "test_and_insert", "endpoint_str": "https://a.io", "method": "GET", "collection": "c"});
+            b.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
+            collections(b)
+        };
+        let ok = base(json!({"tags": ["a", " b ", ""], "collection_tags": ["v1"], "return_response": true})).unwrap();
+        assert_eq!(ok.payload["tags"], json!(["a", " b ", ""]));
+        assert!(base(json!({"tags": null, "collection_tags": [], "return_response": null})).is_ok());
+
+        assert_eq!(code(base(json!({"tags": "auth"}))), 103);
+        assert_eq!(code(base(json!({"tags": ["a", 1]}))), 103);
+        assert_eq!(code(base(json!({"collection_tags": {"a": 1}}))), 103);
+        assert_eq!(code(base(json!({"collection_tags": [["x"]]}))), 103);
+        assert_eq!(code(base(json!({"tags": ["x".repeat(101)]}))), 103);
+        assert_eq!(code(base(json!({"tags": vec!["t"; 101]}))), 103);
+        assert!(base(json!({"tags": vec!["t"; 100]})).is_ok());
+        assert_eq!(code(base(json!({"return_response": "yes"}))), 103);
+        assert_eq!(code(base(json!({"return_response": 1}))), 103);
     }
 
     #[test]
@@ -607,6 +666,16 @@ mod tests {
     fn a_history_test_has_no_collection_to_update() {
         let r = json!({"status": {"code": 0}, "endpoint_id": "E0003-AAA", "request_number": 1, "endpoint_created": true, "target_status": 404});
         assert_eq!(kinds(&events_for("api_history_test", &r)), ["qp", "history", "dashboard"]);
+    }
+
+    #[test]
+    fn tags_added_to_an_existing_endpoint_still_refresh_the_dashboard() {
+        let r = json!({"status": {"code": 104}, "endpoint_id": "E0001-AAA", "duplicate_of": 1, "endpoint_created": false,
+                       "collection_id": "c2", "tags": ["auth"]});
+        assert_eq!(kinds(&events_for("api_collections_insert", &r)), ["membership", "bookmarks", "dashboard"]);
+        let r = json!({"status": {"code": 104}, "endpoint_id": "E0001-AAA", "duplicate_of": 1, "endpoint_created": false,
+                       "collection_id": "c2", "collection_tags": ["v1"]});
+        assert_eq!(kinds(&events_for("api_collections_insert", &r)), ["membership", "bookmarks", "dashboard"]);
     }
 
     #[test]

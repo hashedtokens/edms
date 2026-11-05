@@ -15,7 +15,12 @@
 //!   identical one already exists (`DUPLICATE_QP`, nothing is stored);
 //! - for `test_and_insert`, a History row, like any completed Run;
 //! - the endpoint's bookmark and its membership in the collection, and the
-//!   collection's stored size.
+//!   collection's stored size;
+//! - `tags` on the endpoint and `collection_tags` on the collection, when
+//!   given (the same tags the Tags routes of the app write; a repeat is fine).
+//!
+//! With `return_response`, a `test_and_insert` also hands back what the tested
+//! API answered, even when the QP was a duplicate.
 //!
 //! A response of any status counts: a 404 from the tested API is a completed
 //! test, stored like a 200. Only "no answer" (timeout, unreachable) is a
@@ -242,6 +247,10 @@ pub trait StorageBackend {
     fn record_history(&mut self, endpoint_id: &str, details: &str) -> Result<(), String>;
     /// Bookmark + membership in the collection (and its size)
     fn add_to_collection(&mut self, collection: &str, endpoint_id: &str, notes: Option<&str>) -> Result<(), String>;
+    /// Tags on the endpoint (one already there is left as it is).
+    fn add_tags(&mut self, endpoint_id: &str, tags: &[String]) -> Result<(), String>;
+    /// Tags on the collection (one already there is left as it is).
+    fn add_collection_tags(&mut self, collection: &str, tags: &[String]) -> Result<(), String>;
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────
@@ -267,6 +276,45 @@ fn headers_text(request: Option<&Value>, response: Option<&Value>) -> String {
         _ => json!({}),
     };
     json!({ "request_headers": obj(request), "response_headers": obj(response) }).to_string()
+}
+
+/// The tags to store: trimmed, no blanks, no repeats, in the order given.
+fn clean_tags(tags: Option<&[String]>) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for tag in tags.unwrap_or_default() {
+        let tag = tag.trim();
+        if !tag.is_empty() && !out.iter().any(|t| t == tag) {
+            out.push(tag.to_string());
+        }
+    }
+    out
+}
+
+/// `tags` and `collection_tags`, once the endpoint is stored and in the
+/// collection. A call whose QP is stored is not reported as failed because a
+/// tag was not: the problem goes in `detail` and the tags are left out of the
+/// result.
+fn add_tags<S: StorageBackend>(
+    req: &CollectionOpRequest,
+    storage: &mut S,
+    eid: &str,
+    result: &mut ApiResult,
+    notes: &mut Vec<String>,
+) {
+    let tags = clean_tags(req.tags.as_deref());
+    if !tags.is_empty() {
+        match storage.add_tags(eid, &tags) {
+            Ok(()) => result.tags = Some(tags),
+            Err(e) => notes.push(format!("the tags could not be added: {e}")),
+        }
+    }
+    let collection_tags = clean_tags(req.collection_tags.as_deref());
+    if !collection_tags.is_empty() {
+        match storage.add_collection_tags(&req.collection, &collection_tags) {
+            Ok(()) => result.collection_tags = Some(collection_tags),
+            Err(e) => notes.push(format!("the collection tags could not be added: {e}")),
+        }
+    }
 }
 
 /// A collection name becomes a file name (`storage/collections/{name}.sqlite`),
@@ -461,10 +509,13 @@ fn store_and_join<S: StorageBackend>(req: &CollectionOpRequest, storage: &mut S,
         Stored::Duplicate(dup) => {
             result.status = ApiStatus::DuplicateQp;
             result.duplicate_of = Some(dup);
-            result.detail = Some("Duplicate QP detected; redundant write skipped".to_string());
+            let mut notes = vec!["Duplicate QP detected; redundant write skipped".to_string()];
             if let Err(e) = storage.add_to_collection(col, &eid, req.notes.as_deref()) {
-                result.detail = Some(format!("Duplicate QP detected, and the endpoint could not join the collection: {e}"));
+                notes[0] = format!("Duplicate QP detected, and the endpoint could not join the collection: {e}");
             }
+            // the caller still asked for these tags on this endpoint
+            add_tags(req, storage, &eid, &mut result, &mut notes);
+            result.detail = Some(notes.join("; "));
             return respond(result);
         }
     };
@@ -484,6 +535,7 @@ fn store_and_join<S: StorageBackend>(req: &CollectionOpRequest, storage: &mut S,
         result.status = ApiStatus::InternalError;
         notes.push(format!("the QP was stored but the endpoint could not join the collection: {e}"));
     }
+    add_tags(req, storage, &eid, &mut result, &mut notes);
     if !notes.is_empty() {
         result.detail = Some(notes.join("; "));
     }
@@ -591,6 +643,9 @@ mod tests {
         fail_store: bool,
         fail_join: bool,
         fail_history: bool,
+        fail_tags: bool,
+        tags: Vec<(String, String)>,            // (eid, tag)
+        collection_tags: Vec<(String, String)>, // (collection, tag)
     }
 
     impl StorageBackend for Mem {
@@ -643,6 +698,30 @@ mod tests {
                 return Err("locked".to_string());
             }
             self.joined.push((collection.to_string(), eid.to_string(), notes.map(str::to_string)));
+            Ok(())
+        }
+        fn add_tags(&mut self, eid: &str, tags: &[String]) -> Result<(), String> {
+            if self.fail_tags {
+                return Err("locked".to_string());
+            }
+            for t in tags {
+                let pair = (eid.to_string(), t.clone());
+                if !self.tags.contains(&pair) {
+                    self.tags.push(pair);
+                }
+            }
+            Ok(())
+        }
+        fn add_collection_tags(&mut self, collection: &str, tags: &[String]) -> Result<(), String> {
+            if self.fail_tags {
+                return Err("locked".to_string());
+            }
+            for t in tags {
+                let pair = (collection.to_string(), t.clone());
+                if !self.collection_tags.contains(&pair) {
+                    self.collection_tags.push(pair);
+                }
+            }
             Ok(())
         }
     }
@@ -935,6 +1014,86 @@ mod tests {
         let call = |url: String, ms| HttpCall { url, method: "GET".to_string(), body: None, headers: None, timeout_ms: Some(ms) };
         assert!(matches!(http_call(call(slow, 200)).await, Err(HttpFailure::TimedOut(_))));
         assert!(matches!(http_call(call("nonsense://x".to_string(), 2000)).await, Err(HttpFailure::Failed(_))));
+    }
+
+    fn tagged(mut req: CollectionOpRequest) -> CollectionOpRequest {
+        req.tags = Some(vec![" auth ".into(), "smoke".into(), "auth".into(), "  ".into()]);
+        req.collection_tags = Some(vec!["v1".into(), "v1".into()]);
+        req
+    }
+
+    #[tokio::test]
+    async fn tags_go_on_the_endpoint_and_collection_tags_on_the_collection() {
+        let mut db = Mem::default();
+        let res = process_collection_op(tagged(insert_req()), &mut db, never).await;
+        assert_eq!(res.result.status, ApiStatus::Ok);
+        let eid = res.result.endpoint_id.clone().unwrap();
+        // trimmed, no blank, no repeat, in the order given
+        assert_eq!(db.tags, vec![(eid.clone(), "auth".to_string()), (eid, "smoke".to_string())]);
+        assert_eq!(res.result.tags, Some(vec!["auth".to_string(), "smoke".to_string()]));
+        assert_eq!(db.collection_tags, vec![("auth_suite".to_string(), "v1".to_string())]);
+        assert_eq!(res.result.collection_tags, Some(vec!["v1".to_string()]));
+    }
+
+    #[tokio::test]
+    async fn no_tags_given_means_none_stored_and_none_in_the_result() {
+        let mut db = Mem::default();
+        let mut req = insert_req();
+        req.tags = Some(vec![]);
+        req.collection_tags = Some(vec!["  ".into()]);
+        let res = process_collection_op(req, &mut db, never).await;
+        assert!(db.tags.is_empty() && db.collection_tags.is_empty());
+        assert!(res.result.tags.is_none() && res.result.collection_tags.is_none());
+    }
+
+    #[tokio::test]
+    async fn a_duplicate_still_gets_its_tags() {
+        let mut db = Mem::default();
+        process_collection_op(insert_req(), &mut db, never).await;
+        let res = process_collection_op(tagged(CollectionOpRequest { collection: "second".into(), ..insert_req() }), &mut db, never).await;
+        assert_eq!(res.result.status, ApiStatus::DuplicateQp);
+        assert_eq!(db.tags.len(), 2, "the endpoint carries the tags the caller asked for");
+        assert_eq!(db.collection_tags, vec![("second".to_string(), "v1".to_string())]);
+        assert_eq!(res.result.tags, Some(vec!["auth".to_string(), "smoke".to_string()]));
+    }
+
+    #[tokio::test]
+    async fn the_same_tags_again_change_nothing() {
+        let mut db = Mem::default();
+        let req = tagged(insert_req());
+        process_collection_op(req.clone(), &mut db, never).await;
+        process_collection_op(req, &mut db, never).await;
+        assert_eq!(db.tags.len(), 2);
+        assert_eq!(db.collection_tags.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn a_tag_failure_does_not_fail_a_stored_qp() {
+        let mut db = Mem { fail_tags: true, ..Default::default() };
+        let res = process_collection_op(tagged(insert_req()), &mut db, never).await;
+        assert_eq!(res.result.status, ApiStatus::Ok);
+        assert_eq!(res.result.request_number, Some(1));
+        assert!(res.result.tags.is_none() && res.result.collection_tags.is_none());
+        let detail = res.result.detail.unwrap();
+        assert!(detail.contains("tags could not be added") && detail.contains("collection tags could not be added"), "{detail}");
+    }
+
+    #[tokio::test]
+    async fn the_answer_comes_back_when_asked_for_even_for_a_duplicate() {
+        let mut db = Mem::default();
+        let ask = CollectionOpRequest { return_response: Some(true), ..test_req() };
+        let first = process_collection_op(ask.clone(), &mut db, |_| async { Ok(answer(200)) }).await;
+        assert_eq!(first.response.as_ref().map(|r| r.status), Some(200));
+        let again = process_collection_op(ask, &mut db, |_| async { Ok(answer(200)) }).await;
+        assert_eq!(again.result.status, ApiStatus::DuplicateQp);
+        assert_eq!(again.response.as_ref().map(|r| r.status), Some(200), "the test ran, so there is an answer to hand back");
+
+        // not asked for: not returned
+        let quiet = process_collection_op(test_req(), &mut Mem::default(), |_| async { Ok(answer(200)) }).await;
+        assert!(quiet.response.is_none());
+        // an insert sends nothing, so there is no answer to hand back
+        let ins = process_collection_op(CollectionOpRequest { return_response: Some(true), ..insert_req() }, &mut Mem::default(), never).await;
+        assert!(ins.response.is_none());
     }
 
     #[tokio::test]

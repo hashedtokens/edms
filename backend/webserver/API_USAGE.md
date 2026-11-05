@@ -35,8 +35,11 @@ The body is JSON, and every `POST` needs the header `Content-Type: application/j
 | `collection` | required | The collection name. It is created if it doesn't exist |
 | `collection_annotation` | optional | A note on the collection |
 | `notes` | optional | A note on the saved endpoint |
+| `tags` | optional | Tags to put on the endpoint, as a list: `["auth", "smoke"]` |
+| `collection_tags` | optional | Tags to put on the collection, as a list: `["v1"]` |
+| `return_response` | optional | `true` to get your API's answer back in the result (`test_and_insert` only) |
 
-**Collections `insert`** takes `ops`, `endpoint_str`, `collection`, `response_body` (required), and optionally `method` (default `GET`), `request_body`, `request_headers`, `response_headers`, `annotation`, `collection_annotation` and `notes`.
+**Collections `insert`** takes `ops`, `endpoint_str`, `collection`, `request_body` and `response_body` (all required; use `{}` for an empty body), and optionally `method` (default `GET`), `request_headers`, `response_headers`, `annotation`, `collection_annotation`, `notes`, `tags` and `collection_tags`.
 
 ## How you get the answer
 
@@ -46,7 +49,7 @@ A call returns straight away with a `transaction_id`. Use it to read the result:
 
 While `status` is `running`, ask again a moment later. When it is `done`, `result` holds the outcome. The important part is `result.status.code`: **`0` means it worked**. The other codes are listed at the end.
 
-The result also tells you the `endpoint_id` and `request_number` that were saved and, for a test, the status your API answered with (`target_status`).
+The result also tells you the `endpoint_id` and `request_number` that were saved and, for a test, the status your API answered with (`target_status`). If you sent `tags` or `collection_tags`, it lists the ones that were saved, and with `return_response` it holds your API's answer in `response`.
 
 ## Example: PowerShell
 
@@ -91,6 +94,14 @@ Save a request and response you already have:
 Dev collections @{ops="insert"; endpoint_str="https://api.example.com/login"; method="POST"; collection="my-first-collection"; request_body=@{user="alice"}; response_body=@{token="xyz"}}
 ```
 
+Save it with tags, and get your API's answer back in the result:
+
+```powershell
+Dev collections @{ops="test_and_insert"; endpoint_str="https://jsonplaceholder.typicode.com/todos/5"; method="GET"; collection="my-first-collection"; tags=@("todos","smoke"); collection_tags=@("examples"); return_response=$true}
+```
+
+The result then includes `"tags": ["todos", "smoke"]`, `"collection_tags": ["examples"]` and a `"response"` with the `status`, `headers`, `body` and `time_ms` your API answered with.
+
 Send a request with a body and headers:
 
 ```powershell
@@ -121,13 +132,20 @@ Test an API and save it into a collection:
 curl.exe -X POST http://127.0.0.1:3000/hashedtokens/edms/api/collections/ -H "Content-Type: application/json" -d "{\"ops\":\"test_and_insert\",\"endpoint_str\":\"https://jsonplaceholder.typicode.com/todos/2\",\"method\":\"GET\",\"collection\":\"my-first-collection\"}"
 ```
 
+Save it with tags, and get your API's answer back in the result:
+
+```bat
+curl.exe -X POST http://127.0.0.1:3000/hashedtokens/edms/api/collections/ -H "Content-Type: application/json" -d "{\"ops\":\"test_and_insert\",\"endpoint_str\":\"https://jsonplaceholder.typicode.com/todos/5\",\"method\":\"GET\",\"collection\":\"my-first-collection\",\"tags\":[\"todos\",\"smoke\"],\"collection_tags\":[\"examples\"],\"return_response\":true}"
+```
+
 ## Good to know
 
 - **A 404 is not a failure.** If your API answers with any status, 404 included, the answer is saved and the code is `0`. `target_status` shows what your API answered.
 - **If your API doesn't answer,** nothing is saved: code `106` if it took longer than `timeout_ms`, `105` if it couldn't be reached.
 - **Duplicates are skipped.** If the same request and response is already saved for that endpoint, the code is `104` and nothing new is added (the endpoint is still added to the collection).
 - **Your API runs on your own PC?** Use `host.docker.internal` in place of `localhost` in `endpoint_str`, for example `http://host.docker.internal:8080/health`. EDMS can't see your PC's `localhost`.
-- **A call with a mistake** (for example no `method`) is refused at once with an error that says what's wrong.
+- **Tags** are added to what is already there; a tag that exists is left alone, blanks and repeats are dropped. A duplicate (104) still gets its tags. Up to 100 tags per list, each up to 100 characters.
+- **A call with a mistake** (for example no `method`, or `tags` that isn't a list) is refused at once with an error that says what's wrong.
 
 ## Status codes
 

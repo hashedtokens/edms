@@ -144,6 +144,28 @@ impl StorageBackend for CollectionStore {
         self.qp.record_history(endpoint_id, "test", Some(details))
     }
 
+    fn add_tags(&mut self, endpoint_id: &str, tags: &[String]) -> Result<(), String> {
+        // the query the app's tag route uses (T1: insert, a repeat is ignored)
+        let insert = self.qp.queries().get_tag_query("T1").ok_or("query T1 is missing")?;
+        self.qp.locked(|| {
+            for tag in tags {
+                self.qp.core().proc(insert, &[&endpoint_id, &tag]).map_err(err)?;
+            }
+            Ok(())
+        })
+    }
+
+    fn add_collection_tags(&mut self, collection: &str, tags: &[String]) -> Result<(), String> {
+        // the query the app's collection tag route uses (CT_INSERT)
+        let insert = self.qp.queries().get_merge_query("CT_INSERT").ok_or("query CT_INSERT is missing")?;
+        self.qp.locked(|| {
+            for tag in tags {
+                self.qp.core().proc(insert, &[&collection, &tag]).map_err(err)?;
+            }
+            Ok(())
+        })
+    }
+
     fn add_to_collection(&mut self, collection: &str, endpoint_id: &str, notes: Option<&str>) -> Result<(), String> {
         let membership = self.open_membership(collection)?;
         // One locked section, like storing a QP: whether the endpoint is
@@ -579,6 +601,64 @@ mod tests {
         let second: crate::api_status::ApiResult = store(&hreq, &tested, &paths).unwrap();
         assert_eq!(second.status, ApiStatus::DuplicateQp, "one call, one QP, whichever op stored it");
         assert_eq!(second.duplicate_of, Some(1));
+    }
+
+    #[tokio::test]
+    async fn tags_land_where_the_apps_tag_routes_read_them() {
+        use edms::ops::collection_tag_ops::CollectionTagMembershipOps;
+        use edms::ops::tag_ops::TagOps;
+        let s = scratch();
+        let mut req = insert_req("tagged", "https://api.example.test/t", json!({"a": 1}), json!({"b": 2}));
+        req.tags = Some(vec![" auth ".into(), "smoke".into(), "auth".into()]);
+        req.collection_tags = Some(vec!["v1".into()]);
+        let res = process_collection_op(req.clone(), &mut s.storage(), never).await;
+        assert_eq!(res.result.status, ApiStatus::Ok);
+        let eid = res.result.endpoint_id.clone().unwrap();
+
+        // read back through the code behind GET /tags/:id and GET /collections/:name/membership-tags
+        let tag_ops = TagOps::new(&s.db);
+        tag_ops.initialize().unwrap();
+        let mut got = tag_ops.get_by_endpoint(&eid).unwrap();
+        got.sort();
+        assert_eq!(got, vec!["auth", "smoke"]);
+        let col_ops = CollectionTagMembershipOps::new(&s.db);
+        col_ops.initialize().unwrap();
+        assert_eq!(col_ops.list("tagged").unwrap(), vec!["v1"]);
+        assert_eq!(col_ops.collections_by_tag("v1").unwrap(), vec!["tagged"]);
+
+        // the same call again is a duplicate; the tags are not repeated, and new ones are added
+        req.tags = Some(vec!["smoke".into(), "extra".into()]);
+        let again = process_collection_op(req, &mut s.storage(), never).await;
+        assert_eq!(again.result.status, ApiStatus::DuplicateQp);
+        let mut got = tag_ops.get_by_endpoint(&eid).unwrap();
+        got.sort();
+        assert_eq!(got, vec!["auth", "extra", "smoke"]);
+        assert_eq!(s.count("SELECT COUNT(*) FROM collection_tag_memberships"), 1);
+
+        // deleting the endpoint is the app's business; the tags of another endpoint are untouched
+        let other = insert_req("tagged", "https://api.example.test/other", json!({"a": 1}), json!({"b": 2}));
+        let res = process_collection_op(other, &mut s.storage(), never).await;
+        assert!(tag_ops.get_by_endpoint(res.result.endpoint_id.as_deref().unwrap()).unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn the_task_hands_back_tags_and_the_response_in_its_result() {
+        let s = scratch();
+        let out = crate::collections_ops::run_task(json!({
+            "ops": "insert", "endpoint_str": "https://x.example.test/r", "method": "GET",
+            "collection": "rr", "response_body": {"ok": 1}, "job_id": "job-9",
+            "tags": ["a", "b"], "collection_tags": ["c"], "return_response": true,
+            "db_path": s.db, "storage_root": s.root.display().to_string(),
+        }))
+        .await;
+        assert_eq!(out["status"]["code"], 0);
+        assert_eq!(out["tags"], json!(["a", "b"]));
+        assert_eq!(out["collection_tags"], json!(["c"]));
+        // an insert sends nothing, so there is no answer to return
+        assert!(out.get("response").is_none());
+        // and the webserver reads this very JSON as an ApiResult
+        let result: crate::api_status::ApiResult = serde_json::from_value(out).unwrap();
+        assert_eq!(result.tags, Some(vec!["a".to_string(), "b".to_string()]));
     }
 
     #[tokio::test]
