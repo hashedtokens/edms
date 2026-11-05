@@ -2,7 +2,9 @@
 //! endpoint, QP and history row the same way Test View's Run does. Sends back
 //! one code from crate::api_status, plus the job_id it was given.
 //! Mandatory: ops, endpoint_str, method. Optional: body, headers, timeout_ms,
-//! annotation, notes, endpoint_id.
+//! annotation, endpoint_id. `notes` is accepted so a body that carries it is
+//! not rejected, but it is not stored: this flow makes no bookmark for it.
+//! `call_endpoint` is the one HTTP call the collections ops use as well.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -21,7 +23,7 @@ use crate::qp_store::{NewQp, QpStore, Stored};
 const METHODS: [&str; 7] = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
 // the webserver closes the call with 108 after 30s; stay under it so a slow
 // target reports 106 and there is time left to store
-const MAX_TIMEOUT_MS: u64 = 25_000;
+pub const MAX_TIMEOUT_MS: u64 = 25_000;
 
 type Rejection = (ApiStatus, String);
 
@@ -107,7 +109,10 @@ pub fn parse_history_request(payload: &Value) -> Result<HistoryTestRequest, Reje
     Ok(HistoryTestRequest {
         endpoint_str: endpoint_str.into(),
         method,
-        body: obj.get("body").cloned().unwrap_or(Value::Null),
+        // no body is `{}`, as in a Run from the UI and in the collections ops:
+        // the duplicate check compares the stored text, so the same call
+        // through either op must store the same request
+        body: obj.get("body").cloned().unwrap_or_else(|| json!({})),
         headers,
         timeout_ms,
         annotation: optional(obj, "annotation")?,

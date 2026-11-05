@@ -7,8 +7,10 @@
 //! The route is write-only. It checks the body, hands the work to a compute
 //! op in `edms-child` and answers `202 {transaction_id}` at once. The final
 //! code (see `compute::api_status`, `pkg/status_codes.md`) is delivered over
-//! `GET /hashedtokens/edms/api/ws` as a `DevApiResult` event, and the open UI
-//! views refresh from the events the ops already send. A call whose child
+//! `GET /hashedtokens/edms/api/ws` as a `DevApiResult` event. A compute op
+//! can't send UI events, so when one stores something `announce` sends the
+//! events the app's own routes send (collection and bookmark updates, a new
+//! QP, History, the dashboard), and the open views reload. A call whose child
 //! never reports back is closed with `COMPUTE_STALLED`.
 //!
 //! The compute ops are Hemang's (history) and Manorath's (collections). They
@@ -287,6 +289,52 @@ pub fn finish_from_callback(jobs: &JobTable, events: &broadcast::Sender<ServerEv
     deliver(jobs, events, &id, result);
 }
 
+/// The UI events for a finished op: what the app's own routes send when
+/// they store the same things (a Run, a Bookmark, an endpoint created), so the
+/// open pages reload. Nothing when the call stored nothing.
+///
+/// `collection_id` is the collection the op put the endpoint in (set by the
+/// collections ops). A duplicate QP (104) stores no QP, but the endpoint still
+/// joins the collection, so the collection events are sent for it too.
+pub fn events_for(task: &str, result: &Value) -> Vec<ServerEvent> {
+    let Ok(r) = serde_json::from_value::<ApiResult>(result.clone()) else { return Vec::new() };
+    if !matches!(r.status, ApiStatus::Ok | ApiStatus::DuplicateQp) {
+        return Vec::new();
+    }
+
+    let mut events = Vec::new();
+    if let Some(collection) = result.get("collection_id").and_then(Value::as_str) {
+        events.push(ServerEvent::CollectionMembershipUpdated { collection: collection.to_string() });
+        events.push(ServerEvent::BookmarksUpdated { collection: collection.to_string(), count: 1 });
+    }
+    if let (Some(endpoint_id), Some(request_number)) = (r.endpoint_id.as_ref(), r.request_number) {
+        events.push(ServerEvent::QpCreated {
+            endpoint_id: endpoint_id.clone(),
+            request_number: request_number as i32,
+        });
+        // a Run is what puts a row in History; an insert is not a run
+        if task != "api_collections_insert" {
+            events.push(ServerEvent::HistoryUpdated { count: 1 });
+        }
+    }
+    if r.endpoint_created == Some(true) || r.request_number.is_some() {
+        events.push(ServerEvent::CrudOperationsUpdated { computed_at: chrono::Utc::now().to_rfc3339() });
+    }
+    events
+}
+
+/// Sends `events_for` the finished op, and has the dashboard recount when
+/// something new was stored (as creating an endpoint by hand does).
+pub fn announce(state: &AppState, callback: &IpcCallback) {
+    let events = events_for(&callback.task, &callback.result);
+    if events.iter().any(|e| matches!(e, ServerEvent::CrudOperationsUpdated { .. })) {
+        state.refresh_dashboard_snapshot();
+    }
+    for event in events {
+        let _ = state.events_tx.send(event);
+    }
+}
+
 /// The child reported a failure. Returns whether it belonged to a dev API
 /// transaction (and was closed with `INTERNAL_ERROR`), so the caller can skip
 /// the Import/Export job handling.
@@ -512,6 +560,62 @@ mod tests {
         finish_from_callback(&jobs, &tx, &again);
         assert!(event_result(&mut rx).is_none());
         assert_eq!(jobs.get(&id).unwrap().result.unwrap()["status"]["code"], 0);
+    }
+
+    fn kinds(events: &[ServerEvent]) -> Vec<&'static str> {
+        events
+            .iter()
+            .map(|e| match e {
+                ServerEvent::CollectionMembershipUpdated { .. } => "membership",
+                ServerEvent::BookmarksUpdated { .. } => "bookmarks",
+                ServerEvent::QpCreated { .. } => "qp",
+                ServerEvent::HistoryUpdated { .. } => "history",
+                ServerEvent::CrudOperationsUpdated { .. } => "dashboard",
+                _ => "other",
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_stored_test_and_insert_updates_every_open_page() {
+        let r = json!({"status": {"code": 0, "name": "OK", "message": "All good"}, "endpoint_id": "E0001-AAA",
+                       "request_number": 1, "endpoint_created": true, "collection_created": true, "collection_id": "c1"});
+        let events = events_for("api_collections_test_and_insert", &r);
+        assert_eq!(kinds(&events), ["membership", "bookmarks", "qp", "history", "dashboard"]);
+        match &events[0] {
+            ServerEvent::CollectionMembershipUpdated { collection } => assert_eq!(collection, "c1"),
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn an_insert_is_not_a_run_so_history_is_left_alone() {
+        let r = json!({"status": {"code": 0}, "endpoint_id": "E0001-AAA", "request_number": 2, "endpoint_created": false, "collection_id": "c1"});
+        assert_eq!(kinds(&events_for("api_collections_insert", &r)), ["membership", "bookmarks", "qp", "dashboard"]);
+    }
+
+    #[test]
+    fn a_duplicate_only_changes_the_collection() {
+        let r = json!({"status": {"code": 104}, "endpoint_id": "E0001-AAA", "duplicate_of": 1, "endpoint_created": false, "collection_id": "c2"});
+        assert_eq!(kinds(&events_for("api_collections_insert", &r)), ["membership", "bookmarks"]);
+        // a new endpoint changes the dashboard even with no new QP
+        let r = json!({"status": {"code": 104}, "endpoint_id": "E0002-AAA", "endpoint_created": true, "collection_id": "c2"});
+        assert_eq!(kinds(&events_for("api_collections_insert", &r)), ["membership", "bookmarks", "dashboard"]);
+    }
+
+    #[test]
+    fn a_history_test_has_no_collection_to_update() {
+        let r = json!({"status": {"code": 0}, "endpoint_id": "E0003-AAA", "request_number": 1, "endpoint_created": true, "target_status": 404});
+        assert_eq!(kinds(&events_for("api_history_test", &r)), ["qp", "history", "dashboard"]);
+    }
+
+    #[test]
+    fn a_call_that_stored_nothing_sends_no_events() {
+        for code in [100, 101, 103, 105, 106, 108, 109, -1] {
+            let r = json!({"status": {"code": code}, "collection_id": "c1", "endpoint_id": "E0001-AAA", "request_number": 1});
+            assert!(events_for("api_collections_insert", &r).is_empty(), "code {code}");
+        }
+        assert!(events_for("api_history_test", &json!("not a result")).is_empty());
     }
 
     #[test]

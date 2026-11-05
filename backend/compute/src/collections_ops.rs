@@ -299,6 +299,8 @@ struct Plan<'a> {
     headers: String,
     status_code: Option<i32>,
     response_time_ms: Option<i32>,
+    /// The HTTP status the tested API answered with (a real test only)
+    target_status: Option<i64>,
     /// History details (`"404 in 120ms"`), for a real test only
     history: Option<String>,
     returned: Option<EndpointResponse>,
@@ -341,6 +343,7 @@ where
                 // Nothing was really sent, so there is no status or timing
                 status_code: None,
                 response_time_ms: None,
+                target_status: None,
                 history: None,
                 returned: None,
             }
@@ -374,6 +377,7 @@ where
                 headers: headers_text(req.headers.as_ref(), Some(&answer.headers)),
                 status_code: Some(i32::from(answer.status)),
                 response_time_ms: Some(answer.time_ms.clamp(0, i64::from(i32::MAX)) as i32),
+                target_status: Some(i64::from(answer.status)),
                 history: Some(format!("{} in {}ms", answer.status, answer.time_ms)),
                 returned: (req.return_response == Some(true)).then(|| answer.clone()),
             }
@@ -394,6 +398,7 @@ where
 /// History, membership.
 fn store_and_join<S: StorageBackend>(req: &CollectionOpRequest, storage: &mut S, plan: Plan) -> CollectionOpResponse {
     let mut result = ApiResult::new(ApiStatus::Ok);
+    result.target_status = plan.target_status;
     let col = req.collection.as_str();
 
     // Collection: created empty if new
@@ -487,9 +492,11 @@ fn store_and_join<S: StorageBackend>(req: &CollectionOpRequest, storage: &mut S,
 
 // ── the task `edms-child` runs ───────────────────────────────────────────
 
-/// The real test request: the same call a Run makes.
+/// The real test request. It is the history op's call (`call_endpoint`), so
+/// both Dev API ops send, time out and fail the same way. The wait is capped
+/// below the webserver's 30 s stall timer: a slow target ends with 106, not 108.
 pub async fn http_call(call: HttpCall) -> Result<EndpointResponse, HttpFailure> {
-    use crate::api::handlers::{run_test_inner, RunTestRequest};
+    use crate::devapi::history::{call_endpoint, HistoryTestRequest, MAX_TIMEOUT_MS};
 
     let headers: HashMap<String, String> = match &call.headers {
         Some(Value::Object(m)) => m
@@ -498,28 +505,26 @@ pub async fn http_call(call: HttpCall) -> Result<EndpointResponse, HttpFailure> 
             .collect(),
         _ => HashMap::new(),
     };
-    let sent = run_test_inner(RunTestRequest {
-        endpoint_id: String::new(),
-        url: call.url,
-        method: call.method,
-        body: call.body.unwrap_or(Value::Null),
-        request_number: 0,
-        timeout_ms: call.timeout_ms.unwrap_or(30_000),
+    let req = HistoryTestRequest {
+        endpoint_str: call.url,
+        method: call.method.to_uppercase(),
+        body: call.body.unwrap_or_else(|| json!({})),
         headers,
-    })
-    .await
-    .map_err(HttpFailure::Failed)?;
-
-    let v: Value = serde_json::from_str(&sent).map_err(|e| HttpFailure::Failed(format!("unreadable test result: {e}")))?;
-    if v.get("timed_out").and_then(Value::as_bool).unwrap_or(false) {
-        return Err(HttpFailure::TimedOut("the test request timed out".to_string()));
+        timeout_ms: call.timeout_ms.unwrap_or(MAX_TIMEOUT_MS).clamp(1, MAX_TIMEOUT_MS),
+        annotation: None,
+        notes: None,
+        endpoint_id: None,
+    };
+    match call_endpoint(&req).await {
+        Ok(t) => Ok(EndpointResponse {
+            status: t.status_code as u16,
+            headers: json!(t.headers),
+            body: t.body,
+            time_ms: t.response_time_ms,
+        }),
+        Err((ApiStatus::TestTimedOut, msg)) => Err(HttpFailure::TimedOut(msg)),
+        Err((_, msg)) => Err(HttpFailure::Failed(msg)),
     }
-    Ok(EndpointResponse {
-        status: v.get("status_code").and_then(Value::as_u64).unwrap_or(0) as u16,
-        headers: v.get("response_headers").cloned().unwrap_or_else(|| json!({})),
-        body: v.get("response_body").cloned().unwrap_or(Value::Null),
-        time_ms: v.get("response_time_ms").and_then(Value::as_i64).unwrap_or(0),
-    })
 }
 
 /// Runs one `api_collections_*` task. `payload` is the validated Dev API
@@ -556,6 +561,11 @@ async fn run_task_inner(payload: Value) -> Result<Value, String> {
     let done = process_collection_op(req, &mut storage, http_call).await;
 
     let mut out = serde_json::to_value(&done.result).map_err(|e| e.to_string())?;
+    // Something was stored (or already there): the child can't send UI events,
+    // so this makes the webserver's callback tell the open pages to reload.
+    if matches!(done.result.status, ApiStatus::Ok | ApiStatus::DuplicateQp) {
+        out["view_type"] = json!("Bookmark");
+    }
     if let Some(id) = done.collection_id {
         out["collection_id"] = json!(id);
     }
@@ -784,6 +794,7 @@ mod tests {
 
         assert_eq!(res.result.status, ApiStatus::Ok);
         assert_eq!(res.result.request_number, Some(1));
+        assert_eq!(res.result.target_status, Some(404));
         assert_eq!(db.qps[0].3, Some(404));
         assert_eq!(db.history, vec![("E0001-AAA".to_string(), "404 in 120ms".to_string())]);
         assert_eq!(db.joined.len(), 1);
@@ -865,6 +876,65 @@ mod tests {
         assert_eq!(res.result.status, ApiStatus::InternalError);
         assert!(db.discarded.is_empty());
         assert_eq!(db.endpoints.len(), 1);
+    }
+
+    /// A one-answer HTTP server on a free port; `None` never answers.
+    async fn local_target(reply: Option<&'static str>) -> String {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            while let Ok((mut sock, _)) = listener.accept().await {
+                tokio::spawn(async move {
+                    let mut buf = [0u8; 2048];
+                    let _ = sock.read(&mut buf).await;
+                    match reply {
+                        Some(body) => {
+                            let raw = format!(
+                                "HTTP/1.1 404 Not Found\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
+                                body.len(),
+                                body
+                            );
+                            let _ = sock.write_all(raw.as_bytes()).await;
+                        }
+                        None => tokio::time::sleep(std::time::Duration::from_secs(5)).await,
+                    }
+                });
+            }
+        });
+        format!("http://{addr}/x")
+    }
+
+    #[test]
+    fn a_call_with_no_body_stores_the_same_request_through_either_op() {
+        use crate::devapi::history::parse_history_request;
+        let h = parse_history_request(&json!({"ops": "test", "endpoint_str": "http://x.test/a", "method": "GET"})).unwrap();
+        assert_eq!(h.body.to_string(), body_text(None), "else the duplicate check can't tell they are the same call");
+    }
+
+    #[tokio::test]
+    async fn the_real_call_returns_a_404_as_an_answer() {
+        let url = local_target(Some(r#"{"error":"nope"}"#)).await;
+        let got = http_call(HttpCall {
+            url,
+            method: "get".to_string(),
+            body: None,
+            headers: Some(json!({"X-A": "1"})),
+            timeout_ms: Some(3000),
+        })
+        .await
+        .expect("any answer is an answer");
+        assert_eq!(got.status, 404);
+        assert_eq!(got.body, json!({"error": "nope"}));
+        assert_eq!(got.headers["content-type"], "application/json");
+    }
+
+    #[tokio::test]
+    async fn the_real_call_times_out_and_fails_as_asked() {
+        let slow = local_target(None).await;
+        let call = |url: String, ms| HttpCall { url, method: "GET".to_string(), body: None, headers: None, timeout_ms: Some(ms) };
+        assert!(matches!(http_call(call(slow, 200)).await, Err(HttpFailure::TimedOut(_))));
+        assert!(matches!(http_call(call("nonsense://x".to_string(), 2000)).await, Err(HttpFailure::Failed(_))));
     }
 
     #[tokio::test]

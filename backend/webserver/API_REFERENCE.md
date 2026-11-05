@@ -296,7 +296,7 @@ The UI shows statistics per row (endpoint count, QP count, method counts, tags i
 
 ## Dev API
 
-Lets a backend developer push one QP for one endpoint (endpoint, request, response, headers, plus EDMS data) without the UI. The routes are write-only: they check the body, start a compute op in `edms-child` and answer **202** with a `transaction_id`. The final code arrives over the WebSocket, so the caller keeps a socket open and waits for it (about 15 seconds). The open UI views refresh from the events the ops already send.
+Lets a backend developer push one QP for one endpoint (endpoint, request, response, headers, plus EDMS data) without the UI. The routes are write-only: they check the body, start a compute op in `edms-child` and answer **202** with a `transaction_id`. The final code arrives over the WebSocket, so the caller keeps a socket open and waits for it (about 15 seconds). When an op stores something, the webserver sends the events the app's own routes send, so open pages reload (see below).
 
 | Method | Path | Notes |
 |---|---|---|
@@ -304,7 +304,7 @@ Lets a backend developer push one QP for one endpoint (endpoint, request, respon
 | POST | `/hashedtokens/edms/api/collections/` | `ops: "test_and_insert"` or `"insert"`. Also served without the trailing slash |
 | GET (WS) | `/hashedtokens/edms/api/ws` | On connect `{"type":"transactions","transactions":[...still running...]}`, then each result as `{"type":"event","event":{"type":"DevApiResult","payload":{transaction_id, op, result}}}`. `result` is the result below. A transaction that finished before the socket connected is read with `GET /jobs/:id` (`result` holds the same thing) |
 
-**Request** (JSON object; the mandatory params are provisional until the schema is confirmed). `ops` and `endpoint_str` are always required; `test` and `test_and_insert` also need `method` and an `http(s)` URL; the collections routes also need `collection` (a valid collection name; a missing collection is created); `insert` also needs `request_body` and `response_body`. Optional: `body`, `headers`, `timeout_ms` (1 to 120000), `annotation`, `collection_annotation`, `notes`, `endpoint_id`, `request_headers`, `response_headers`.
+**Request** (JSON object; the mandatory params are provisional until the schema is confirmed). `ops` and `endpoint_str` are always required; `test` and `test_and_insert` also need `method` and an `http(s)` URL; the collections routes also need `collection` (a valid collection name; a missing collection is created); `insert` also needs `request_body` and `response_body`. Optional: `body`, `headers`, `timeout_ms` (1 to 120000; both ops wait at most 25 seconds, so a slow target ends with `106` before the 30-second stall timer), `annotation`, `collection_annotation`, `notes`, `endpoint_id`, `request_headers`, `response_headers`.
 
 **Answers.** `202 {ok, transaction_id, ops}` once the op has started. A request that is wrong or can't start gets a `4xx`/`5xx` with `{ok:false, status:{code, name, message}, detail}` and no transaction. If the compute process reports a failure the transaction closes with `109`; if it never reports back it closes with `108` after 30 seconds.
 
@@ -317,13 +317,17 @@ Lets a backend developer push one QP for one endpoint (endpoint, request, respon
 - **History**, for `test_and_insert` only (`"404 in 120ms"`, with the base URL), like any completed Run. An `insert` is not a run and adds none.
 - **Bookmark and membership**: the endpoint is bookmarked into the collection (with `notes`) and saved as a member, and the collection's stored `size_bytes` grows by the endpoint's data (and every other collection holding the endpoint grows by the QP's bytes).
 
+**What a history call leaves behind** (`ops: "test"`): the same as a `test_and_insert` without a collection: the endpoint (found or created), one QP with the tested API's status and timing, and a History row with the base URL (`"404 in 120ms"`). There is no bookmark or collection, so `notes` is accepted and not stored. A call with no body is stored with the body `{}` (as a Run from the UI does), the same as in the collections ops, so the same call through either op is recognised as a duplicate. Every collection that already holds the endpoint grows by the QP's bytes. The result carries `target_status`.
+
+**Open pages.** The compute process can't send UI events, so when a call ends with `0` (or `104` for a collections call) the webserver sends them: `CollectionMembershipUpdated` and `BookmarksUpdated` for the collection, `QpCreated` for a new QP, `HistoryUpdated` for a test, and `CrudOperationsUpdated` plus a dashboard recount when an endpoint or QP was added, plus one `ViewRefresh` (from the result's `view_type`) that the Test View tabs reload on. A call that stored nothing sends none.
+
 A **404 (or any status) from the tested API is a completed test**: it is stored like a 200 and the call ends with `0`. Only no answer is a failure, and then nothing is created: `106` for a timeout, `105` for an unreachable target. An identical QP (the same fingerprint as a Run's duplicate check) ends with `104` and `duplicate_of`; nothing is stored, but the endpoint **still joins the collection**. The duplicate check, the request number and the creation of the collection and of the endpoint are each atomic, so parallel calls don't take the same number, store the same QP twice, or make two endpoints for one URL. `tags`, `collection_tags` and `return_response` are read but not acted on yet.
 
 ### Status codes
 
 The codes are linear: `0` is all good, `-1` is unknown (not assigned yet), and everything else counts up from `100` in the order it was added. A new code goes at the end and keeps its number. The one list for every language is [`pkg/status_codes.md`](../../pkg/status_codes.md); the Rust side is `compute/src/api_status.rs`, and a test fails if they differ.
 
-A result carries the status as `{code, name, message}` plus the fields that apply (`endpoint_id`, `request_number`, `duplicate_of`, `endpoint_created`, `collection_created`, `target_status`, `detail`). Only the codes a route can raise before any work starts get an HTTP status instead of `202`: `100` to `103` are `400`, `109` is `500`, `107` is `503`. Every other code only arrives in the WebSocket result.
+A result carries the status as `{code, name, message}` plus the fields that apply (`endpoint_id`, `request_number`, `duplicate_of`, `endpoint_created`, `collection_created`, `target_status` (the HTTP status the tested API answered with, test ops only), `detail`). Only the codes a route can raise before any work starts get an HTTP status instead of `202`: `100` to `103` are `400`, `109` is `500`, `107` is `503`. Every other code only arrives in the WebSocket result.
 
 ---
 
