@@ -2,7 +2,7 @@
 
 Send an API call to EDMS from a script or the command line. EDMS runs it, saves the request and the response, and adds it to History or to a collection, the same as pressing **Run** in the app.
 
-With EDMS running, the API is at `http://127.0.0.1:3000`.
+With EDMS running, the API is at `http://127.0.0.1:3000`. (If a command below says it can't connect, EDMS isn't running.)
 
 ## What you can do
 
@@ -14,7 +14,7 @@ With EDMS running, the API is at `http://127.0.0.1:3000`.
 
 ## What to send
 
-The body is JSON.
+The body is JSON, and every `POST` needs the header `Content-Type: application/json`. The examples below already include it.
 
 **History `test`**
 
@@ -109,7 +109,7 @@ Test an API and save it in History:
 curl.exe -X POST http://127.0.0.1:3000/hashedtokens/edms/api/history/ -H "Content-Type: application/json" -d "{\"ops\":\"test\",\"endpoint_str\":\"https://jsonplaceholder.typicode.com/todos/1\",\"method\":\"GET\"}"
 ```
 
-It answers with a `transaction_id`. Read the result with it:
+It answers with a `transaction_id`. Read the result with it (use the id you got, not this one):
 
 ```bat
 curl.exe http://127.0.0.1:3000/jobs/job-1234567890-1
