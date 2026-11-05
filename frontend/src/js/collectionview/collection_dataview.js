@@ -1150,7 +1150,10 @@
     const tags = new Set();
 
     let get = 0;
-
+    let post = 0;
+    let put = 0;
+    let patch = 0;
+    let del = 0;
     let write = 0;
 
     endpoints.forEach((endpoint) => {
@@ -1158,9 +1161,17 @@
 
       if (method === "GET") {
         get++;
-      }
-
-      if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+      } else if (method === "POST") {
+        post++;
+        write++;
+      } else if (method === "PUT") {
+        put++;
+        write++;
+      } else if (method === "PATCH") {
+        patch++;
+        write++;
+      } else if (method === "DELETE") {
+        del++;
         write++;
       }
 
@@ -1172,6 +1183,10 @@
     const endpointCountEl = document.getElementById("endpointCount");
     const tagCountEl = document.getElementById("tagCount");
     const getCountEl = document.getElementById("getCount");
+    const postCountEl = document.getElementById("postCount");
+    const putCountEl = document.getElementById("putCount");
+    const patchCountEl = document.getElementById("patchCount");
+    const deleteCountEl = document.getElementById("deleteCount");
     const writeCountEl = document.getElementById("writeCount");
 
     if (endpointCountEl) {
@@ -1184,6 +1199,22 @@
 
     if (getCountEl) {
       getCountEl.textContent = get;
+    }
+
+    if (postCountEl) {
+      postCountEl.textContent = post;
+    }
+
+    if (putCountEl) {
+      putCountEl.textContent = put;
+    }
+
+    if (patchCountEl) {
+      patchCountEl.textContent = patch;
+    }
+
+    if (deleteCountEl) {
+      deleteCountEl.textContent = del;
     }
 
     if (writeCountEl) {
