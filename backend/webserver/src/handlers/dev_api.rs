@@ -230,6 +230,11 @@ fn handle(state: &AppState, route: Route, raw: &[u8]) -> (StatusCode, Json<Value
     let endpoint_str = payload.get("endpoint_str").and_then(Value::as_str).map(str::to_string);
     let job_id = state.jobs.create(&task, None, endpoint_str.as_deref());
     payload.insert("job_id".into(), json!(job_id));
+    // Where the compute op finds the database and the storage folder (the
+    // database file doesn't have to sit in the storage root: in Docker it
+    // doesn't).
+    payload.insert("db_path".into(), json!(state.db_path.display().to_string()));
+    payload.insert("storage_root".into(), json!(state.storage_root.display().to_string()));
 
     if !crate::ipc::spawn_child(&task, Value::Object(payload), 3000) {
         let _ = state.jobs.fail(&job_id, "couldn't start the compute process".to_string());
