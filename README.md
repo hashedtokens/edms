@@ -9,7 +9,8 @@ _Standalone system for a team building microservices_
 * EDMS runs locally as a standalone service
 * No installation or setup necessary.
 * Need to have some Container application like Docker, Podman, Singularity etc running
-  
+
+**Instructions**
 ```bash
 git clone https://github.com/hashedtokens/edms
 git checkout -b latest origin/latest
