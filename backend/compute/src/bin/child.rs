@@ -423,6 +423,9 @@ async fn dispatch(task: &str, payload: Value) -> (bool, Value, Option<String>) {
             run(payload, |p: PurgeRequest| purge_orphaned_eids_inner(p)).await
         }
 
+        // Dev API: /api/history/
+        "api_history_test" => run(payload, compute::devapi::history::history_ops_inner).await,
+
         unknown => {
             let msg = format!("unknown task: '{}'", unknown);
             eprintln!("[edms-child] {msg}");

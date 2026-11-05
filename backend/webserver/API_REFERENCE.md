@@ -308,7 +308,7 @@ Lets a backend developer push one QP for one endpoint (endpoint, request, respon
 
 **Answers.** `202 {ok, transaction_id, ops}` once the op has started. A request that is wrong or can't start gets a `4xx`/`5xx` with `{ok:false, status:{code, name, message}, detail}` and no transaction. If the compute process reports a failure the transaction closes with `109`; if it never reports back it closes with `108` after 30 seconds.
 
-**Compute ops** (Hemang for history, Manorath for collections) are `edms-child` tasks named `api_history_test`, `api_collections_test_and_insert` and `api_collections_insert`. The payload is the validated request plus `job_id` (the transaction id), `db_path` and `storage_root` (where the op finds the database and the storage folder; in Docker they are not in the same folder). The op replies on `/internal/callback` with `result = {job_id, status, ...}`, where `status` is a code from the list below (a number or `{code}`) and the other fields are the ones the result carries. Until an op exists, its calls end with `108`. The two collections ops exist (`compute/src/collections_ops.rs`); the history op does not yet.
+**Compute ops** (Hemang for history, Manorath for collections) are `edms-child` tasks named `api_history_test`, `api_collections_test_and_insert` and `api_collections_insert`. The payload is the validated request plus `job_id` (the transaction id), `db_path` and `storage_root` (where the op finds the database and the storage folder; in Docker they are not in the same folder). The op replies on `/internal/callback` with `result = {job_id, status, ...}`, where `status` is a code from the list below (a number or `{code}`) and the other fields are the ones the result carries. Until an op exists, its calls end with `108`. All three ops exist: collections in `compute/src/collections_ops.rs`, history in `compute/src/devapi/history.rs`.
 
 **What a collections call leaves behind** (`insert` and `test_and_insert`): what a Run, a Bookmark and a Save leave behind.
 - **The collection**, created empty (its file, its catalog row and `collection_annotation`) if it is new; an existing one is used as it is and keeps its annotation. `collection_created` says which.
@@ -323,7 +323,7 @@ A **404 (or any status) from the tested API is a completed test**: it is stored 
 
 The codes are linear: `0` is all good, `-1` is unknown (not assigned yet), and everything else counts up from `100` in the order it was added. A new code goes at the end and keeps its number. The one list for every language is [`pkg/status_codes.md`](../../pkg/status_codes.md); the Rust side is `compute/src/api_status.rs`, and a test fails if they differ.
 
-A result carries the status as `{code, name, message}` plus the fields that apply (`endpoint_id`, `request_number`, `duplicate_of`, `endpoint_created`, `collection_created`, `detail`). Only the codes a route can raise before any work starts get an HTTP status instead of `202`: `100` to `103` are `400`, `109` is `500`, `107` is `503`. Every other code only arrives in the WebSocket result.
+A result carries the status as `{code, name, message}` plus the fields that apply (`endpoint_id`, `request_number`, `duplicate_of`, `endpoint_created`, `collection_created`, `target_status`, `detail`). Only the codes a route can raise before any work starts get an HTTP status instead of `202`: `100` to `103` are `400`, `109` is `500`, `107` is `503`. Every other code only arrives in the WebSocket result.
 
 ---
 
