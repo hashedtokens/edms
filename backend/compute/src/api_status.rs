@@ -150,6 +150,10 @@ pub struct ApiResult {
     /// Whether the call created the collection (collections ops only).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub collection_created: Option<bool>,
+    /// The HTTP status the target answered with (test ops only). Any answer
+    /// is stored, so a `404` here still comes with `Ok`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_status: Option<i64>,
     /// Extra text for the person reading the log (what was wrong, the error).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
@@ -164,6 +168,7 @@ impl ApiResult {
             duplicate_of: None,
             endpoint_created: None,
             collection_created: None,
+            target_status: None,
             detail: None,
         }
     }

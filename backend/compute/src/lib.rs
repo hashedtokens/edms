@@ -21,3 +21,4 @@ pub mod collections_ops;
 pub mod collections_store;
 
 pub mod api_status;
+pub mod devapi;

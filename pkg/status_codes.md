@@ -35,4 +35,4 @@ The call returns `202` at once. The final code arrives over the WebSocket (unsec
 }
 ```
 
-Only the fields that apply are present: `endpoint_id`, `request_number` (the QP number it was stored as), `duplicate_of`, `endpoint_created`, `collection_created` (collections ops only) and `detail` (extra text for the log).
+Only the fields that apply are present: `endpoint_id`, `request_number` (the QP number it was stored as), `duplicate_of`, `endpoint_created`, `collection_created` (collections ops only), `target_status` (the HTTP status the target answered with, test ops only) and `detail` (extra text for the log).
