@@ -145,7 +145,7 @@ fn optional_params_default_and_extra_keys_are_allowed() {
     assert_eq!(req.method, "POST");
     assert_eq!(req.timeout_ms, 25_000);
     assert!(req.headers.is_empty());
-    assert_eq!(req.body, Value::Null);
+    assert_eq!(req.body, json!({}));
 }
 
 #[test]

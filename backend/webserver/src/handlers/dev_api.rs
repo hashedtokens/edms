@@ -7,8 +7,10 @@
 //! The route is write-only. It checks the body, hands the work to a compute
 //! op in `edms-child` and answers `202 {transaction_id}` at once. The final
 //! code (see `compute::api_status`, `pkg/status_codes.md`) is delivered over
-//! `GET /hashedtokens/edms/api/ws` as a `DevApiResult` event, and the open UI
-//! views refresh from the events the ops already send. A call whose child
+//! `GET /hashedtokens/edms/api/ws` as a `DevApiResult` event. A compute op
+//! can't send UI events, so when one stores something `announce` sends the
+//! events the app's own routes send (collection and bookmark updates, a new
+//! QP, History, the dashboard), and the open views reload. A call whose child
 //! never reports back is closed with `COMPUTE_STALLED`.
 //!
 //! The compute ops are Hemang's (history) and Manorath's (collections). They
@@ -123,6 +125,32 @@ fn check_headers(obj: &Map<String, Value>, key: &str) -> Result<(), ApiError> {
     }
 }
 
+const MAX_TAGS: usize = 100;
+const MAX_TAG_LEN: usize = 100;
+
+/// A list of tags: strings, not too many, not too long. Blank ones are fine
+/// (they are left out when stored).
+fn check_tags(obj: &Map<String, Value>, key: &str) -> Result<(), ApiError> {
+    let bad = |why: String| err(ApiStatus::InvalidParam, format!("'{key}' {why}"));
+    match obj.get(key) {
+        None | Some(Value::Null) => Ok(()),
+        Some(Value::Array(tags)) => {
+            if tags.len() > MAX_TAGS {
+                return Err(bad(format!("can't have more than {MAX_TAGS} tags")));
+            }
+            for tag in tags {
+                match tag.as_str() {
+                    Some(t) if t.trim().chars().count() <= MAX_TAG_LEN => {}
+                    Some(_) => return Err(bad(format!("can't have a tag longer than {MAX_TAG_LEN} characters"))),
+                    None => return Err(bad("must be a list of strings".to_string())),
+                }
+            }
+            Ok(())
+        }
+        Some(_) => Err(bad("must be a list of strings".to_string())),
+    }
+}
+
 pub fn validate(route: Route, raw: &[u8]) -> Result<Validated, ApiError> {
     let body: Value = serde_json::from_slice(raw)
         .map_err(|e| err(ApiStatus::InvalidRequest, format!("the body is not valid JSON: {e}")))?;
@@ -187,6 +215,13 @@ pub fn validate(route: Route, raw: &[u8]) -> Result<Validated, ApiError> {
     }
     for key in ["annotation", "collection_annotation", "notes", "endpoint_id"] {
         opt_str(&obj, key)?;
+    }
+    if route == Route::Collections {
+        check_tags(&obj, "tags")?;
+        check_tags(&obj, "collection_tags")?;
+        if obj.get("return_response").is_some_and(|v| !v.is_null() && !v.is_boolean()) {
+            return Err(err(ApiStatus::InvalidParam, "'return_response' must be true or false"));
+        }
     }
 
     obj.insert("ops".into(), json!(op));
@@ -285,6 +320,56 @@ pub fn finish_from_callback(jobs: &JobTable, events: &broadcast::Sender<ServerEv
     let result = serde_json::from_value::<ApiResult>(callback.result.clone())
         .unwrap_or_else(|e| failure(ApiStatus::Unknown, format!("compute returned a result that isn't an ApiResult: {e}")));
     deliver(jobs, events, &id, result);
+}
+
+/// The UI events for a finished op: what the app's own routes send when
+/// they store the same things (a Run, a Bookmark, an endpoint created), so the
+/// open pages reload. Nothing when the call stored nothing.
+///
+/// `collection_id` is the collection the op put the endpoint in (set by the
+/// collections ops). A duplicate QP (104) stores no QP, but the endpoint still
+/// joins the collection, so the collection events are sent for it too.
+pub fn events_for(task: &str, result: &Value) -> Vec<ServerEvent> {
+    let Ok(r) = serde_json::from_value::<ApiResult>(result.clone()) else { return Vec::new() };
+    if !matches!(r.status, ApiStatus::Ok | ApiStatus::DuplicateQp) {
+        return Vec::new();
+    }
+
+    let mut events = Vec::new();
+    if let Some(collection) = result.get("collection_id").and_then(Value::as_str) {
+        events.push(ServerEvent::CollectionMembershipUpdated { collection: collection.to_string() });
+        events.push(ServerEvent::BookmarksUpdated { collection: collection.to_string(), count: 1 });
+    }
+    if let (Some(endpoint_id), Some(request_number)) = (r.endpoint_id.as_ref(), r.request_number) {
+        events.push(ServerEvent::QpCreated {
+            endpoint_id: endpoint_id.clone(),
+            request_number: request_number as i32,
+        });
+        // a Run is what puts a row in History; an insert is not a run
+        if task != "api_collections_insert" {
+            events.push(ServerEvent::HistoryUpdated { count: 1 });
+        }
+    }
+    if r.endpoint_created == Some(true)
+        || r.request_number.is_some()
+        || r.tags.is_some()
+        || r.collection_tags.is_some()
+    {
+        events.push(ServerEvent::CrudOperationsUpdated { computed_at: chrono::Utc::now().to_rfc3339() });
+    }
+    events
+}
+
+/// Sends `events_for` the finished op, and has the dashboard recount when
+/// something new was stored (as creating an endpoint by hand does).
+pub fn announce(state: &AppState, callback: &IpcCallback) {
+    let events = events_for(&callback.task, &callback.result);
+    if events.iter().any(|e| matches!(e, ServerEvent::CrudOperationsUpdated { .. })) {
+        state.refresh_dashboard_snapshot();
+    }
+    for event in events {
+        let _ = state.events_tx.send(event);
+    }
 }
 
 /// The child reported a failure. Returns whether it belonged to a dev API
@@ -388,6 +473,28 @@ mod tests {
         assert_eq!(code(history(json!({"endpoint_str": "https://a.io", "method": "GET"}))), 101);
         assert_eq!(code(history(json!({"ops": "test", "method": "GET"}))), 101);
         assert_eq!(code(history(json!({"ops": "test", "endpoint_str": "https://a.io"}))), 101);
+    }
+
+    #[test]
+    fn tags_and_return_response_are_checked_for_the_collections_route() {
+        let base = |extra: Value| {
+            let mut b = json!({"ops": "test_and_insert", "endpoint_str": "https://a.io", "method": "GET", "collection": "c"});
+            b.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
+            collections(b)
+        };
+        let ok = base(json!({"tags": ["a", " b ", ""], "collection_tags": ["v1"], "return_response": true})).unwrap();
+        assert_eq!(ok.payload["tags"], json!(["a", " b ", ""]));
+        assert!(base(json!({"tags": null, "collection_tags": [], "return_response": null})).is_ok());
+
+        assert_eq!(code(base(json!({"tags": "auth"}))), 103);
+        assert_eq!(code(base(json!({"tags": ["a", 1]}))), 103);
+        assert_eq!(code(base(json!({"collection_tags": {"a": 1}}))), 103);
+        assert_eq!(code(base(json!({"collection_tags": [["x"]]}))), 103);
+        assert_eq!(code(base(json!({"tags": ["x".repeat(101)]}))), 103);
+        assert_eq!(code(base(json!({"tags": vec!["t"; 101]}))), 103);
+        assert!(base(json!({"tags": vec!["t"; 100]})).is_ok());
+        assert_eq!(code(base(json!({"return_response": "yes"}))), 103);
+        assert_eq!(code(base(json!({"return_response": 1}))), 103);
     }
 
     #[test]
@@ -512,6 +619,72 @@ mod tests {
         finish_from_callback(&jobs, &tx, &again);
         assert!(event_result(&mut rx).is_none());
         assert_eq!(jobs.get(&id).unwrap().result.unwrap()["status"]["code"], 0);
+    }
+
+    fn kinds(events: &[ServerEvent]) -> Vec<&'static str> {
+        events
+            .iter()
+            .map(|e| match e {
+                ServerEvent::CollectionMembershipUpdated { .. } => "membership",
+                ServerEvent::BookmarksUpdated { .. } => "bookmarks",
+                ServerEvent::QpCreated { .. } => "qp",
+                ServerEvent::HistoryUpdated { .. } => "history",
+                ServerEvent::CrudOperationsUpdated { .. } => "dashboard",
+                _ => "other",
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_stored_test_and_insert_updates_every_open_page() {
+        let r = json!({"status": {"code": 0, "name": "OK", "message": "All good"}, "endpoint_id": "E0001-AAA",
+                       "request_number": 1, "endpoint_created": true, "collection_created": true, "collection_id": "c1"});
+        let events = events_for("api_collections_test_and_insert", &r);
+        assert_eq!(kinds(&events), ["membership", "bookmarks", "qp", "history", "dashboard"]);
+        match &events[0] {
+            ServerEvent::CollectionMembershipUpdated { collection } => assert_eq!(collection, "c1"),
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn an_insert_is_not_a_run_so_history_is_left_alone() {
+        let r = json!({"status": {"code": 0}, "endpoint_id": "E0001-AAA", "request_number": 2, "endpoint_created": false, "collection_id": "c1"});
+        assert_eq!(kinds(&events_for("api_collections_insert", &r)), ["membership", "bookmarks", "qp", "dashboard"]);
+    }
+
+    #[test]
+    fn a_duplicate_only_changes_the_collection() {
+        let r = json!({"status": {"code": 104}, "endpoint_id": "E0001-AAA", "duplicate_of": 1, "endpoint_created": false, "collection_id": "c2"});
+        assert_eq!(kinds(&events_for("api_collections_insert", &r)), ["membership", "bookmarks"]);
+        // a new endpoint changes the dashboard even with no new QP
+        let r = json!({"status": {"code": 104}, "endpoint_id": "E0002-AAA", "endpoint_created": true, "collection_id": "c2"});
+        assert_eq!(kinds(&events_for("api_collections_insert", &r)), ["membership", "bookmarks", "dashboard"]);
+    }
+
+    #[test]
+    fn a_history_test_has_no_collection_to_update() {
+        let r = json!({"status": {"code": 0}, "endpoint_id": "E0003-AAA", "request_number": 1, "endpoint_created": true, "target_status": 404});
+        assert_eq!(kinds(&events_for("api_history_test", &r)), ["qp", "history", "dashboard"]);
+    }
+
+    #[test]
+    fn tags_added_to_an_existing_endpoint_still_refresh_the_dashboard() {
+        let r = json!({"status": {"code": 104}, "endpoint_id": "E0001-AAA", "duplicate_of": 1, "endpoint_created": false,
+                       "collection_id": "c2", "tags": ["auth"]});
+        assert_eq!(kinds(&events_for("api_collections_insert", &r)), ["membership", "bookmarks", "dashboard"]);
+        let r = json!({"status": {"code": 104}, "endpoint_id": "E0001-AAA", "duplicate_of": 1, "endpoint_created": false,
+                       "collection_id": "c2", "collection_tags": ["v1"]});
+        assert_eq!(kinds(&events_for("api_collections_insert", &r)), ["membership", "bookmarks", "dashboard"]);
+    }
+
+    #[test]
+    fn a_call_that_stored_nothing_sends_no_events() {
+        for code in [100, 101, 103, 105, 106, 108, 109, -1] {
+            let r = json!({"status": {"code": code}, "collection_id": "c1", "endpoint_id": "E0001-AAA", "request_number": 1});
+            assert!(events_for("api_collections_insert", &r).is_empty(), "code {code}");
+        }
+        assert!(events_for("api_history_test", &json!("not a result")).is_empty());
     }
 
     #[test]

@@ -51,7 +51,8 @@ pub async fn ipc_callback(
         "mark_active_folder"       => handle_mark_active_folder(&state, &callback).await,
         "compute_crud_operations"  => handle_compute_crud_operations(&state, &callback).await,
         "api_history_test" | "api_collections_test_and_insert" | "api_collections_insert" => {
-            crate::handlers::dev_api::finish_from_callback(&state.jobs, &state.events_tx, &callback)
+            crate::handlers::dev_api::finish_from_callback(&state.jobs, &state.events_tx, &callback);
+            crate::handlers::dev_api::announce(&state, &callback);
         }
         "view_io_progress"         => crate::handlers::jobs::progress_from_callback(&state, &callback),
         "view_takeout"             => crate::handlers::jobs::complete_from_callback(&state, &callback),
