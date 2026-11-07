@@ -266,6 +266,27 @@ pub fn clear_history(core: &EdmsCore, queries: &QueryMap) -> EdmsResult<usize> {
     core.proc(q, &[])
 }
 
+/// Removes every history row of the given endpoints in one go. The endpoints
+/// and their QPs stay; only their History entries go. Returns how many rows
+/// were removed and which of the given endpoints had any history.
+pub fn delete_history_for_endpoints(core: &EdmsCore, endpoint_ids: &[String]) -> EdmsResult<(usize, Vec<String>)> {
+    let mut removed = 0usize;
+    let mut had: Vec<String> = Vec::new();
+    // chunked so a long list never runs into SQLite's limit on variables
+    for chunk in endpoint_ids.chunks(500) {
+        let marks = vec!["?"; chunk.len()].join(",");
+        let params: Vec<&dyn rusqlite::ToSql> = chunk.iter().map(|id| id as &dyn rusqlite::ToSql).collect();
+        let found: Vec<String> = core.cproc(
+            &format!("SELECT DISTINCT endpoint_id FROM history WHERE endpoint_id IN ({marks})"),
+            &params,
+            |row| row.get(0),
+        )?;
+        had.extend(found);
+        removed += core.proc(&format!("DELETE FROM history WHERE endpoint_id IN ({marks})"), &params)?;
+    }
+    Ok((removed, had))
+}
+
 pub fn insert_history(core: &EdmsCore, queries: &QueryMap, endpoint_id: &str, action: &str, details: Option<&str>) -> EdmsResult<usize> {
     let q = queries.get_history_query("H3").ok_or(EdmsError::UnknownError)?;
     // Domain of the endpoint at the time of the run, kept in its own column.
@@ -586,6 +607,47 @@ mod history_card_tests {
         edms::schema::initialize_schema(&conn).unwrap();
         assert_eq!(read(&conn), want);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn history_of_several_endpoints_goes_in_one_call_and_nothing_else_does() {
+        let (core, q, _dir) = fresh("bulk-delete");
+        edms::schema::initialize_schema_from_core(&core).unwrap();
+        for (eid, n) in [("E1", 3), ("E2", 1), ("E3", 2), ("E4", 1)] {
+            for _ in 0..n {
+                insert_history(&core, &q, eid, "test", None).unwrap();
+            }
+        }
+        assert_eq!(history_count(&core, &q).unwrap(), 7);
+
+        let ids = vec!["E1".to_string(), "E3".to_string(), "NEVER-RAN".to_string()];
+        let (removed, had) = delete_history_for_endpoints(&core, &ids).unwrap();
+        assert_eq!(removed, 5, "3 rows of E1 and 2 of E3");
+        let mut had = had;
+        had.sort();
+        assert_eq!(had, vec!["E1".to_string(), "E3".to_string()], "the unknown id is not reported as cleared");
+
+        let left: Vec<String> = list_history(&core, &q).unwrap().into_iter().map(|h| h.endpoint_id).collect();
+        assert_eq!(left.len(), 2);
+        assert!(left.contains(&"E2".to_string()) && left.contains(&"E4".to_string()), "the others keep their history");
+
+        // asking again is not an error, it just has nothing to remove
+        let (removed, had) = delete_history_for_endpoints(&core, &ids).unwrap();
+        assert_eq!((removed, had.len()), (0, 0));
+    }
+
+    #[test]
+    fn a_long_list_of_endpoints_is_deleted_in_chunks() {
+        let (core, q, _dir) = fresh("bulk-delete-long");
+        edms::schema::initialize_schema_from_core(&core).unwrap();
+        let ids: Vec<String> = (0..1200).map(|i| format!("E{i:04}")).collect();
+        for id in &ids {
+            insert_history(&core, &q, id, "test", None).unwrap();
+        }
+        insert_history(&core, &q, "KEEP", "test", None).unwrap();
+        let (removed, had) = delete_history_for_endpoints(&core, &ids).unwrap();
+        assert_eq!((removed, had.len()), (1200, 1200));
+        assert_eq!(history_count(&core, &q).unwrap(), 1);
     }
 
     #[test]
