@@ -266,6 +266,22 @@ pub fn clear_history(core: &EdmsCore, queries: &QueryMap) -> EdmsResult<usize> {
     core.proc(q, &[])
 }
 
+/// Which of the given endpoints have any history (that is, a History card).
+pub fn endpoints_with_history(core: &EdmsCore, endpoint_ids: &[String]) -> EdmsResult<Vec<String>> {
+    let mut had: Vec<String> = Vec::new();
+    for chunk in endpoint_ids.chunks(500) {
+        let marks = vec!["?"; chunk.len()].join(",");
+        let params: Vec<&dyn rusqlite::ToSql> = chunk.iter().map(|id| id as &dyn rusqlite::ToSql).collect();
+        let found: Vec<String> = core.cproc(
+            &format!("SELECT DISTINCT endpoint_id FROM history WHERE endpoint_id IN ({marks})"),
+            &params,
+            |row| row.get(0),
+        )?;
+        had.extend(found);
+    }
+    Ok(had)
+}
+
 /// Removes every history row of the given endpoints in one go. The endpoints
 /// and their QPs stay; only their History entries go. Returns how many rows
 /// were removed and which of the given endpoints had any history.
@@ -621,6 +637,9 @@ mod history_card_tests {
         assert_eq!(history_count(&core, &q).unwrap(), 7);
 
         let ids = vec!["E1".to_string(), "E3".to_string(), "NEVER-RAN".to_string()];
+        let mut with = endpoints_with_history(&core, &ids).unwrap();
+        with.sort();
+        assert_eq!(with, vec!["E1".to_string(), "E3".to_string()]);
         let (removed, had) = delete_history_for_endpoints(&core, &ids).unwrap();
         assert_eq!(removed, 5, "3 rows of E1 and 2 of E3");
         let mut had = had;

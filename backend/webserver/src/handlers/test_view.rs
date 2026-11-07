@@ -257,11 +257,16 @@ pub struct DeleteHistoryRequest {
 
 /// POST /test-view/history/delete
 ///
-/// Removes the History of one or more endpoints in a single call. Body:
-/// `{"endpoint_ids": ["E0001-AAA", ...]}`. Only the History rows go: the
-/// endpoints and their QPs stay. An endpoint that has no History is not an
-/// error (the outcome the caller wanted is already true); it is listed in
-/// `not_in_history`. Broadcasts `HistoryUpdated` once with what is left.
+/// Deletes History cards in a single call. Body:
+/// `{"endpoint_ids": ["E0001-AAA", ...]}`. A History card is one endpoint,
+/// and the QPs behind its ellipsis are that endpoint's runs, so deleting the
+/// card removes its History rows **and all of its QPs** (rows, files, size,
+/// duplicate memory). The endpoint itself stays.
+///
+/// Only endpoints that have a History card are touched: an id with no
+/// History is listed in `not_in_history` and its QPs are left alone. That is
+/// not an error, so repeating the call is harmless. Broadcasts `QpDeleted`
+/// for each QP removed and one `HistoryUpdated` with the rows left.
 pub async fn delete_history(
     State(state): State<AppState>,
     Json(body): Json<DeleteHistoryRequest>,
@@ -275,20 +280,67 @@ pub async fn delete_history(
             Json(json!({ "ok": false, "error": "endpoint_ids must be a non-empty list of endpoint ids" })),
         );
     }
+    for id in &ids {
+        if let Err(e) = safe_id(id) {
+            return e;
+        }
+    }
+
+    let internal = |e: String| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": e })),
+        )
+    };
+
+    // which of them really have a History card
+    let had = tokio::task::spawn_blocking({
+        let st = state.clone();
+        let ids = ids.clone();
+        move || db::endpoints_with_history(&st.core, &ids)
+    })
+    .await;
+    let had = match had {
+        Ok(Ok(h)) => h,
+        Ok(Err(e)) => return internal(format!("{e:?}")),
+        Err(e) => return internal(format!("{e:?}")),
+    };
+
+    // their QPs first (one renumber-free sweep per endpoint), then the History rows
+    let mut qps_deleted = 0usize;
+    for eid in &had {
+        let numbers: Vec<i32> = {
+            let st = state.clone();
+            let eid = eid.clone();
+            let listed = tokio::task::spawn_blocking(move || db::list_qps_for_endpoint(&st.core, &st.queries, &eid)).await;
+            match listed {
+                Ok(Ok(qps)) => qps.into_iter().map(|q| q.request_number).collect(),
+                Ok(Err(e)) => return internal(format!("{e:?}")),
+                Err(e) => return internal(format!("{e:?}")),
+            }
+        };
+        if numbers.is_empty() {
+            continue;
+        }
+        if let Err(e) = remove_qps(&state, eid, &numbers).await {
+            return e;
+        }
+        qps_deleted += numbers.len();
+    }
 
     let res = tokio::task::spawn_blocking({
         let st = state.clone();
-        let ids = ids.clone();
+        let had = had.clone();
         move || {
-            let (removed, had) = db::delete_history_for_endpoints(&st.core, &ids)?;
+            let (removed, _) = db::delete_history_for_endpoints(&st.core, &had)?;
             let left = db::history_count(&st.core, &st.queries)?;
-            Ok::<_, EdmsError>((removed, had, left))
+            Ok::<_, EdmsError>((removed, left))
         }
     })
     .await;
 
     match res {
-        Ok(Ok((removed, had, left))) => {
+        Ok(Ok((removed, left))) => {
             let not_in_history: Vec<&String> = ids.iter().filter(|id| !had.contains(id)).collect();
             if removed > 0 {
                 state.emit(ServerEvent::HistoryUpdated { count: left }).await;
@@ -299,18 +351,13 @@ pub async fn delete_history(
                     "ok": true,
                     "deleted_rows": removed,
                     "endpoints_cleared": had.len(),
+                    "qps_deleted": qps_deleted,
                     "not_in_history": not_in_history,
                 })),
             )
         }
-        Ok(Err(e)) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "ok": false, "error": format!("{e:?}") })),
-        ),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "ok": false, "error": format!("{e:?}") })),
-        ),
+        Ok(Err(e)) => internal(format!("{e:?}")),
+        Err(e) => internal(format!("{e:?}")),
     }
 }
 
@@ -1068,13 +1115,36 @@ pub async fn delete_qps(
         );
     }
 
+    if let Err(e) = remove_qps(&state, &endpoint_id, &numbers).await {
+        return e;
+    }
+
+    (StatusCode::OK, Json(json!({ "ok": true, "deleted": numbers })))
+}
+
+/// The delete itself, shared by the QP bulk route and the History delete:
+/// `numbers` are QP numbers of `endpoint_id` that exist right now. Removes
+/// their rows and files, forgets them in the duplicate store, renumbers
+/// what is left once, settles the collection sizes and announces each one.
+async fn remove_qps(
+    state: &AppState,
+    endpoint_id: &str,
+    numbers: &[i32],
+) -> Result<(), (StatusCode, Json<Value>)> {
+    let internal = |e: String| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "ok": false, "error": e })),
+        )
+    };
+
     let dir = state.endpoint_storage_dir(&endpoint_id);
 
     // Forget each QP's key in the duplicate store (while its files are still
     // on disk) so the same request can be run again straight away.
     let (method, endpoint_str) = {
         let st = state.clone();
-        let eid = endpoint_id.clone();
+        let eid = endpoint_id.to_string();
         tokio::task::spawn_blocking(move || {
             crate::db::get_endpoint(&st.core, &st.queries, &eid)
                 .ok()
@@ -1086,7 +1156,7 @@ pub async fn delete_qps(
         .flatten()
         .unwrap_or_else(|| ("GET".to_string(), String::new()))
     };
-    for n in &numbers {
+    for n in numbers {
         if let Some((q, p, h, qp_d)) = crate::qp_service::read_qp_quadruple(&dir, &endpoint_id, *n) {
             let qp_data = if !qp_d.is_empty() { qp_d } else { crate::qp_service::extract_qp_data(&endpoint_str) };
             let key = crate::qp_service::make_canonical_key(&method, &endpoint_id, &q, &p, &h, &qp_data);
@@ -1099,8 +1169,8 @@ pub async fn delete_qps(
     // the rows, then the files
     let rows = tokio::task::spawn_blocking({
         let st = state.clone();
-        let eid = endpoint_id.clone();
-        let nums = numbers.clone();
+        let eid = endpoint_id.to_string();
+        let nums = numbers.to_vec();
         move || {
             for n in nums {
                 db::delete_qp(&st.core, &st.queries, &eid, n)?;
@@ -1111,10 +1181,10 @@ pub async fn delete_qps(
     .await;
     match rows {
         Ok(Ok(())) => {}
-        Ok(Err(e)) => return internal(format!("{e:?}")),
-        Err(e) => return internal(format!("{e:?}")),
+        Ok(Err(e)) => return Err(internal(format!("{e:?}"))),
+        Err(e) => return Err(internal(format!("{e:?}"))),
     }
-    for n in &numbers {
+    for n in numbers {
         for kind in ["request", "response", "headers"] {
             let path = dir.join(format!("{endpoint_id}-{kind}-{n}.json"));
             let _ = tokio::fs::remove_file(path).await;
@@ -1122,29 +1192,31 @@ pub async fn delete_qps(
     }
 
     // renumber what is left, once
-    let eid_clone = endpoint_id.clone();
+    let eid_clone = endpoint_id.to_string();
     let dir_clone = dir.clone();
     let _ = tokio::task::spawn_blocking(move || {
         reassign_qp_files_inline(&dir_clone, &eid_clone);
     })
     .await;
     let st2 = state.clone();
-    let eid2 = endpoint_id.clone();
+    let eid2 = endpoint_id.to_string();
     let storage_dir = dir.to_string_lossy().to_string();
     let _ = tokio::task::spawn_blocking(move || crate::db::reassign_qp_numbers(&st2.core, &eid2, &storage_dir)).await;
     crate::handlers::collection_size::settle(&state, &endpoint_id, size_before).await;
 
-    for n in &numbers {
+    for n in numbers {
         state
             .emit(ServerEvent::QpDeleted {
-                endpoint_id: endpoint_id.clone(),
+                endpoint_id: endpoint_id.to_string(),
                 request_number: *n,
             })
             .await;
     }
 
-    (StatusCode::OK, Json(json!({ "ok": true, "deleted": numbers })))
+
+    Ok(())
 }
+
 
 // ── QP manual create / update (no real HTTP test) ───────────────────
 //
