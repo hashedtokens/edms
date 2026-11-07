@@ -2044,8 +2044,10 @@
     outline-none focus:border-cyan-500`;
 
     openModal(
-      `Modify — ${escapeHtml(endpoint.endpoint || endpointId)}`,
       `
+    <h3 class="text-xs font-semibold text-slate-800 dark:text-slate-200 mb-3 border-b border-slate-200 dark:border-slate-700 pb-1">
+      Modify — ${escapeHtml(endpoint.endpoint || endpointId)}
+    </h3>
     <div class="space-y-4">
 
       <!-- TAGS -->
@@ -2084,7 +2086,7 @@
                        text-white dark:text-slate-950 hover:bg-slate-800 dark:hover:bg-cyan-400">Save</button>
       </div>
     </div>
-    `,
+    `
     );
 
     const chipsEl = document.getElementById("tagChips");
@@ -2197,8 +2199,10 @@
         if (state.selected.size === 0) return;
 
         openModal(
-          "Remove Endpoints",
           `
+                    <h3 class="text-xs font-semibold text-slate-800 dark:text-slate-200 mb-3 border-b border-slate-200 dark:border-slate-700 pb-1">
+                      Remove Endpoints
+                    </h3>
                     <div class="space-y-4">
                         <p class="text-xs text-slate-700 dark:text-slate-300">
                             Are you sure you want to remove ${state.selected.size} endpoint${state.selected.size === 1 ? "" : "s"} from this collection?
@@ -2304,9 +2308,8 @@
     }
   });
 
-  function openModal(title, content) {
+  function openModal(content) {
     if (!modalOverlay) return;
-    modalTitle.textContent = title;
     modalContent.innerHTML = content;
     modalOverlay.classList.remove("hidden");
     modalOverlay.classList.add("flex");
