@@ -1016,12 +1016,8 @@ function loadHistoryFromBackend() {
                             )
                         ) {
 
-                            const hiddenHistoryIds = getHiddenHistoryIds();
-
                             historyRecords =
-                                message.history
-                                    .map(normalizeBackendHistory)
-                                    .filter(h => !hiddenHistoryIds.has(String(h.id)));
+                                message.history.map(normalizeBackendHistory);
                             historyRecords =
                                 historyRecords.map(
                                     history => ({
@@ -1736,9 +1732,9 @@ function createTestEndpointCard(item) {
         card.querySelector(".history-delete").addEventListener("click", async event => {
             event.stopPropagation();
             try {
-                await deleteHistoryForEndpoint(itemId);
-                await loadHistoryFromBackend();
-                applyTestFilters();
+                await deleteHistoryForEndpoint([itemId]);
+                // Reload is handled by the HistoryUpdated event the
+                // backend sends after the delete.
             } catch (error) {
                 console.error("Failed to delete history:", error);
                 window.alert(error?.message || "Could not delete history.");
@@ -1762,47 +1758,103 @@ function createTestEndpointCard(item) {
 // HISTORY: DELETE + THREE-DOT MENU
 // ============================================================
 
-const HIDDEN_HISTORY_KEY = "testview.hiddenHistoryIds";
+async function deleteHistoryForEndpoint(endpointIds) {
 
-function getHiddenHistoryIds() {
+    if (!Array.isArray(endpointIds) || endpointIds.length === 0) {
+        return;
+    }
+
+    const ids = [
+        ...new Set(
+            endpointIds
+                .map(id => String(id))
+                .filter(id => id.length > 0)
+        )
+    ];
+
+    if (ids.length === 0) {
+        return;
+    }
+
+    const confirmed =
+        window.confirm(
+            `Delete history for ${ids.length} endpoint(s)?\n\n` +
+            "This removes all history rows and every QP (saved test " +
+            "request behind the ellipsis) for the selected endpoint(s).\n\n" +
+            "The endpoints themselves will stay in Endpoints. " +
+            "This cannot be undone."
+        );
+
+    if (!confirmed) {
+        return;
+    }
+
     try {
-        return new Set(JSON.parse(localStorage.getItem(HIDDEN_HISTORY_KEY) || "[]"));
-    } catch {
-        return new Set();
+
+        const response = await fetch(
+            `${API_BASE}/test-view/history/delete`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    endpoint_ids: ids
+                })
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(
+                `History delete failed: ${response.status}`
+            );
+        }
+
+        const result = await response.json();
+
+        console.log(
+            "History delete result:",
+            result
+        );
+
+        const summary = [];
+        if (result?.deleted_rows !== undefined) {
+            summary.push(`${result.deleted_rows} history row(s)`);
+        }
+        if (result?.qps_deleted !== undefined) {
+            summary.push(`${result.qps_deleted} QP(s)`);
+        }
+        if (result?.endpoints_cleared !== undefined) {
+            summary.push(`${result.endpoints_cleared} endpoint(s) cleared`);
+        }
+        if (summary.length > 0) {
+            console.log("Deleted:", summary.join(", "));
+        }
+        if (
+            Array.isArray(result?.not_in_history) &&
+            result.not_in_history.length > 0
+        ) {
+            console.log(
+                "Not in history (no rows to delete):",
+                result.not_in_history
+            );
+        }
+
+        selectedHistoryIds = new Set();
+
+        /*
+         * The backend sends a single HistoryUpdated event after the
+         * delete; the existing history WebSocket listener reloads the
+         * page on that event. Do not reload here.
+         */
+
+    } catch (error) {
+
+        console.error("Failed to delete history:", error);
+        window.alert(error?.message || "Could not delete history.");
+        throw error;
+
     }
-}
-
-function hideHistoryIdLocally(historyId) {
-    const hidden = getHiddenHistoryIds();
-    hidden.add(String(historyId));
-    localStorage.setItem(HIDDEN_HISTORY_KEY, JSON.stringify([...hidden]));
-}
-async function deleteHistoryForEndpoint(endpointId) {
-
-    const ids = historyRecords
-        .filter(h => String(h.endpointId) === String(endpointId))
-        .map(h => h.id);
-
-    await Promise.all(ids.map(id => deleteHistoryItem(id)));
-
-    selectedHistoryIds.delete(String(endpointId));
-}
-async function deleteHistoryItem(historyId) {
-
-    if (!historyId) return;
-
-    const response = await fetch(
-        `${API_BASE}/test-view/history/${encodeURIComponent(historyId)}/delete`,
-        { method: "POST" }
-    );
-
-    if (response.status === 404) {
-        hideHistoryIdLocally(historyId);
-    } else if (!response.ok) {
-        throw new Error(`History delete failed: ${response.status}`);
-    }
-
-    selectedHistoryIds.delete(String(historyId));
 }
 
 function setHistoryCheckbox(checkbox, checked) {
@@ -1843,19 +1895,17 @@ async function doDeleteSelectedHistory() {
         return;
     }
 
-    await Promise.all(
-        [...selectedHistoryIds].map(id =>
-            deleteHistoryForEndpoint(id).catch(error => {
-                console.error(`Error deleting history ${id}:`, error);
-            })
-        )
-    );
-
-    selectedHistoryIds = new Set();
-
-    await loadHistoryFromBackend();
-
-    applyTestFilters();
+    try {
+        // selectedHistoryIds holds endpoint ids for history cards —
+        // send them, not history row ids.
+        await deleteHistoryForEndpoint([...selectedHistoryIds]);
+        // Reload is handled by the HistoryUpdated event the
+        // backend sends after the delete.
+        selectedHistoryIds = new Set();
+    } catch (error) {
+        console.error("Failed to delete history:", error);
+        window.alert(error?.message || "Could not delete history.");
+    }
 }
 
 function handleHistoryMenuAction(action) {
@@ -3216,55 +3266,100 @@ async function doDeleteSelectedQP() {
 
     const endpointId = selectedTestEndpoint.id;
 
-    if (endpointId !== undefined && endpointId !== null) {
-        const deletePromises = [];
-        for (const qpId of selectedQPIds) {
-            if (String(qpId) !== "default") {
-                deletePromises.push(
-                    EdmsAPI.deleteQP(endpointId, qpId).catch(error => {
-                        console.error(`Error deleting QP ${qpId}:`, error);
-                    })
+    if (endpointId === undefined || endpointId === null) return;
+
+    // Use the numbers as currently shown. No sorting is needed.
+    const requestNumbers = [];
+    for (const qpId of selectedQPIds) {
+        if (String(qpId) === "default") continue;
+        const n = Number(qpId);
+        if (!Number.isNaN(n)) {
+            requestNumbers.push(n);
+        }
+    }
+
+    if (requestNumbers.length === 0) return;
+
+    try {
+
+        const response = await fetch(
+            `${API_BASE}/test-view/${encodeURIComponent(endpointId)}/qps/delete`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    request_numbers: requestNumbers
+                })
+            }
+        );
+
+        if (response.status === 404) {
+
+            const body = await response.json().catch(() => ({}));
+            const missing = Array.isArray(body?.missing)
+                ? body.missing
+                : [];
+
+            // Nothing was deleted. Reload the list so the UI matches the
+            // backend, then let the user retry.
+            await refreshSelectedEndpointTags();
+
+            selectedQPIds.clear();
+            const ep = findEndpoint(endpointId);
+            if (ep) {
+                ep.qps = selectedTestEndpoint.qps;
+            }
+
+            renderTestQP(selectedTestEndpoint, selectedTestQP?.id);
+            renderTestEndpoints();
+            applyTestFilters();
+
+            if (missing.length > 0) {
+                window.alert(
+                    "Some QPs no longer exist and nothing was deleted: " +
+                    missing.join(", ") +
+                    "\n\nThe list has been refreshed. Please retry."
+                );
+            } else {
+                window.alert(
+                    "Nothing was deleted. The list has been refreshed. " +
+                    "Please retry."
                 );
             }
+
+            return;
         }
-        if (deletePromises.length > 0) {
-            await Promise.all(deletePromises);
+
+        if (!response.ok) {
+            throw new Error(
+                `QP delete failed: ${response.status}`
+            );
         }
+
+        // Success — the backend renumbers the remaining QPs. Reload the list
+        // so the UI matches the backend (the frontend does not listen for
+        // QpDeleted).
+        await refreshSelectedEndpointTags();
+
+        selectedQPIds.clear();
+
+        const ep = findEndpoint(endpointId);
+        if (ep) {
+            ep.qps = selectedTestEndpoint.qps;
+        }
+
+        renderTestQP(selectedTestEndpoint, selectedTestQP?.id);
+        renderTestEndpoints();
+        applyTestFilters();
+
+    } catch (error) {
+
+        console.error("Failed to delete QP(s):", error);
+        window.alert(error?.message || "Could not delete QP(s).");
+
     }
-
-    const remainingQps = selectedTestEndpoint.qps.filter(
-        qp => !selectedQPIds.has(String(qp.id))
-    );
-
-    // Renumber remaining QPs sequentially (1, 2, 3...)
-    remainingQps.forEach((qp, idx) => {
-        const sequentialNum = idx + 1;
-        qp.id = sequentialNum;
-        qp.name = String(sequentialNum);
-    });
-
-    selectedTestEndpoint.qps = remainingQps;
-
-    if (selectedTestQP && selectedQPIds.has(String(selectedTestQP.id))) {
-        selectedTestQP = selectedTestEndpoint.qps[0] || null;
-    } else if (selectedTestQP) {
-        const matching = selectedTestEndpoint.qps.find(q => String(q.id) === String(selectedTestQP.id));
-        if (matching) selectedTestQP = matching;
-    }
-
-    selectedQPIds.clear();
-
-    const ep = findEndpoint(endpointId);
-    if (ep) {
-        ep.qps = selectedTestEndpoint.qps;
-    }
-
-    saveLocalQPs();
-
-    renderTestQP(selectedTestEndpoint, selectedTestQP?.id);
-    renderTestEndpoints();
-    applyTestFilters();
-
 }
 
 // ============================================================

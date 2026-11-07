@@ -1656,27 +1656,59 @@
       if (qpsToDelete.length === 0) return;
 
       const eid = getEndpointId(state.selectedEndpoint);
+
+      // Use the numbers as currently shown. No sorting is needed.
+      const requestNumbers = qpsToDelete
+        .map((n) => Number(n))
+        .filter((n) => !Number.isNaN(n));
+
+      if (requestNumbers.length === 0) return;
+
       try {
-        await Promise.all(qpsToDelete.map((id) => EdmsAPI.deleteQP(eid, id)));
+        const res = await EdmsAPI.deleteQPs(eid, requestNumbers);
+
+        if (res.status === 404) {
+          const missing = Array.isArray(res.data?.missing)
+            ? res.data.missing
+            : [];
+
+          // Nothing was deleted. Reload the list so the UI matches the
+          // backend, then let the user retry.
+          if (state.selectedEndpoint) {
+            await selectEndpoint(state.selectedEndpoint);
+          }
+          selectedQPId = null;
+          document.getElementById("deleteQP").disabled = true;
+          document.getElementById("detailsOverlay")?.classList.add("hidden");
+
+          if (missing.length > 0) {
+            window.alert(
+              "Some QPs no longer exist and nothing was deleted: " +
+                missing.join(", ") +
+                "\n\nThe list has been refreshed. Please retry."
+            );
+          } else {
+            window.alert(
+              "Nothing was deleted. The list has been refreshed. " +
+                "Please retry."
+            );
+          }
+          return;
+        }
+
+        if (!res.ok) {
+          throw new Error(`QP delete failed: ${res.status}`);
+        }
+
         selectedQPId = null;
         document.getElementById("deleteQP").disabled = true;
         document.getElementById("detailsOverlay")?.classList.add("hidden");
+
+        // Reload the list so the UI matches the backend (the frontend does
+        // not listen for QpDeleted). The backend renumbers the remaining QPs.
         if (state.selectedEndpoint) {
-          if (typeof state.selectedEndpoint.qpCount === "number") {
-            state.selectedEndpoint.qpCount = Math.max(
-              0,
-              state.selectedEndpoint.qpCount - qpsToDelete.length,
-            );
-          }
-          const badge = document.querySelector(
-            `tr[data-id="${eid}"] .qp-count-badge`,
-          );
-          if (badge && typeof state.selectedEndpoint.qpCount === "number") {
-            badge.textContent = state.selectedEndpoint.qpCount;
-          }
+          await selectEndpoint(state.selectedEndpoint);
         }
-        // Re-select endpoint to refresh QP sidebar
-        selectEndpoint(state.selectedEndpoint);
       } catch (e) {
         console.error("Failed to delete QP(s)", e);
       }

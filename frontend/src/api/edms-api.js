@@ -2903,6 +2903,22 @@
     }
 
 
+    async function deleteQPs(
+        endpointId,
+        requestNumbers
+    ) {
+
+        return http(
+            'POST',
+            `/test-view/${encodeURIComponent(endpointId)}/qps/delete`,
+            {
+                request_numbers: requestNumbers
+            }
+        );
+
+    }
+
+
     // ============================================================
     // IMPORT/EXPORT TABLE
     // ============================================================
@@ -3362,6 +3378,7 @@
         createQP,
         updateQP,
         deleteQP,
+        deleteQPs,
 
 
         // ----------------------------------------
