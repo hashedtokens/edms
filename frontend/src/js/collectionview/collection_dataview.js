@@ -2309,10 +2309,14 @@
   });
 
   function openModal(content) {
-    if (!modalOverlay) return;
-    modalContent.innerHTML = content;
-    modalOverlay.classList.remove("hidden");
-    modalOverlay.classList.add("flex");
+    const overlay = document.getElementById("modalOverlay");
+    const contentEl = document.getElementById("modalContent");
+
+    if (!overlay || !contentEl) return;
+
+    contentEl.innerHTML = content;
+    overlay.classList.remove("hidden");
+    overlay.classList.add("flex");
   }
 
   function closeModal() {
