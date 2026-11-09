@@ -302,7 +302,7 @@ const TagManager = (() => {
             class="mb-4 text-sm font-semibold
                    text-slate-900 dark:text-white"
         >
-            Tag-operation - Collection View
+            ${config.title} — ${capitalize(config.view)}
         </h2>
 
     <div class="space-y-4">
@@ -1639,9 +1639,12 @@ const TagManager = (() => {
             typeof window.openModal === "function"
         ) {
 
+            const body = title
+                ? `<h3 class="mb-4 text-sm font-semibold text-slate-900 dark:text-white">${escape(title)}</h3>${content}`
+                : content;
+
             window.openModal(
-                title,
-                content
+                body
             );
 
             return;
