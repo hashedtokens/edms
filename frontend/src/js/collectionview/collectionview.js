@@ -1834,69 +1834,197 @@
 
     const api = getApi();
 
-    if (!api || typeof api.createCollection !== "function") {
+    if (!api || typeof api.duplicateCollection !== "function") {
       showAlert("Collection API is not available.");
 
       return;
     }
 
-    const name = `${folder.name} (copy)`;
+    const defaultName = `${folder.name} (copy)`;
 
-    try {
-      const response = await api.createCollection(name);
+    openModal(`
 
-      if (response?.ok === false) {
-        throw new Error(
-          `Failed to create collection (${response.status ?? "unknown"})`,
-        );
+        <h2
+            class="mb-4 text-sm font-semibold
+                   text-slate-900 dark:text-white"
+        >
+            Duplicate Collection
+        </h2>
+
+        <p
+            class="mb-3 text-[11px] text-slate-500"
+        >
+            Name the new collection copy:
+        </p>
+
+        <input
+            id="duplicateName"
+            value="${escapeAttr(defaultName)}"
+            class="mb-4 h-9 w-full
+                   rounded-md
+                   border border-slate-300 dark:border-slate-700
+                   bg-white dark:bg-slate-950 px-3
+                   text-xs text-slate-900 dark:text-slate-100
+                   outline-none
+                   focus:border-cyan-500"
+            placeholder="${escapeAttr(defaultName)}"
+        >
+
+        <div
+            class="flex justify-end
+                   gap-2"
+        >
+
+            <button
+                type="button"
+                data-modal-close
+                class="rounded-md
+                       border border-slate-300 dark:border-slate-700
+                       px-3 py-1.5
+                       text-xs text-slate-600 dark:text-slate-400
+                       hover:bg-slate-100 dark:hover:bg-slate-800"
+            >
+                Cancel
+            </button>
+
+
+            <button
+                id="confirmDuplicate"
+                type="button"
+                class="rounded-md
+                       bg-slate-900 dark:bg-cyan-600
+                       px-3 py-1.5
+                       text-xs font-medium
+                       text-white
+                       hover:bg-slate-800 dark:hover:bg-cyan-500"
+            >
+                Duplicate
+            </button>
+
+        </div>
+
+    `);
+
+    document.getElementById("confirmDuplicate")?.addEventListener("click", async () => {
+      const button = document.getElementById("confirmDuplicate");
+      const name = document.getElementById("duplicateName").value.trim();
+
+      if (!name) {
+        showAlert("Collection name cannot be empty.");
+
+        return;
       }
 
-      /*
-       * Copy actual endpoint membership using the backend
-       * collection API.
-       */
-      if (typeof api.addEndpointToCollection === "function") {
-        for (const endpoint of folder.endpoints || []) {
-          const endpointId = endpoint.endpoint_id ?? endpoint.id;
+      button.disabled = true;
+      button.textContent = "Copying…";
 
-          if (!endpointId) {
-            continue;
+      closeModal();
+
+      try {
+        const response = await api.duplicateCollection(folder.name, name);
+
+        if (response?.ok === false) {
+          throw new Error(
+            response?.data?.error ||
+              response?.data?.message ||
+              `Failed to duplicate collection (HTTP ${response.status ?? "unknown"})`,
+          );
+        }
+
+        const jobId =
+          response?.data?.job_id || response?.data?.id || null;
+
+        const target = response?.data?.target || name;
+
+        let settled = false;
+        let listenerHandle = null;
+        let pollTimer = null;
+
+        const finishDuplicate = async (succeeded) => {
+          if (settled) return;
+          settled = true;
+          listenerHandle?.cancel?.();
+          if (pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
           }
 
-          const result = await api.addEndpointToCollection(name, endpointId);
+          await loadFolders();
+          RefreshButton?.synced();
+          renderSidebar();
+          applyFilters();
 
-          if (result?.ok === false) {
-            console.error(
-              `Failed to copy endpoint ${endpointId} to ${name}`,
-              result,
+          if (succeeded) {
+            showAlert(
+              `Collection "${folder.name}" duplicated as "${target}".`,
             );
+          } else {
+            showAlert("Duplicate job failed.");
           }
+        };
+
+        // Fast path: WebSocket job listener (ViewIoDone event, op "duplicate").
+        if (jobId && typeof api.listenForJob === "function") {
+          listenerHandle = api.listenForJob(
+            jobId,
+            () => finishDuplicate(true),
+            () => finishDuplicate(false)
+          );
         }
-      }
 
-      /*
-       * Copy actual membership tags.
-       */
-      if (typeof api.addMembershipTag === "function") {
-        for (const tag of folder.tags || []) {
-          const result = await api.addMembershipTag(name, tag);
+        // Robust fallback: poll GET /jobs/:id so the collection list refreshes
+        // automatically even if the WebSocket never delivers the event.
+        if (jobId && typeof api.getJob === "function") {
+          let attempts = 0;
+          pollTimer = setInterval(async () => {
+            attempts++;
+            try {
+              const res = await api.getJob(jobId);
+              const status = res?.data?.status;
+              if (
+                res?.ok &&
+                res?.data &&
+                (status === "completed" ||
+                  status === "done" ||
+                  res.data.ok === true)
+              ) {
+                finishDuplicate(true);
+              } else if (status === "failed" || status === "error") {
+                finishDuplicate(false);
+              }
+            } catch { }
 
-          if (result?.ok === false) {
-            console.error(`Failed to copy tag ${tag} to ${name}`, result);
-          }
+            if (attempts >= 90) {
+              // ~3 minutes max, then stop polling regardless.
+              clearInterval(pollTimer);
+              pollTimer = null;
+              if (!settled) {
+                settled = true;
+                await loadFolders();
+                RefreshButton?.synced();
+                renderSidebar();
+                applyFilters();
+                showAlert(
+                  `Collection "${folder.name}" duplicated as "${target}".`,
+                );
+              }
+            }
+          }, 2000);
         }
+
+        if (!jobId) {
+          // No job returned: treat as synchronous and refresh now.
+          finishDuplicate(true);
+        }
+      } catch (error) {
+        console.error("Failed to duplicate collection:", error);
+
+        showAlert(`Failed to duplicate collection: ${error.message}`);
+      } finally {
+        button.disabled = false;
+        button.textContent = "Duplicate";
       }
-
-      await loadFolders();
-      RefreshButton?.synced();
-      renderSidebar();
-
-      applyFilters();
-    } catch (error) {
-      console.error("Failed to duplicate collection:", error);
-
-      showAlert(`Failed to duplicate collection: ${error.message}`);
-    }
+    });
   }
 
   async function createFolder(name, purpose, tags, annotation) {

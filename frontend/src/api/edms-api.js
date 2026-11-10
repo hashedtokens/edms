@@ -1156,6 +1156,22 @@
         );
 
     }
+    async function duplicateCollection(
+        name,
+        newName
+    ) {
+
+        return http(
+            'POST',
+            `/collections/${encodeURIComponent(name)}/duplicate`,
+            {
+                new_name:
+                    newName
+            }
+        );
+    }
+
+
 
 
     // ============================================================
@@ -3229,6 +3245,8 @@
 
         listCollectionEndpoints,
         removeEndpointFromCollection,
+
+        duplicateCollection,
 
         loadCollection,
 
