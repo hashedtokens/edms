@@ -1,13 +1,18 @@
 use crate::eid::allocator::EidAllocator;
+use crate::qp_store::QpStore;
+use crate::table_view::compute_size;
 use crate::tagops::{
     collection_tags::merge_collection_tags_op,
     db::{
-        bulk_fetch_endpoint_details, bulk_fetch_endpoint_tags,
-        endpoints_with_tags_in_collection_in, get_storage_root, log_entry, open_core,
-        read_collection_member_eids_in, write_collection_member_eids_in, DynResult,
+        bulk_fetch_bookmark_notes, bulk_fetch_endpoint_details, bulk_fetch_endpoint_tags,
+        collection_annotation, endpoints_with_tags_in_collection_in, get_storage_root, log_entry,
+        open_core, read_collection_member_eids_in, resolve_collection_sqlite_path_in,
+        set_bookmark_notes_if_empty, write_collection_member_eids_in, DynResult,
     },
+    merge_qps::copy_qps,
     types::{ActivityEntry, CollectionTagFilter},
 };
+use edms::{ops::collection_membership_ops::CollectionMembershipOps, EdmsCore};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::Path;
 
@@ -35,6 +40,41 @@ pub fn merge_by_tags_in(
     sources: &[CollectionTagFilter],
     log: &mut Vec<ActivityEntry>,
 ) -> DynResult<()> {
+    merge_by_tags_stats(db_path, storage_root, target_collection, sources, log).map(|_| ())
+}
+
+/// What a merge did to the QPs.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct MergeStats {
+    /// QPs stored under an endpoint of the target
+    pub qps_added: usize,
+    /// QPs the target's endpoint already had, so they were not copied again
+    pub qps_already_there: usize,
+}
+
+/// The target's stored size, set to what its members' QP files really take.
+fn refresh_target_size(core: &EdmsCore, root: &Path, target: &str) -> DynResult<()> {
+    let Some(file) = resolve_collection_sqlite_path_in(core, root, target) else {
+        return Ok(());
+    };
+    let members = read_collection_member_eids_in(core, root, target)?;
+    let eqp = root.join("storage").join("globalEQPData");
+    let total: i64 = members.iter().map(|eid| compute_size(&eqp.join(eid)) as i64).sum();
+    let ops = CollectionMembershipOps::new(file.to_str().ok_or("the target collection path is not valid UTF-8")?);
+    ops.initialize().map_err(|e| format!("{e:?}"))?;
+    ops.set_size_bytes(total).map_err(|e| format!("{e:?}"))?;
+    let _ = ops.shutdown();
+    Ok(())
+}
+
+/// `merge_by_tags_in`, reporting what happened to the QPs.
+pub fn merge_by_tags_stats(
+    db_path: &str,
+    storage_root: &Path,
+    target_collection: &str,
+    sources: &[CollectionTagFilter],
+    log: &mut Vec<ActivityEntry>,
+) -> DynResult<MergeStats> {
     if sources.is_empty() {
         return Err("No sources provided".into());
     }
@@ -52,6 +92,9 @@ pub fn merge_by_tags_in(
     let (core, queries) = open_core(db_path)?;
     let allocator = EidAllocator::new(db_path);
     let _ = allocator.initialize();
+    let store = QpStore::open(db_path, storage_root)?;
+    let target_existed = resolve_collection_sqlite_path_in(&core, storage_root, target_collection).is_some();
+    let mut stats = MergeStats::default();
 
     log_entry(log, format!("Starting merge into '{}'", target_collection));
 
@@ -100,6 +143,7 @@ pub fn merge_by_tags_in(
 
         let details_map = bulk_fetch_endpoint_details(&core, &source_eids)?;
         let tags_map = bulk_fetch_endpoint_tags(&core, &source_eids)?;
+        let notes_map = bulk_fetch_bookmark_notes(&core, &src.collection_id, &source_eids)?;
 
         // In-memory grouping: Group source endpoints by logical identity (endpoint_str, method)
         struct GroupedEndpoint {
@@ -108,6 +152,8 @@ pub fn merge_by_tags_in(
             annotation: Option<String>,
             source_eids: Vec<String>,
             all_tags: HashSet<String>,
+            /// the bookmark note of the first source endpoint that has one
+            note: Option<String>,
         }
 
         let mut logical_order: Vec<(String, String)> = Vec::new();
@@ -124,10 +170,14 @@ pub fn merge_by_tags_in(
                         annotation: annotation.clone(),
                         source_eids: Vec::new(),
                         all_tags: HashSet::new(),
+                        note: None,
                     }
                 });
 
                 entry.source_eids.push(eid.clone());
+                if entry.note.is_none() {
+                    entry.note = notes_map.get(eid).cloned();
+                }
                 if let Some(tags) = tags_map.get(eid) {
                     for tag in tags {
                         entry.all_tags.insert(tag.clone());
@@ -160,7 +210,9 @@ pub fn merge_by_tags_in(
             let mut net_new_endpoints: Vec<(String, String, String, Option<String>)> = Vec::new();
             let mut tags_to_insert: Vec<(String, String)> = Vec::new();
             let mut new_member_eids: Vec<String> = Vec::new();
-            let mut qp_copy_tasks: Vec<(String, String)> = Vec::new();
+            // (source EID, destination EID, destination URL, destination method)
+            let mut qp_copy_tasks: Vec<(String, String, String, String)> = Vec::new();
+            let mut notes_to_set: Vec<(String, String)> = Vec::new();
 
             for key in chunk_keys {
                 let group = grouped_map.get(key).unwrap();
@@ -173,8 +225,16 @@ pub fn merge_by_tags_in(
                     for tag in &group.all_tags {
                         tags_to_insert.push((target_eid.clone(), tag.clone()));
                     }
+                    if let Some(note) = &group.note {
+                        notes_to_set.push((target_eid.clone(), note.clone()));
+                    }
                     for src_eid in &group.source_eids {
-                        qp_copy_tasks.push((src_eid.clone(), target_eid.clone()));
+                        qp_copy_tasks.push((
+                            src_eid.clone(),
+                            target_eid.clone(),
+                            group.endpoint_str.clone(),
+                            group.method.clone(),
+                        ));
                     }
                 } else {
                     // Case B: NET-NEW — use a pre-allocated EID from the batch
@@ -196,8 +256,16 @@ pub fn merge_by_tags_in(
                     for tag in &group.all_tags {
                         tags_to_insert.push((new_eid.clone(), tag.clone()));
                     }
+                    if let Some(note) = &group.note {
+                        notes_to_set.push((new_eid.clone(), note.clone()));
+                    }
                     for src_eid in &group.source_eids {
-                        qp_copy_tasks.push((src_eid.clone(), new_eid.clone()));
+                        qp_copy_tasks.push((
+                            src_eid.clone(),
+                            new_eid.clone(),
+                            group.endpoint_str.clone(),
+                            group.method.clone(),
+                        ));
                     }
                 }
             }
@@ -238,17 +306,35 @@ pub fn merge_by_tags_in(
             if !new_member_eids.is_empty() {
                 write_collection_member_eids_in(&core, storage_root, target_collection, &new_member_eids)?;
             }
+            // The bookmarks above are new rows without a note: carry the sources' notes
+            // over (a note the target already wrote is kept).
+            if let Err(e) = set_bookmark_notes_if_empty(&core, target_collection, &notes_to_set) {
+                log_entry(log, format!("    ⚠ bookmark notes were not carried over: {e}"));
+            }
 
             // Stage 5: Physical Filesystem Merge & QP Copy
             // Errors are non-fatal (DB is already committed) but logged so
             // that operators can identify and re-trigger partial copies.
-            for (src_eid, dest_eid) in &qp_copy_tasks {
-                if let Err(e) = merge_physical_qp_files(storage_root, src_eid, dest_eid) {
-                    log_entry(
+            let mut grown: HashMap<String, i64> = HashMap::new();
+            for (src_eid, dest_eid, dest_str, dest_method) in &qp_copy_tasks {
+                if src_eid == dest_eid {
+                    continue;
+                }
+                match copy_qps(&store, src_eid, dest_eid, dest_str, dest_method) {
+                    Ok(copied) => {
+                        stats.qps_added += copied.added;
+                        stats.qps_already_there += copied.already_there;
+                        *grown.entry(dest_eid.clone()).or_default() += copied.bytes;
+                    }
+                    Err(e) => log_entry(
                         log,
                         format!("    ⚠ QP copy {src_eid} → {dest_eid} failed: {e}"),
-                    );
+                    ),
                 }
+            }
+            // every Collection that holds a grown endpoint hears of it once per endpoint
+            for (dest_eid, bytes) in &grown {
+                store.adjust_holding_collections(dest_eid, *bytes);
             }
 
             total_matched += batch_matched;
@@ -291,85 +377,26 @@ pub fn merge_by_tags_in(
         );
     }
 
+    // A target this merge created takes the annotation of the first source that has one;
+    // one that already existed keeps its own.
+    if !target_existed {
+        for src in sources {
+            if let Some(annotation) = collection_annotation(&core, &src.collection_id)?.filter(|a| !a.trim().is_empty()) {
+                core.proc(
+                    "UPDATE collections SET annotation = ? WHERE name = ? AND (annotation IS NULL OR TRIM(annotation) = '')",
+                    &[&annotation, &target_collection],
+                )?;
+                log_entry(log, format!("  Annotation of '{}' carried to '{}'", src.collection_id, target_collection));
+                break;
+            }
+        }
+    }
+
+    // the target's stored size is what its members' QP files really take
+    if let Err(e) = refresh_target_size(&core, storage_root, target_collection) {
+        log_entry(log, format!("  ⚠ the size of '{target_collection}' was not updated: {e}"));
+    }
+
     log_entry(log, format!("Merge into '{}' complete.", target_collection));
-    Ok(())
-}
-
-/// Copies and re-indexes physical QP files (request, response, headers) from `source_eid` into `target_eid`.
-pub fn merge_physical_qp_files(
-    storage_root: &Path,
-    source_eid: &str,
-    target_eid: &str,
-) -> std::io::Result<()> {
-    let global_eqp_dir = storage_root.join("storage").join("globalEQPData");
-    let src_dir = global_eqp_dir.join(source_eid);
-    if !src_dir.exists() {
-        return Ok(());
-    }
-
-    let target_dir = global_eqp_dir.join(target_eid);
-    std::fs::create_dir_all(&target_dir)?;
-
-    if source_eid == target_eid {
-        return Ok(());
-    }
-
-    // Determine the highest existing request index in target_dir
-    let mut highest_request = 0;
-    if let Ok(entries) = std::fs::read_dir(&target_dir) {
-        for entry in entries.flatten() {
-            let filename = entry.file_name().to_string_lossy().to_string();
-            if filename.starts_with(target_eid) && filename.contains("-request-") {
-                if let Some(num_str) = filename.strip_prefix(&format!("{target_eid}-request-")) {
-                    if let Some(num_clean) = num_str.strip_suffix(".json") {
-                        if let Ok(num) = num_clean.parse::<u32>() {
-                            if num > highest_request {
-                                highest_request = num;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Collect source files grouped by request number
-    let mut src_requests: std::collections::BTreeMap<u32, Vec<(String, std::path::PathBuf)>> =
-        std::collections::BTreeMap::new();
-
-    if let Ok(entries) = std::fs::read_dir(&src_dir) {
-        for entry in entries.flatten() {
-            let fname = entry.file_name().to_string_lossy().to_string();
-            if !fname.starts_with(source_eid) {
-                continue;
-            }
-            let rest = &fname[source_eid.len()..];
-            for kind in &["-request-", "-response-", "-headers-"] {
-                if rest.starts_with(kind) {
-                    if let Some(num_part) = rest.strip_prefix(kind) {
-                        if let Some(num_clean) = num_part.strip_suffix(".json") {
-                            if let Ok(num) = num_clean.parse::<u32>() {
-                                src_requests.entry(num).or_default().push((
-                                    kind.trim_matches('-').to_string(),
-                                    entry.path(),
-                                ));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Copy each request tuple into target_dir with new sequential number
-    for (_src_num, files) in src_requests {
-        highest_request += 1;
-        for (kind, src_path) in files {
-            let dest_name = format!("{target_eid}-{kind}-{highest_request}.json");
-            let dest_path = target_dir.join(dest_name);
-            let _ = std::fs::copy(&src_path, &dest_path);
-        }
-    }
-
-    Ok(())
+    Ok(stats)
 }
