@@ -28,6 +28,7 @@ use handlers::{
     bookmarks::{remove_from_collection, save_to_collection, ws_load_collection},
     callback::ipc_callback,
     collection_ie::{import_collection_takeout, takeout_collection},
+    collection_duplicate::duplicate_collection,
     collection_merge::merge_collections,
     dashboard::{
         compare_daily_snapshots, execute_purge_orphaned, get_crud_operations, get_dashboard_snapshot,
@@ -358,6 +359,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/collections/:name/annotation", post(annotate_collection_entry))
         .route("/collections/:name/delete", post(delete_collection_entry))
         .route("/collections/:name/merge", post(merge_collections))
+        .route("/collections/:name/duplicate", post(duplicate_collection))
         .route("/collections/:name/takeout", post(takeout_collection))
         .route("/collections/import", post(import_collection_takeout))
         .route("/collections/:name/endpoints/remove", post(remove_endpoint_from_collection))

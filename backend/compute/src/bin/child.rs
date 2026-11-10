@@ -151,7 +151,7 @@ async fn main() {
 fn is_view_io_task(task: &str) -> bool {
     matches!(
         task,
-        "view_takeout" | "view_import_copy" | "view_unzip" | "view_table_check" | "collection_merge"
+        "view_takeout" | "view_import_copy" | "view_unzip" | "view_table_check" | "collection_merge" | "collection_duplicate"
     )
 }
 
@@ -270,6 +270,23 @@ async fn dispatch_view_io(task: &str, payload: Value, port: u16) -> (bool, Value
                 Err(e) => return fail(format!("payload deserialise error: {e}")),
             };
             let worked = tokio::task::spawn_blocking(move || compute::tagops::collection_merge::run_collection_merge(&req)).await;
+            match worked {
+                Ok(Ok(mut result)) => {
+                    result["job_id"] = json!(job_id);
+                    (true, result, None)
+                }
+                Ok(Err(e)) => fail(e),
+                Err(e) => fail(e.to_string()),
+            }
+        }
+        // Duplicate a collection: a new collection with a copy of everything
+        // in it. Quick, so no progress reports; the result says what was copied.
+        "collection_duplicate" => {
+            let req: compute::tagops::collection_duplicate::CollectionDuplicateRequest = match serde_json::from_value(payload) {
+                Ok(r) => r,
+                Err(e) => return fail(format!("payload deserialise error: {e}")),
+            };
+            let worked = tokio::task::spawn_blocking(move || compute::tagops::collection_duplicate::run_collection_duplicate(&req)).await;
             match worked {
                 Ok(Ok(mut result)) => {
                     result["job_id"] = json!(job_id);
