@@ -59,6 +59,7 @@ pub async fn ipc_callback(
         "view_import_copy"         => crate::handlers::repoview_ie::finish_import(&state, &callback).await,
         "view_table_check"         => crate::handlers::jobs::complete_from_callback(&state, &callback),
         "collection_merge"         => crate::handlers::collection_merge::finish_merge(&state, &callback),
+        "collection_duplicate"     => crate::handlers::collection_duplicate::finish_duplicate(&state, &callback),
         "view_unzip"               => crate::handlers::repoview_ie::continue_after_unzip(&state, &callback).await,
         "convert_to_pdf" | "convert_to_html" | "convert_to_markdown" => {
             handle_file_conversion(&state, &callback).await
