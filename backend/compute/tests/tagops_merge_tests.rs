@@ -549,10 +549,10 @@ fn test_endpoint_tags_and_ct_tags_are_independent() {
     );
 }
 
-// ── 18. QP data: no metadata rows created by merge ───────────────────────────
+// ── 18. An endpoint with no QPs gets no QP rows from a merge ─────────────────
 
 #[test]
-fn test_merge_does_not_create_metadata_rows() {
+fn test_merge_of_an_endpoint_without_qps_creates_no_metadata_rows() {
     let (_dir, path) = setup_db();
     let conn = raw(&path);
     insert_ep(&conn, "src-1", "https://api.example.com/meta", Some("GET"));
@@ -568,8 +568,8 @@ fn test_merge_does_not_create_metadata_rows() {
     let res_count: i64 = conn
         .query_row("SELECT COUNT(*) FROM response_metadata", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(req_count, 0, "merge must not create request_metadata rows (V1.2 concern)");
-    assert_eq!(res_count, 0, "merge must not create response_metadata rows (V1.2 concern)");
+    assert_eq!(req_count, 0, "an endpoint with no QPs has no request_metadata rows to copy");
+    assert_eq!(res_count, 0, "an endpoint with no QPs has no response_metadata rows to copy");
 }
 
 // ── 19. Batch boundary: >500 endpoints → multiple batches ────────────────────

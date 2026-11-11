@@ -283,12 +283,26 @@ impl QpStore {
     /// that holds the endpoint how many bytes it grew by (exactly the bytes
     /// of this QP's files).
     pub fn store_qp(&self, qp: &NewQp) -> Result<Stored, String> {
+        self.store_qp_impl(qp, true).map(|(stored, _)| stored)
+    }
+
+    /// `store_qp` without telling the Collections about the new bytes: for a
+    /// caller that stores many QPs of one endpoint (a merge) and reports the
+    /// total once with `adjust_holding_collections`, instead of opening every
+    /// Collection's file for each QP. Returns what was stored and the bytes
+    /// of its files (0 for a duplicate).
+    pub fn store_qp_deferred(&self, qp: &NewQp) -> Result<(Stored, i64), String> {
+        self.store_qp_impl(qp, false)
+    }
+
+    fn store_qp_impl(&self, qp: &NewQp, adjust: bool) -> Result<(Stored, i64), String> {
         let eid = qp.endpoint_id;
         let dir = self.eqp_dir(eid);
         let q6 = self.queries.get_request_query("R6").ok_or("query R6 is missing")?;
         let q1 = self.queries.get_request_query("R1").ok_or("query R1 is missing")?;
         let q_res = self.queries.get_response_query("RES1").ok_or("query RES1 is missing")?;
         let reserved = std::cell::Cell::new(0_i32);
+        let bytes_added = std::cell::Cell::new(0_i64);
 
         let stored = self.locked(|| {
             if let Some(dup) =
@@ -331,7 +345,10 @@ impl QpStore {
                         .unwrap_or(0)
                 })
                 .sum();
-            self.adjust_holding_collections(eid, added);
+            bytes_added.set(added);
+            if adjust {
+                self.adjust_holding_collections(eid, added);
+            }
             Ok(Stored::New(number))
         });
 
@@ -341,7 +358,7 @@ impl QpStore {
                 let _ = std::fs::remove_file(dir.join(format!("{eid}-{kind}-{}.json", reserved.get())));
             }
         }
-        stored
+        stored.map(|s| (s, bytes_added.get()))
     }
 
     // ── History ──────────────────────────────────────────────────────────
