@@ -293,6 +293,19 @@ pub async fn takeout_repoview(
     respond(&state, StatusCode::ACCEPTED, res)
 }
 
+/// Regenerates the RepoView's Tables ahead of a takeout, in the approach it
+/// already uses (read from `Tables-meta.md`), else the default one.
+fn refresh_tables_for_takeout(state: &AppState, name: &str, dir: &std::path::Path) -> Result<(), IeError> {
+    let approach = std::fs::read_to_string(dir.join("Tables-meta.md"))
+        .ok()
+        .and_then(|meta| parse_approach_line(&meta))
+        .and_then(|api_name| Approach::parse(Some(api_name)).ok())
+        .unwrap_or(Approach::EndpointSegments);
+    generate_tables_blocking(state, name, approach, 100)
+        .map(|_| ())
+        .map_err(|e| IeError::Bad(format!("couldn't write the Tables for the takeout: {e}")))
+}
+
 fn takeout_blocking(flavor: Flavor, state: &AppState, name: &str, dest_name: Option<&str>, overwrite: bool) -> Result<Value, IeError> {
     flavor.validate_name(name)?;
     let dest_name = dest_name.map(str::trim).filter(|d| !d.is_empty()).unwrap_or(name);
@@ -329,6 +342,13 @@ fn takeout_blocking(flavor: Flavor, state: &AppState, name: &str, dest_name: Opt
             message: format!("A takeout named '{dest_name}' already exists"),
             options: vec!["overwrite", "rename"],
         });
+    }
+
+    // A RepoView's takeout carries its Tables, and they must describe the
+    // RepoView as it is now - so write them before the folder is copied
+    // (Ravi, 2026-11-12: a takeout had no Tables-001.md).
+    if flavor.has_tables() {
+        refresh_tables_for_takeout(state, name, &dir)?;
     }
 
     // The copying itself - the view folder with its index stripped, every
