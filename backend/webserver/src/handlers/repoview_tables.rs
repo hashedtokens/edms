@@ -268,6 +268,23 @@ struct Item {
 pub(crate) struct ViewInfo {
     pub(crate) annotation: Option<String>,
     pub(crate) tags: Vec<String>,
+    /// Each distinct path piece across the view's endpoints and how many
+    /// times it occurs, sorted by piece: the list on the left of the
+    /// RepoView screen (Ravi, 2026-11-13). Empty for a view with no endpoints.
+    pub(crate) segments: Vec<(String, usize)>,
+}
+
+/// The `## Segments` section of `Tables-meta.md`: how many distinct segments
+/// the view has and each one with its count. Empty if there are none.
+fn segments_section(view: &ViewInfo) -> String {
+    if view.segments.is_empty() {
+        return String::new();
+    }
+    let mut out = format!("\n## Segments\n\nSegments: {}\n\n| Segment | Count |\n|---|---|\n", view.segments.len());
+    for (segment, count) in &view.segments {
+        out.push_str(&format!("| {} | {} |\n", md_cell(segment), count));
+    }
+    out
 }
 
 /// `Annotation:` and `Tags:` lines, each on one line (`-` when empty).
@@ -351,8 +368,9 @@ fn write_batches_for(
     std::fs::write(
         dir.join("Tables-meta.md"),
         format!(
-            "# Tables-meta\n\n{approach_line}{}{meta_rows}",
-            approach.meta_header()
+            "# Tables-meta\n\n{approach_line}{}{meta_rows}{}",
+            approach.meta_header(),
+            segments_section(view)
         ),
     )
     .map_err(|e| e.to_string())?;
@@ -418,6 +436,17 @@ pub(crate) fn generate_tables_blocking(
             .map_err(|e| format!("{e:?}"))?
             .and_then(|row| row.3),
         tags: Flavor::Repo.row_tag_ops(state)?.list(name).map_err(|e| format!("{e:?}"))?,
+        segments: {
+            // every occurrence counts, so /a/a adds 2 to a (as the list view's
+            // segmentFrequency does)
+            let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+            for m in &members {
+                for piece in m.segment_path.split('/').filter(|p| !p.is_empty()) {
+                    *counts.entry(piece.to_string()).or_insert(0) += 1;
+                }
+            }
+            counts.into_iter().collect()
+        },
     };
 
     let dir = repoview_dir(&state, &name);
@@ -827,7 +856,7 @@ mod tests {
     #[test]
     fn the_meta_file_carries_the_views_own_annotation_and_tags() {
         let dir = temp_dir("viewinfo");
-        let view = ViewInfo { annotation: Some("The blog API,\nevery CRUD method.".to_string()), tags: vec!["zeta".into(), "alpha".into()] };
+        let view = ViewInfo { annotation: Some("The blog API,\nevery CRUD method.".to_string()), tags: vec!["zeta".into(), "alpha".into()], ..ViewInfo::default() };
         write_batches_for(&dir, Approach::EndpointSegments, &[item("a")], 10, &view).unwrap();
         let meta = std::fs::read_to_string(dir.join("Tables-meta.md")).unwrap();
         assert!(meta.contains("Annotation: The blog API, every CRUD method.\n"), "one line: {meta}");
@@ -842,6 +871,26 @@ mod tests {
         write_batches_for(&dir, Approach::EndpointSegments, &[], 10, &view).unwrap();
         let meta = std::fs::read_to_string(dir.join("Tables-meta.md")).unwrap();
         assert!(meta.contains("Tags: alpha, zeta") && meta.contains("No endpoints in this RepoView yet."), "{meta}");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn the_meta_file_lists_the_segments_with_their_counts() {
+        let dir = temp_dir("segments");
+        let view = ViewInfo { segments: vec![("a".into(), 2), ("b".into(), 1), ("c".into(), 2)], ..ViewInfo::default() };
+        for approach in [Approach::EndpointSegments, Approach::SortedTags] {
+            write_batches_for(&dir, approach, &[item("a")], 10, &view).unwrap();
+            let meta = std::fs::read_to_string(dir.join("Tables-meta.md")).unwrap();
+            assert!(
+                meta.contains("## Segments\n\nSegments: 3\n\n| Segment | Count |\n|---|---|\n| a | 2 |\n| b | 1 |\n| c | 2 |\n"),
+                "{meta}"
+            );
+            assert_eq!(parse_approach_line(&meta), Some(approach.api_name()));
+        }
+        // a view with no endpoints has no segments section
+        write_batches_for(&dir, Approach::EndpointSegments, &[], 10, &view).unwrap();
+        let meta = std::fs::read_to_string(dir.join("Tables-meta.md")).unwrap();
+        assert!(!meta.contains("## Segments"), "{meta}");
         std::fs::remove_dir_all(dir).unwrap();
     }
 
