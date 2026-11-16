@@ -162,6 +162,36 @@ pub struct FileConversionRequest {
     pub output_filepath: String,
 }
 
+#[derive(Deserialize)]
+pub struct PdfCollectionExportRequest {
+    pub input_data: String,
+    pub collection_name: String,
+    pub mode: String,
+    pub output_filepath: String,
+}
+
+pub async fn export_pdf_collection_inner(
+    payload: PdfCollectionExportRequest,
+) -> Result<String, String> {
+    let input_data = payload.input_data;
+    let collection_name = payload.collection_name;
+    let mode = payload.mode;
+    let output_filepath = PathBuf::from(payload.output_filepath);
+
+    let written_path = tokio::task::spawn_blocking(move || {
+        file_converter::export_pdf_collection(
+            &input_data,
+            &collection_name,
+            &mode,
+            output_filepath,
+        )
+    })
+    .await
+    .map_err(|error| error.to_string())?
+    .map_err(|error| error.to_string())?;
+
+    conversion_result(written_path)
+}
 pub async fn convert_to_pdf_inner(payload: FileConversionRequest) -> Result<String, String> {
     let input_data = payload.input_data;
     let output_filename = payload.output_filename;
