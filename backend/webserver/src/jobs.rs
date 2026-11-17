@@ -36,7 +36,7 @@ pub enum JobStatus {
 #[derive(Debug, Clone, Serialize)]
 pub struct Job {
     pub id: String,
-    /// What it does: "takeout", "import", "unzip", "format_check", "move".
+    /// What it does: "takeout", "export", "import", "unzip", "format_check", "move".
     pub op: String,
     /// "repoview" / "webview" when the job belongs to one, else null.
     pub view: Option<String>,
