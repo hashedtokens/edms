@@ -27,7 +27,7 @@ use std::{net::SocketAddr, sync::Arc};
 use handlers::{
     bookmarks::{remove_from_collection, save_to_collection, ws_load_collection},
     callback::ipc_callback,
-    collection_ie::{import_collection_takeout, takeout_collection},
+    collection_ie::{export_collection_data, import_collection_takeout},
     collection_duplicate::duplicate_collection,
     collection_merge::merge_collections,
     dashboard::{
@@ -75,7 +75,7 @@ use handlers::{
     repoview_combine::combine_repoviews,
     view_flavor::Flavor,
     webview_front_page::{get_front_page, save_front_page, MAX_FRONT_PAGE_BYTES},
-    repoview_ie::{import_repoview, takeout_repoview},
+    repoview_ie::{export_repoview, import_repoview, takeout_repoview},
     repoview_index::{convert_repoview_to_collection, get_repoview_entry, list_repoviews},
     repoview_tables::{generate_repoview_tables, get_repoview_table_file, list_repoview_tables},
 };
@@ -102,7 +102,8 @@ fn list_view_routes(flavor: Flavor) -> Router<state::AppState> {
         .route(&format!("/{p}/:name/membership-tags/remove"), post(remove_repoview_tag))
         .route(&format!("/{p}/:name/membership-tags"), get(list_repoview_tags_for_name))
         .route(&format!("/{p}/:name/convert-to-collection"), post(convert_repoview_to_collection))
-        .route(&format!("/{p}/:name/takeout"), post(takeout_repoview));
+        .route(&format!("/{p}/:name/takeout"), post(takeout_repoview))
+        .route(&format!("/{p}/:name/export"), post(export_repoview));
     router = match flavor {
         // A RepoView's folder holds generated Tables-*.md...
         Flavor::Repo => router
@@ -360,7 +361,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/collections/:name/delete", post(delete_collection_entry))
         .route("/collections/:name/merge", post(merge_collections))
         .route("/collections/:name/duplicate", post(duplicate_collection))
-        .route("/collections/:name/takeout", post(takeout_collection))
+        .route("/collections/:name/export", post(export_collection_data))
         .route("/collections/import", post(import_collection_takeout))
         .route("/collections/:name/endpoints/remove", post(remove_endpoint_from_collection))
         .route("/collections/:name/endpoints", get(list_collection_endpoints))
