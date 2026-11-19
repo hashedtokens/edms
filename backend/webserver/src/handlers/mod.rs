@@ -23,6 +23,7 @@ pub mod view_catalog;
 pub mod view_flavor;
 pub mod view_tags;
 pub mod webview_front_page;
+pub mod webview_preview;
 pub mod collection_tag_memberships;
 pub mod repoview_combine;
 pub mod repoview_ie;
