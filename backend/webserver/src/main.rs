@@ -113,13 +113,14 @@ fn list_view_routes(flavor: Flavor) -> Router<state::AppState> {
             .route("/repoview/:name/tables/:file", get(get_repoview_table_file)),
         // ...a WebView's holds front-page.json ("Modify Frontpage").
         // axum caps a request body at 2 MB unless told otherwise; a front page
-        // may be up to MAX_FRONT_PAGE_BYTES (plus the JSON wrapper around it).
+        // may be up to MAX_FRONT_PAGE_BYTES, and so may its rendered `html`
+        // (plus the JSON wrapper around them).
         Flavor::Web => router
             .route(
                 "/webview/:name/front-page",
                 get(get_front_page)
                     .post(save_front_page)
-                    .layer(DefaultBodyLimit::max(MAX_FRONT_PAGE_BYTES + 1024)),
+                    .layer(DefaultBodyLimit::max(2 * MAX_FRONT_PAGE_BYTES + 1024)),
             )
             // "Full Preview": the files in the WebView's own folder
             .route("/webview/:name/preview", get(preview_webview_index))
