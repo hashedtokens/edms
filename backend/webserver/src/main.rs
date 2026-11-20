@@ -27,7 +27,8 @@ use std::{net::SocketAddr, sync::Arc};
 use handlers::{
     bookmarks::{remove_from_collection, save_to_collection, ws_load_collection},
     callback::ipc_callback,
-    collection_ie::{import_collection_takeout, takeout_collection},
+    collection_ie::{export_collection_data, import_collection_takeout},
+    collection_duplicate::duplicate_collection,
     collection_merge::merge_collections,
     dashboard::{
         compare_daily_snapshots, execute_purge_orphaned, get_crud_operations, get_dashboard_snapshot,
@@ -35,16 +36,17 @@ use handlers::{
         refresh_crud_operations,
     },
     dataview::{dashboard, delete_folder, ws_make_folder_active},
+    dev_api::{api_collections, api_history, ws_api},
     endpoints::{create_endpoint, delete_endpoint, lookup_endpoint, update_endpoint_annotation},
     logs::get_logs,
     report_export::export_eqp_report,
     repo::{export_collection, import_collection},
     tags::{add_tag, list_tags_for_endpoint, popular_tags, remove_tag},
     test_view::{
-        clear_bookmarks, clear_history, create_qp, delete_qp, get_saved_headers, get_saved_request,
+        clear_bookmarks, clear_history, create_qp, delete_history, delete_qp, delete_qps, get_saved_headers, get_saved_request,
         get_saved_response, list_qps, save_bookmark, save_history, stop, update_qp,
         ws_add_from_history_to_bookmark, ws_delete_from_bookmark, ws_load_bookmarks,
-        ws_load_endpoints, ws_load_history, ws_run,
+        history_cards, ws_load_endpoints, ws_load_history, ws_run,
     },
     view::{home, list_view, test_view, trigger_view_refresh},
     view_catalog::{
@@ -73,7 +75,8 @@ use handlers::{
     repoview_combine::combine_repoviews,
     view_flavor::Flavor,
     webview_front_page::{get_front_page, save_front_page, MAX_FRONT_PAGE_BYTES},
-    repoview_ie::{import_repoview, takeout_repoview},
+    webview_preview::{preview_webview_file, preview_webview_index},
+    repoview_ie::{export_repoview, import_repoview, takeout_repoview},
     repoview_index::{convert_repoview_to_collection, get_repoview_entry, list_repoviews},
     repoview_tables::{generate_repoview_tables, get_repoview_table_file, list_repoview_tables},
 };
@@ -100,7 +103,8 @@ fn list_view_routes(flavor: Flavor) -> Router<state::AppState> {
         .route(&format!("/{p}/:name/membership-tags/remove"), post(remove_repoview_tag))
         .route(&format!("/{p}/:name/membership-tags"), get(list_repoview_tags_for_name))
         .route(&format!("/{p}/:name/convert-to-collection"), post(convert_repoview_to_collection))
-        .route(&format!("/{p}/:name/takeout"), post(takeout_repoview));
+        .route(&format!("/{p}/:name/takeout"), post(takeout_repoview))
+        .route(&format!("/{p}/:name/export"), post(export_repoview));
     router = match flavor {
         // A RepoView's folder holds generated Tables-*.md...
         Flavor::Repo => router
@@ -109,13 +113,18 @@ fn list_view_routes(flavor: Flavor) -> Router<state::AppState> {
             .route("/repoview/:name/tables/:file", get(get_repoview_table_file)),
         // ...a WebView's holds front-page.json ("Modify Frontpage").
         // axum caps a request body at 2 MB unless told otherwise; a front page
-        // may be up to MAX_FRONT_PAGE_BYTES (plus the JSON wrapper around it).
-        Flavor::Web => router.route(
-            "/webview/:name/front-page",
-            get(get_front_page)
-                .post(save_front_page)
-                .layer(DefaultBodyLimit::max(MAX_FRONT_PAGE_BYTES + 1024)),
-        ),
+        // may be up to MAX_FRONT_PAGE_BYTES, and so may its rendered `html`
+        // (plus the JSON wrapper around them).
+        Flavor::Web => router
+            .route(
+                "/webview/:name/front-page",
+                get(get_front_page)
+                    .post(save_front_page)
+                    .layer(DefaultBodyLimit::max(2 * MAX_FRONT_PAGE_BYTES + 1024)),
+            )
+            // "Full Preview": the files in the WebView's own folder
+            .route("/webview/:name/preview", get(preview_webview_index))
+            .route("/webview/:name/preview/*path", get(preview_webview_file)),
     };
     router.layer(Extension(flavor))
 }
@@ -316,6 +325,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/test-view/endpoints/load", get(ws_load_endpoints))
         .route("/test-view/:collection/bookmarks/load", get(ws_load_bookmarks))
         .route("/test-view/history/load", get(ws_load_history))
+        .route("/test-view/history/cards", get(history_cards))
         .route("/test-view/run", get(ws_run))
         .route("/test-view/stop", post(stop))
         .route("/test-view/save/history", post(save_history))
@@ -327,9 +337,11 @@ async fn main() -> anyhow::Result<()> {
         .route("/test-view/:endpoint_id/headers/:request_number", get(get_saved_headers))
         .route("/test-view/:endpoint_id/qps", get(list_qps))
         .route("/test-view/:endpoint_id/qps/create", post(create_qp))
+        .route("/test-view/:endpoint_id/qps/delete", post(delete_qps))
         .route("/test-view/:endpoint_id/qps/:request_number/update", post(update_qp))
         .route("/test-view/:endpoint_id/qps/:request_number/delete", post(delete_qp))
         .route("/test-view/history/clearall", post(clear_history))
+        .route("/test-view/history/delete", post(delete_history))
         .route("/test-view/:collection/bookmark/clearall", post(clear_bookmarks))
         .route("/bookmarks/:collection/load", get(ws_load_collection))
         .route("/bookmarks/:collection/:endpoint_id/save", post(save_to_collection))
@@ -354,7 +366,8 @@ async fn main() -> anyhow::Result<()> {
         .route("/collections/:name/annotation", post(annotate_collection_entry))
         .route("/collections/:name/delete", post(delete_collection_entry))
         .route("/collections/:name/merge", post(merge_collections))
-        .route("/collections/:name/takeout", post(takeout_collection))
+        .route("/collections/:name/duplicate", post(duplicate_collection))
+        .route("/collections/:name/export", post(export_collection_data))
         .route("/collections/import", post(import_collection_takeout))
         .route("/collections/:name/endpoints/remove", post(remove_endpoint_from_collection))
         .route("/collections/:name/endpoints", get(list_collection_endpoints))
@@ -389,6 +402,13 @@ async fn main() -> anyhow::Result<()> {
         .route("/import-export/check", post(import_export_check))
         .route("/jobs", get(list_jobs))
         .route("/jobs/ws", get(ws_jobs))
+        // Dev API: push one QP for one endpoint without the UI. The paths
+        // are served with and without the trailing slash.
+        .route("/hashedtokens/edms/api/history", post(api_history))
+        .route("/hashedtokens/edms/api/history/", post(api_history))
+        .route("/hashedtokens/edms/api/collections", post(api_collections))
+        .route("/hashedtokens/edms/api/collections/", post(api_collections))
+        .route("/hashedtokens/edms/api/ws", get(ws_api))
         .route("/jobs/:id", get(get_job))
         .route("/internal/callback", post(ipc_callback))
         .route("/logs", get(get_logs))

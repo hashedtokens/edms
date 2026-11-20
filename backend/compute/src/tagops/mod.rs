@@ -3,9 +3,11 @@
 // Per-row CRUD lives in webserver/libs/edms/src/ops/tag_ops.rs.
 
 pub mod db;
+pub mod collection_duplicate;
 pub mod collection_merge;
 pub mod collection_tags;
 pub mod merge;
+pub mod merge_qps;
 mod ops;
 pub mod types;
 

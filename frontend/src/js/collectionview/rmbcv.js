@@ -106,11 +106,10 @@
             <!-- CREATE TEST VIEW -->
             <!-- ============================================ -->
 
-            ${
-              isSingle
-                ? menuItem("testview", iconFlask(), "Create Test View")
-                : ""
-            }
+            ${isSingle
+          ? menuItem("testview", iconFlask(), "Create Test View")
+          : ""
+        }
 
 
             <!-- ============================================ -->
@@ -134,40 +133,36 @@
             ${isSingle ? menuItem("edittags", iconTag(), "Modify") : ""}
 
 
-            ${
-              isSingle
-                ? '<div class="my-1 border-t border-slate-800"></div>'
-                : ""
-            }
+            ${isSingle
+          ? '<div class="my-1 border-t border-slate-200 dark:border-slate-800"></div>'
+          : ""
+        }
 
 
             <!-- ============================================ -->
             <!-- MERGE -->
             <!-- ============================================ -->
 
-            ${
-              isMultiple
-                ? menuItem("merge", iconMerge(), `Merge Selected (${count})`)
-                : ""
-            }
+            ${isMultiple
+          ? menuItem("merge", iconMerge(), `Merge Selected (${count})`)
+          : ""
+        }
 
 
             <!-- ============================================ -->
             <!-- NEW FOLDER -->
             <!-- ============================================ -->
 
-            ${
-              isSingle
-                ? menuItem("newfolder", iconFolderPlus(), "New Empty Folder")
-                : ""
-            }
+            ${isSingle
+          ? menuItem("newfolder", iconFolderPlus(), "New Empty Folder")
+          : ""
+        }
 
 
-            ${
-              isMultiple
-                ? '<div class="my-1 border-t border-slate-800"></div>'
-                : ""
-            }
+            ${isMultiple
+          ? '<div class="my-1 border-t border-slate-200 dark:border-slate-800"></div>'
+          : ""
+        }
 
 
             <!-- ============================================ -->
@@ -175,11 +170,11 @@
             <!-- ============================================ -->
 
             ${menuItem(
-              "delete",
-              iconTrash(),
-              isMultiple ? `Delete ${count} Collections` : "Delete Collection",
-              "text-rose-400 hover:bg-rose-500/10",
-            )}
+          "delete",
+          iconTrash(),
+          isMultiple ? `Delete ${count} Collections` : "Delete Collection",
+          "text-rose-400 hover:bg-rose-500/10",
+        )}
 
         `;
     }
@@ -187,41 +182,39 @@
     // ========================================================
     // MENU ITEM
     // ========================================================
-
     function menuItem(action, icon, label, extraClass = "") {
       return `
 
-            <button
-                type="button"
-                data-action="${action}"
-                class="
-                    flex
-                    w-full
-                    items-center
-                    gap-2.5
-                    px-3
-                    py-2
-                    text-left
-                    text-xs
-                    text-slate-700 dark:text-slate-300
-                    transition-colors
-                    hover:bg-slate-800
-                    hover:text-white
-                    ${extraClass}
-                "
-            >
+        <button
+            type="button"
+            data-action="${action}"
+            class="
+                flex
+                w-full
+                items-center
+                gap-2.5
+                px-3
+                py-2
+                text-left
+                text-xs
+                text-slate-700 dark:text-slate-300
+                transition-colors
+                hover:bg-slate-100 dark:hover:bg-slate-800
+                hover:text-slate-900 dark:hover:text-white
+                ${extraClass}
+            "
+        >
 
-                ${icon}
+            ${icon}
 
-                <span class="truncate">
-                    ${label}
-                </span>
+            <span class="truncate">
+                ${label}
+            </span>
 
-            </button>
+        </button>
 
-        `;
+    `;
     }
-
     // ========================================================
     // MENU ACTIONS
     // ========================================================

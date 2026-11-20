@@ -202,27 +202,28 @@ pub async fn get_collection_entry(
     let res = tokio::task::spawn_blocking({
         let state = state.clone();
         let name = name.clone();
-        move || -> Result<Option<(String, Option<String>, String, Option<String>, Option<i64>)>, String> {
+        move || -> Result<Option<(String, Option<String>, String, Option<String>, Option<i64>, Option<i64>)>, String> {
             let catalog = open_catalog(&state)?;
             let row = catalog.get(ViewKind::Collections, &name).map_err(|e| format!("{e:?}"))?;
             Ok(row.map(|(name, file_path, created_at, annotation)| {
-                let count = file_path
-                    .as_deref()
-                    .and_then(|p| open_membership(p).ok())
-                    .and_then(|m| m.count().ok());
-                (name, file_path, created_at, annotation, count)
+                let membership = file_path.as_deref().and_then(|p| open_membership(p).ok());
+                let count = membership.as_ref().and_then(|m| m.count().ok());
+                let size = membership
+                    .as_ref()
+                    .and_then(|m| crate::handlers::collection_size::ensure_size(&state, m).ok());
+                (name, file_path, created_at, annotation, count, size)
             }))
         }
     })
     .await;
 
     match res {
-        Ok(Ok(Some((name, file_path, created_at, annotation, endpoint_count)))) => (
+        Ok(Ok(Some((name, file_path, created_at, annotation, endpoint_count, size_bytes)))) => (
             StatusCode::OK,
             Json(json!({
                 "ok": true, "name": name, "file_path": file_path,
                 "created_at": created_at, "annotation": annotation,
-                "endpoint_count": endpoint_count
+                "endpoint_count": endpoint_count, "size_bytes": size_bytes
             })),
         ),
         Ok(Ok(None)) => (
@@ -435,7 +436,12 @@ pub async fn remove_endpoint_from_collection(
         let endpoint_id = payload.endpoint_id.clone();
         move || -> Result<usize, String> {
             let membership = open_existing_collection_membership(&state, &name)?;
-            membership.remove(&endpoint_id).map_err(|e| format!("{e:?}"))
+            crate::handlers::collection_size::ensure_size(&state, &membership)?;
+            let deleted = membership.remove(&endpoint_id).map_err(|e| format!("{e:?}"))?;
+            if deleted > 0 {
+                crate::handlers::collection_size::members_removed(&state, &membership, std::slice::from_ref(&endpoint_id));
+            }
+            Ok(deleted)
         }
     })
     .await;
@@ -485,23 +491,24 @@ pub async fn list_collection_endpoints(
 }
 
 /// GET /collections/list — like the generic `list_for`, but also folds in
-/// each collection's `endpoint_count` (from its own membership file —
+/// each collection's `endpoint_count` and `size_bytes` (from its own membership file —
 /// `CollectionMembershipOps::count()` already existed, just unused here).
 /// `null` if the collection has no file yet.
 pub async fn list_collections(State(state): State<AppState>) -> (StatusCode, Json<serde_json::Value>) {
     let res = tokio::task::spawn_blocking({
         let state = state.clone();
-        move || -> Result<Vec<(String, Option<String>, String, Option<String>, Option<i64>)>, String> {
+        move || -> Result<Vec<(String, Option<String>, String, Option<String>, Option<i64>, Option<i64>)>, String> {
             let catalog = open_catalog(&state)?;
             let rows = catalog.list(ViewKind::Collections).map_err(|e| format!("{e:?}"))?;
             Ok(rows
                 .into_iter()
                 .map(|(name, file_path, created_at, annotation)| {
-                    let count = file_path
-                        .as_deref()
-                        .and_then(|p| open_membership(p).ok())
-                        .and_then(|m| m.count().ok());
-                    (name, file_path, created_at, annotation, count)
+                    let membership = file_path.as_deref().and_then(|p| open_membership(p).ok());
+                    let count = membership.as_ref().and_then(|m| m.count().ok());
+                    let size = membership
+                        .as_ref()
+                        .and_then(|m| crate::handlers::collection_size::ensure_size(&state, m).ok());
+                    (name, file_path, created_at, annotation, count, size)
                 })
                 .collect())
         }
@@ -513,9 +520,10 @@ pub async fn list_collections(State(state): State<AppState>) -> (StatusCode, Jso
             StatusCode::OK,
             Json(json!({
                 "ok": true,
-                "items": rows.into_iter().map(|(name, file_path, created_at, annotation, endpoint_count)| json!({
+                "items": rows.into_iter().map(|(name, file_path, created_at, annotation, endpoint_count, size_bytes)| json!({
                     "name": name, "file_path": file_path, "created_at": created_at,
-                    "annotation": annotation, "endpoint_count": endpoint_count
+                    "annotation": annotation, "endpoint_count": endpoint_count,
+                    "size_bytes": size_bytes
                 })).collect::<Vec<_>>()
             })),
         ),
@@ -1029,7 +1037,10 @@ pub async fn import_tags_into_collection(
             }
             let endpoint_ids: Vec<String> = endpoint_ids.into_iter().collect();
 
+            let joining = crate::handlers::collection_size::not_yet_members(&membership, &endpoint_ids)?;
+            crate::handlers::collection_size::ensure_size(&state, &membership)?;
             let added_members = membership.add_batch(&endpoint_ids).map_err(|e| format!("{e:?}"))?;
+            crate::handlers::collection_size::members_added(&state, &membership, &joining);
 
             let mut tags_exported = 0usize;
             let mut tags_skipped_cap = 0usize;

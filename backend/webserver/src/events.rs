@@ -27,6 +27,15 @@ pub enum ServerEvent {
     TestTimeout { endpoint_id: String, request_number: i32 },
     Error { message: String },
 
+    /// A dev API call (see `handlers/dev_api.rs`) finished: `result` is an
+    /// `ApiResult`, whose `status.code` is the final code. Streamed on
+    /// `GET /hashedtokens/edms/api/ws`.
+    DevApiResult {
+        transaction_id: String,
+        op: String,
+        result: serde_json::Value,
+    },
+
     ExportReady { message: String },
     ImportReady { message: String },
     CrudOperationsUpdated { computed_at: String },

@@ -18,7 +18,7 @@ use crate::tagops::{
         endpoints_with_tags_in_collection_in, open_core, read_collection_member_eids_in,
         resolve_collection_sqlite_path_in,
     },
-    merge::merge_by_tags_in,
+    merge::merge_by_tags_stats,
     types::{ActivityEntry, CollectionTagFilter},
 };
 
@@ -52,7 +52,7 @@ pub fn run_collection_merge(req: &CollectionMergeRequest) -> Result<Value, Strin
     }
 
     let mut log: Vec<ActivityEntry> = Vec::new();
-    merge_by_tags_in(&req.db_path, &req.storage_root, &req.target_collection_name, &req.sources, &mut log)
+    let stats = merge_by_tags_stats(&req.db_path, &req.storage_root, &req.target_collection_name, &req.sources, &mut log)
         .map_err(|e| e.to_string())?;
 
     let members_after = read_collection_member_eids_in(&core, &req.storage_root, &req.target_collection_name)
@@ -68,6 +68,9 @@ pub fn run_collection_merge(req: &CollectionMergeRequest) -> Result<Value, Strin
         "members_before": members_before,
         "members_after": members_after,
         "added": members_after.saturating_sub(members_before),
+        // QPs stored under the target's endpoints, and QPs it already had
+        "qps_added": stats.qps_added,
+        "qps_already_there": stats.qps_already_there,
         "sources": offered,
         "log": log,
     }))

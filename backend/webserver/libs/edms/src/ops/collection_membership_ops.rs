@@ -56,6 +56,16 @@ impl CollectionMembershipOps {
             )",
             &[],
         )?;
+        // Running total of the QP data size of every member endpoint,
+        // kept up to date by add/remove/QP changes instead of being
+        // re-walked on every list. No row until it is first computed.
+        self.core.proc(
+            "CREATE TABLE IF NOT EXISTS collection_stats (
+                id         INTEGER PRIMARY KEY CHECK (id = 1),
+                size_bytes INTEGER NOT NULL
+            )",
+            &[],
+        )?;
         Ok(())
     }
 
@@ -149,6 +159,39 @@ impl CollectionMembershipOps {
             .ok_or(crate::error::EdmsError::UnknownError)?;
         let rows: Vec<i64> = self.core.cproc(q, &[], |row| row.get(0))?;
         Ok(rows.first().copied().unwrap_or(0))
+    }
+
+    /// Stored size in bytes of this collection's QP data, or `None` if it
+    /// was never computed (a collection from before the size was tracked).
+    pub fn size_bytes(&self) -> EdmsResult<Option<i64>> {
+        let q = self
+            .queries
+            .get_collection_membership_query("SIZE_GET")
+            .ok_or(crate::error::EdmsError::UnknownError)?;
+        let rows: Vec<i64> = self.core.cproc(q, &[], |row| row.get(0))?;
+        Ok(rows.first().copied())
+    }
+
+    pub fn set_size_bytes(&self, size: i64) -> EdmsResult<usize> {
+        let q = self
+            .queries
+            .get_collection_membership_query("SIZE_SET")
+            .ok_or(crate::error::EdmsError::UnknownError)?;
+        self.core.proc(q, &[&size])
+    }
+
+    /// Incremental update: adds `delta` (negative to subtract), floored at 0.
+    /// Does nothing until the size was first set, so the first full compute
+    /// is never double counted.
+    pub fn adjust_size_bytes(&self, delta: i64) -> EdmsResult<usize> {
+        if delta == 0 {
+            return Ok(0);
+        }
+        let q = self
+            .queries
+            .get_collection_membership_query("SIZE_ADJUST")
+            .ok_or(crate::error::EdmsError::UnknownError)?;
+        self.core.proc(q, &[&delta])
     }
 
     pub fn count_tags_for_endpoint(&self, endpoint_id: &str) -> EdmsResult<i64> {

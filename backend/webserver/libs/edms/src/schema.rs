@@ -324,6 +324,35 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
         [],
     )?;
 
+    // Migration: the endpoint's base URL (scheme + host) in its own column,
+    // so history cards show the domain without parsing endpoint_str. Rows
+    // from before get it filled in from the endpoint they point at.
+    let has_base_url: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('history') WHERE name = 'base_url'",
+        [],
+        |row| row.get(0),
+    )?;
+    if has_base_url == 0 {
+        conn.execute("ALTER TABLE history ADD COLUMN base_url TEXT", [])?;
+    }
+    let pending: Vec<(String, String)> = {
+        let mut stmt = conn.prepare(
+            "SELECT DISTINCT h.endpoint_id, e.endpoint_str
+             FROM history h JOIN endpoints e ON e.endpoint_id = h.endpoint_id
+             WHERE h.base_url IS NULL",
+        )?;
+        let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+        rows.collect::<Result<_>>()?
+    };
+    for (endpoint_id, endpoint_str) in pending {
+        if let Some(base) = crate::base_url::base_url_of(&endpoint_str) {
+            conn.execute(
+                "UPDATE history SET base_url = ?1 WHERE endpoint_id = ?2 AND base_url IS NULL",
+                rusqlite::params![base, endpoint_id],
+            )?;
+        }
+    }
+
     // 8. Catalog tables: collections, webview, repoview
     for table in ["collections", "webview", "repoview"] {
         conn.execute(

@@ -148,7 +148,7 @@ history:
 
   H3:
     help: "Insert history entry"
-    query: "INSERT INTO history (endpoint_id, action, details) VALUES (?, ?, ?)"
+    query: "INSERT INTO history (endpoint_id, action, details, base_url) VALUES (?, ?, ?, ?)"
 
   H4:
     help: "Get all history endpoint IDs ordered by time"
@@ -156,7 +156,11 @@ history:
 
   H5:
     help: "Get all history entries ordered by time"
-    query: "SELECT id, endpoint_id, action, details, timestamp FROM history ORDER BY timestamp DESC"
+    query: "SELECT id, endpoint_id, action, details, timestamp, base_url FROM history ORDER BY timestamp DESC"
+
+  H6:
+    help: "History cards: one row per endpoint, aggregated in a single query (latest run, runs, QP pairs, tags)"
+    query: "SELECT h.endpoint_id, e.method, e.endpoint_str, MAX(h.base_url), MAX(h.timestamp) AS last_run, COUNT(*), (SELECT COUNT(*) FROM request_metadata r WHERE r.endpoint_id = h.endpoint_id), (SELECT COUNT(*) FROM tags t WHERE t.endpoint_id = h.endpoint_id) FROM history h LEFT JOIN endpoints e ON e.endpoint_id = h.endpoint_id GROUP BY h.endpoint_id ORDER BY last_run DESC, MAX(h.id) DESC"
 
 bookmarks:
   B1:
@@ -393,3 +397,12 @@ collection_membership:
   LIST_ALL_ENDPOINT_TAGS:
     help: "List every (endpoint_id, tag) pair carried in this collection's file"
     query: "SELECT endpoint_id, tag FROM endpoint_tags ORDER BY endpoint_id, tag"
+  SIZE_GET:
+    help: "Stored total size in bytes of this collection's QP data (no row until first computed)"
+    query: "SELECT size_bytes FROM collection_stats WHERE id = 1"
+  SIZE_SET:
+    help: "Set the stored size in bytes (first compute / recount)"
+    query: "INSERT INTO collection_stats (id, size_bytes) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET size_bytes = excluded.size_bytes"
+  SIZE_ADJUST:
+    help: "Add a signed delta to the stored size, never below 0; no-op until the size was first computed"
+    query: "UPDATE collection_stats SET size_bytes = MAX(0, size_bytes + ?) WHERE id = 1"

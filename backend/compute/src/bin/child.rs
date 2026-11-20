@@ -151,7 +151,7 @@ async fn main() {
 fn is_view_io_task(task: &str) -> bool {
     matches!(
         task,
-        "view_takeout" | "view_import_copy" | "view_unzip" | "view_table_check" | "collection_merge"
+        "view_takeout" | "view_import_copy" | "view_unzip" | "view_table_check" | "collection_merge" | "collection_duplicate"
     )
 }
 
@@ -279,6 +279,23 @@ async fn dispatch_view_io(task: &str, payload: Value, port: u16) -> (bool, Value
                 Err(e) => fail(e.to_string()),
             }
         }
+        // Duplicate a collection: a new collection with a copy of everything
+        // in it. Quick, so no progress reports; the result says what was copied.
+        "collection_duplicate" => {
+            let req: compute::tagops::collection_duplicate::CollectionDuplicateRequest = match serde_json::from_value(payload) {
+                Ok(r) => r,
+                Err(e) => return fail(format!("payload deserialise error: {e}")),
+            };
+            let worked = tokio::task::spawn_blocking(move || compute::tagops::collection_duplicate::run_collection_duplicate(&req)).await;
+            match worked {
+                Ok(Ok(mut result)) => {
+                    result["job_id"] = json!(job_id);
+                    (true, result, None)
+                }
+                Ok(Err(e)) => fail(e),
+                Err(e) => fail(e.to_string()),
+            }
+        }
         other => fail(format!("unknown task: '{other}'")),
     }
 }
@@ -363,6 +380,13 @@ async fn dispatch(task: &str, payload: Value) -> (bool, Value, Option<String>) {
 
         "run_test" => run(payload, |p: RunTestRequest| run_test_inner(p)).await,
 
+        // Dev API, collections: the result is an `ApiResult` (plus `job_id`).
+        // A failure is reported inside it, with its own status code, so the
+        // callback itself is always a success.
+        "api_collections_insert" | "api_collections_test_and_insert" => {
+            (true, compute::collections_ops::run_task(payload).await, None)
+        }
+
         // ── Tag operations ──────────────────────────────────────────────────
         // Each task receives a typed payload that includes db_path.
         // The inner fn runs on a blocking thread and returns the Activity Log
@@ -415,6 +439,9 @@ async fn dispatch(task: &str, payload: Value) -> (bool, Value, Option<String>) {
         "purge_orphaned_eids" => {
             run(payload, |p: PurgeRequest| purge_orphaned_eids_inner(p)).await
         }
+
+        // Dev API: /api/history/
+        "api_history_test" => run(payload, compute::devapi::history::history_ops_inner).await,
 
         unknown => {
             let msg = format!("unknown task: '{}'", unknown);

@@ -1,23 +1,24 @@
-//! Import / Export ("takeout") for Collections - the same takeout and import
-//! as a RepoView or WebView (`repoview_ie`), for a Collection.
+//! Export and import for Collections - the same export and import as a
+//! RepoView or WebView (`repoview_ie`), for a Collection. A Collection has no
+//! takeout (Ravi, 2026-11-17): the one-way copy is for views.
 //!
 //! A Collection is not a list with an index of its own: it is a membership
 //! file (`storage/collections/{name}.sqlite`, just the endpoint ids) plus
 //! bookmark rows, and every endpoint's data lives in the central tables and
-//! in `globalEQPData`. So a takeout has to describe the endpoints from the
+//! in `globalEQPData`. So an export has to describe the endpoints from the
 //! central tables, and an import has to create everything a Collection is
 //! made of:
 //!
-//! - **Takeout** (`POST /collections/:name/takeout`) copies the EQP data of
+//! - **Export** (`POST /collections/:name/export`) copies the EQP data of
 //!   every member out of globalEQPData into `storage/takeout/{name}/` and
 //!   writes `repoview-manifest.json` (the same file and format as a RepoView's,
 //!   with `kind: "collection"`): the collection's name, annotation, tags and,
 //!   per endpoint, its URL, method, annotation, tags and QP status/timings. No
-//!   SQLite file is ever in a takeout.
-//! - **Import** (`POST /collections/import`) gives every endpoint a *fresh*
-//!   EID, copies its EQP files renamed to match, writes the endpoint, QP and
-//!   tag rows, and creates the Collection: its bookmark rows, membership file,
-//!   catalog row and collection tags.
+//!   SQLite file is ever in it.
+//! - **Import** (`POST /collections/import`) reads an export and gives every
+//!   endpoint a *fresh* EID, copies its EQP files renamed to match, writes
+//!   the endpoint, QP and tag rows, and creates the Collection: its bookmark
+//!   rows, membership file, catalog row and collection tags.
 //!
 //! Both are jobs (`GET /jobs/:id`, `/jobs/ws`) and use the same compute tasks
 //! as RepoView/WebView (`view_takeout`, `view_unzip`, `view_import_copy`).
@@ -146,17 +147,18 @@ fn describe_members(state: &AppState, member_ids: &[String]) -> Result<(Vec<Mani
     Ok((endpoints, without_endpoint))
 }
 
-// ── Takeout (export) ─────────────────────────────────────────────────────
+// ── Export ───────────────────────────────────────────────────────────────
 
-/// POST /collections/:name/takeout `{dest_name?, overwrite?}`
+/// POST /collections/:name/export `{dest_name?, overwrite?}`
 ///
 /// Copies the EQP data of every member into
 /// `storage/takeout/{dest_name}/globalEQPData/{eid}/`, next to
-/// `repoview-manifest.json`. A job: **202** `{job_id, ...}`; the result arrives
-/// as a `ViewIoDone` event (op `takeout`, view `collections`). If that takeout
+/// `repoview-manifest.json`: the two-way format, the only one
+/// `POST /collections/import` reads. A job: **202** `{job_id, ...}`; the result
+/// arrives as a `ViewIoDone` event (op `export`, view `collections`). If that
 /// folder exists: **409** with `options: ["overwrite", "rename"]`, nothing
 /// changes.
-pub async fn takeout_collection(
+pub async fn export_collection_data(
     State(state): State<AppState>,
     Path(name): Path<String>,
     Json(payload): Json<TakeoutRequest>,
@@ -164,15 +166,15 @@ pub async fn takeout_collection(
     let res = tokio::task::spawn_blocking({
         let state = state.clone();
         let name = name.clone();
-        move || takeout_blocking(&state, &name, payload.dest_name.as_deref(), payload.overwrite)
+        move || export_blocking(&state, &name, payload.dest_name.as_deref(), payload.overwrite)
     })
     .await;
     respond(&state, StatusCode::ACCEPTED, res)
 }
 
-fn takeout_blocking(state: &AppState, name: &str, dest_name: Option<&str>, overwrite: bool) -> Result<Value, IeError> {
+fn export_blocking(state: &AppState, name: &str, dest_name: Option<&str>, overwrite: bool) -> Result<Value, IeError> {
     let dest_name = dest_name.map(str::trim).filter(|d| !d.is_empty()).unwrap_or(name);
-    validate_folder_name(dest_name, "Takeout name")?;
+    validate_folder_name(dest_name, "Export name")?;
 
     let catalog = open_catalog(state)?;
     let row = catalog
@@ -199,7 +201,7 @@ fn takeout_blocking(state: &AppState, name: &str, dest_name: Option<&str>, overw
     let dest_dir = takeout_root(state).join("takeout").join(dest_name);
     if dest_dir.exists() && !overwrite {
         return Err(IeError::Conflict {
-            message: format!("A takeout named '{dest_name}' already exists"),
+            message: format!("An export named '{dest_name}' already exists"),
             options: vec!["overwrite", "rename"],
         });
     }
@@ -209,7 +211,7 @@ fn takeout_blocking(state: &AppState, name: &str, dest_name: Option<&str>, overw
         .iter()
         .map(|e| EqpEntry { eid: e.eid.clone(), has_qps: !e.qps.is_empty() })
         .collect();
-    let job_id = state.jobs.create("takeout", Some(VIEW), Some(name));
+    let job_id = state.jobs.create("export", Some(VIEW), Some(name));
     let started = crate::ipc::spawn_child(
         "view_takeout",
         json!({
@@ -403,6 +405,8 @@ pub(crate) fn finish_blocking(state: &AppState, context: &ImportContext, importe
             db::insert_bookmark(&state.core, &state.queries, eid, name, None).map_err(|e| format!("{e:?}"))?;
         }
         membership.add_batch(&new_eids).map_err(|e| format!("{e:?}"))?;
+        // A brand-new collection: count what was just imported once.
+        let _ = crate::handlers::collection_size::ensure_size(state, &membership);
         catalog
             .register(ViewKind::Collections, name, Some(&file_path), manifest.repoview.annotation.as_deref())
             .map_err(|e| format!("{e:?}"))?;
@@ -530,6 +534,8 @@ mod tests {
             _ => panic!("no manifest"),
         };
         assert!(err.contains("can't read"), "{err}");
+        // no manifest: the error says where to get an export
+        assert!(err.contains("not an export") && err.contains("/collections/:name/export"), "{err}");
         std::fs::write(dir.join(MANIFEST_FILE), "{ not json").unwrap();
         let err = match load_manifest("tk", &dir, KIND) {
             Err(IeError::Bad(why)) => why,

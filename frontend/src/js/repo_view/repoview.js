@@ -72,8 +72,20 @@
 
         applyFilters();
 
+        if (typeof RefreshButton !== 'undefined') {
+            RefreshButton.init({
+                buttonId: 'resetFilters',
+                debug: true, // remove once event names are known
+                onRefresh: async () => {
+                    await loadData();
+                    state.selected.clear();
+                    state.activeRowId = null;
+                    renderSidebar();
+                    applyFilters();
+                }
+            });
+        }
     }
-
 
     // ============================================================
     // DATA
@@ -98,21 +110,43 @@
             } else if (Array.isArray(data)) {
                 list = data;
             }
-
+            console.log('[RepoView] raw response data:', data);        // put it here
+            console.log('[RepoView] raw list item:', list[0]);         // and here
             // Map the backend items to the structure expected by the frontend table
+            const pick = (item, keys, fallback) => {
+                for (const k of keys) {
+                    if (item[k] !== undefined && item[k] !== null) return item[k];
+                }
+                return fallback;
+            };
+            const toArray = v => (Array.isArray(v) ? v : v ? [v] : []);
+
             state.repos = list.map((item, index) => {
+
+                const segments = toArray(pick(item, ['segments', 'segment_list'], []));
+
+                const crudSrc = pick(item, ['crud', 'crud_counts', 'method_counts', 'methods'], null);
+
+                const crud = {
+                    GET: Number(crudSrc?.GET ?? crudSrc?.get ?? item.get_count ?? 0),
+                    POST: Number(crudSrc?.POST ?? crudSrc?.post ?? item.post_count ?? 0),
+                    PUT: Number(crudSrc?.PUT ?? crudSrc?.put ?? item.put_count ?? 0),
+                    PATCH: Number(crudSrc?.PATCH ?? crudSrc?.patch ?? item.patch_count ?? 0),
+                    DELETE: Number(crudSrc?.DELETE ?? crudSrc?.delete ?? item.delete_count ?? 0)
+                };
+
                 return {
-                    id: nextId + index, // Generate temporary ID since backend doesn't provide one
+                    id: nextId + index,
                     name: item.name,
                     annotation: item.annotation || '',
                     dateCreated: item.created_at ? item.created_at.split(' ')[0] : '',
-                    dataSizeBytes: 0,
-                    eidCount: item.endpoint_count || 0,
-                    segments: 0,
-                    dataTags: [],
-                    tags: [], // Tags aren't attached to the list view in the backend yet
-                    qpCount: 0,
-                    indexLists: 0
+                    dataSizeBytes: item.dataSizeBytes,
+                    eidCount: item.eidCount || 0,
+                    segments: item.segments,
+                    dataTags: item.dataTags,
+                    tags: item.tags || [],
+                    qpCount: item.qpCount,
+                    crud: item.crud
                 };
             });
 
@@ -294,7 +328,7 @@
 
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="15" class="px-4 py-16 text-center">
+                    <td colspan="14" class="px-4 py-16 text-center">
                         <p class="text-sm font-medium text-slate-500 dark:text-slate-400">No repo views found</p>
                         <p class="mt-1 text-xs text-slate-400 dark:text-slate-600">Try changing the current search or filters.</p>
                     </td>
@@ -418,9 +452,6 @@
 
             <!-- QP Count -->
             <td class="px-2 py-2 text-slate-800 dark:text-slate-300">${repo.qpCount ?? 0}</td>
-
-            <!-- Index Lists -->
-            <td class="px-2 py-2 text-slate-800 dark:text-slate-300">${repo.indexLists ?? 0}</td>
 
 
         `;
@@ -1089,7 +1120,6 @@
             applyFilters();
         });
 
-        document.getElementById('resetFilters')?.addEventListener('click', resetFilters);
 
         document.getElementById('createRepoBtn')?.addEventListener('click', openCreateModal);
 
@@ -1109,26 +1139,6 @@
         });
 
     }
-
-
-    function resetFilters() {
-
-        state.search = '';
-        state.crud = 'all';
-        state.tags.clear();
-        state.segments.clear();
-        state.page = 1;
-
-        const search = document.getElementById('repoSearch');
-        if (search) search.value = '';
-
-        const crud = document.getElementById('crudFilter');
-        if (crud) crud.value = 'all';
-
-        applyFilters();
-
-    }
-
 
     // ============================================================
     // TAG INPUT HELPER
@@ -1153,7 +1163,7 @@
        text-cyan-800 dark:text-cyan-400
        hover:bg-cyan-300 dark:hover:bg-cyan-500/30
        hover:text-cyan-950 dark:hover:text-white
-       transition cursor-pointer""Remove ${escapeAttr(tag)}">&times;</button>
+transition cursor-pointer" title="Remove ${escapeAttr(tag)}">&times;</button>
                 </span>
             `).join('');
         }
@@ -1370,7 +1380,7 @@
             showAlert(`Repo View "${name}" created successfully.`);
             closeModal();
             await loadData();
-
+            RefreshButton?.synced();
             state.selected.clear();
             state.page = 1;
 
@@ -1418,6 +1428,7 @@
 
         showAlert(`Repo View "${source.name}" duplicated as "${copyName}".`);
         await loadData();
+        RefreshButton?.synced();
         state.selected.clear();
         state.page = 1;
 
@@ -1499,6 +1510,7 @@
 
         showAlert(`Deleted ${names.length > 1 ? `${names.length} repo views` : `"${names[0]}"`}.`);
         await loadData();
+        RefreshButton?.synced();
         state.repos = state.repos.filter(repo => !normalizedIds.includes(String(repo.id || repo.name)) && !names.includes(repo.name));
         normalizedIds.forEach(id => state.selected.delete(Number(id)));
 
@@ -1605,6 +1617,7 @@
             showAlert(`Repo View updated successfully.`);
             closeModal();
             await loadData();
+            RefreshButton?.synced();
             renderSidebar();
             applyFilters();
 
@@ -1744,6 +1757,7 @@
             showAlert(`Repo views combined into "${finalName}".`);
             closeModal();
             await loadData();
+            RefreshButton?.synced();
             state.selected.clear();
             renderSidebar();
             applyFilters();
@@ -1867,6 +1881,7 @@
             showAlert(`Repo View "${repo.name}" successfully converted to Collection "${finalName}".`);
             closeModal();
             await loadData();
+            RefreshButton?.synced();
             state.selected.clear();
             renderSidebar();
             applyFilters();

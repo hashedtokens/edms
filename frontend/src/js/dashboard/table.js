@@ -94,6 +94,23 @@ function createStatsTable({
         `;
 
     });
+    // ALL CRUD TYPES header (after methodHeaders loop)
+    methodHeaders += `
+    <th class="border-l border-slate-300 dark:border-slate-800
+               bg-slate-200 dark:bg-slate-800/60
+               px-3 py-2 text-center font-bold
+               text-slate-900 dark:text-slate-100">
+        All CRUD Types
+    </th>
+`;
+
+    // ALL CRUD TYPES sub header (after subHeaders loop)
+    subHeaders += `
+    <th class="border-l border-slate-300 dark:border-slate-800
+               bg-slate-200 dark:bg-slate-800/60 px-2 py-1 text-center">
+        Count
+    </th>
+`;
     // TABLE ROWS
 
     let tableRows = "";
@@ -101,65 +118,56 @@ function createStatsTable({
     rows.forEach(row => {
 
         let cells = "";
+        let total = 0;
 
         methods.forEach(method => {
 
-            const data =
-                row.methods?.[method.name] || {
-                    percentage: "—",
-                    count: "—"
-                };
+            const data = row.methods?.[method.name] || {
+                percentage: "—",
+                count: "—"
+            };
+
+            total += Number(data.count) || 0;   // accumulate here
+
             // Percentage
             cells += `
-                <td
-                    class="
-                        border-l border-slate-300 dark:border-slate-800
-                        px-3 py-2.5
-                        text-center
-                        font-semibold
-                        ${method.color}
-                    "
-                >
-                    ${data.percentage}
-                </td>
-            `;
-            // Count
-            cells += `
-                <td
-                    class="
-                        px-3 py-2.5
-                        text-center
-                        text-slate-500 dark:text-slate-400
-                    "
-                >
-                    ${data.count}
-                </td>
-            `;
-
-        });
-        tableRows += `
-            <tr
-                class="
-                    border-b border-slate-300 dark:border-slate-800
-                    last:border-b-0
-                "
-            >
-
-                <td
-                    class="
-                        px-3 py-2.5
-                        font-medium
-                        text-slate-800 dark:text-slate-300
-                    "
-                >
-                    ${row.name}
-                </td>
-
-                ${cells}
-
-            </tr>
+            <td class="border-l border-slate-300 dark:border-slate-800
+                       px-3 py-2.5 text-center font-semibold ${method.color}">
+                ${data.percentage}
+            </td>
         `;
 
+            // Count
+            cells += `
+            <td class="px-3 py-2.5 text-center
+                       text-slate-500 dark:text-slate-400">
+                ${data.count}
+            </td>
+        `;
+        });
+
+        // All CRUD Types: added AFTER the loop so total is complete
+        cells += `
+        <td class="border-l border-slate-300 dark:border-slate-800
+                   bg-slate-200/70 dark:bg-slate-800/60
+                   px-3 py-2.5 text-center font-bold
+                   text-slate-900 dark:text-slate-100">
+            ${total}
+        </td>
+    `;
+
+        tableRows += `
+           <tr class="border-b border-slate-300 dark:border-slate-800
+               last:border-b-0
+               transition-colors
+               hover:bg-slate-200/70 dark:hover:bg-slate-800/60">
+            <td class="px-3 py-2.5 font-medium text-slate-800 dark:text-slate-300">
+
+                ${row.name}
+            </td>
+            ${cells}
+        </tr>
+    `;
     });
     // TABLE HTML
 
@@ -171,29 +179,19 @@ function createStatsTable({
                 overflow-hidden
                 rounded-lg
                 border border-slate-300 dark:border-slate-800
-                bg-slate-100 dark:bg-slate-900
+                bg-white dark:bg-slate-900
             "
         >
 
-            <div
-                class="
-                    flex
-                    items-center
-                    justify-between
-                    border-b border-slate-300 dark:border-slate-800
-                    px-2.5 py-1.5
-                "     >
-                <h3
-                    class="
-                        text-sm
-                        font-semibold
-                        text-slate-800 dark:text-slate-200
-                    "
-                >
-                    ${title}
-                </h3>
-
-            </div>
+       <div class="flex items-center justify-between
+            border-b-2 border-b-slate-300 dark:border-b-slate-600
+            bg-slate-200 dark:bg-slate-800
+            px-3 py-2">
+    <h3 class="text-sm font-bold uppercase tracking-wider
+               text-slate-900 dark:text-white">
+        ${title}
+    </h3>
+</div>  
 
             <div class="overflow-x-auto">
 

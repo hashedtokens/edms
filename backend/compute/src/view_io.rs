@@ -99,9 +99,12 @@ pub struct ViewTakeoutRequest {
     /// `storage/globalEQPData`
     pub eqp_root: String,
     pub endpoints: Vec<EqpEntry>,
-    /// Written next to the data (the index describes the endpoints; a real
-    /// EQP folder can't).
-    pub manifest: Value,
+    /// An export writes this next to the data (the index describes the
+    /// endpoints; a real EQP folder can't), and an import reads it back. A
+    /// takeout is one-way (Ravi, 2026-11-16): it sends none, so none is written.
+    #[serde(default)]
+    pub manifest: Option<Value>,
+    #[serde(default)]
     pub manifest_file: String,
     /// Write `Tables-meta.md` (with the takeout facts) even when the view has
     /// no Tables yet. A RepoView has Tables; a WebView doesn't.
@@ -195,7 +198,8 @@ pub fn write_takeout_meta(dest: &Path, create_if_missing: bool, eqp_files: usize
 }
 
 /// Copies the view folder (index stripped) and each endpoint's EQP data into
-/// the takeout, then writes the manifest. `progress` gets `{step, done,
+/// the takeout, then writes the manifest if the request carries one (an export
+/// does, a takeout doesn't). `progress` gets `{step, done,
 /// total}` reports while endpoints are copied. A name collision is an error
 /// here: the webserver checks it first (so the caller gets an immediate 409),
 /// this only catches a takeout that appeared in between.
@@ -244,8 +248,15 @@ pub fn run_takeout(req: &ViewTakeoutRequest, progress: &mut dyn FnMut(Value)) ->
         }
     }
 
-    let manifest_text = serde_json::to_string_pretty(&req.manifest).map_err(|e| e.to_string())?;
-    std::fs::write(dest.join(&req.manifest_file), manifest_text).map_err(|e| e.to_string())?;
+    // Only an export has a manifest; a takeout is just the data and the Tables.
+    let manifest_written = match &req.manifest {
+        Some(manifest) if !req.manifest_file.is_empty() => {
+            let manifest_text = serde_json::to_string_pretty(manifest).map_err(|e| e.to_string())?;
+            std::fs::write(dest.join(&req.manifest_file), manifest_text).map_err(|e| e.to_string())?;
+            Some(req.manifest_file.clone())
+        }
+        _ => None,
+    };
 
     // Readable JSON everywhere (the EQP files are stored minified), then the
     // takeout's own facts - they need the final sizes and counts.
@@ -264,7 +275,7 @@ pub fn run_takeout(req: &ViewTakeoutRequest, progress: &mut dyn FnMut(Value)) ->
         "missing_eqp_data": missing,
         "json_files_formatted": pretty,
         "tables_meta_written": meta_written,
-        "manifest": req.manifest_file
+        "manifest": manifest_written
     }))
 }
 
@@ -514,7 +525,7 @@ fn takeout_root_of(dir: &Path, manifest_file: &str) -> Result<PathBuf, String> {
         return Ok(folders.remove(0));
     }
     Err(format!(
-        "no {manifest_file} in the zip (it must be at the top, or inside the one folder that holds everything)"
+        "no {manifest_file} in the zip (it must be at the top, or inside the one folder that holds everything); a takeout has no manifest and can't be imported - import an export"
     ))
 }
 
@@ -577,7 +588,7 @@ mod tests {
                 EqpEntry { eid: "E0002-AAA".into(), has_qps: false }, // no QPs: no folder, normal
                 EqpEntry { eid: "E0003-AAA".into(), has_qps: true },  // should have data, doesn't
             ],
-            manifest: json!({ "format": "edms-repoview" }),
+            manifest: Some(json!({ "format": "edms-repoview" })),
             manifest_file: "repoview-manifest.json".into(),
             create_meta_if_missing: false,
         }
@@ -605,6 +616,7 @@ mod tests {
         assert!(!dest.join("repoview.sqlite").exists(), "the index must never be in a takeout");
         assert!(dest.join("globalEQPData/E0001-AAA/E0001-AAA-request-1.json").is_file());
         assert!(dest.join("repoview-manifest.json").is_file());
+        assert_eq!(out["manifest"], "repoview-manifest.json");
 
         assert_eq!(out["ok"], false, "E0003 should have data and doesn't");
         assert_eq!(out["missing_eqp_data"], json!(["E0003-AAA"]));
@@ -896,6 +908,7 @@ mod tests {
         make_zip(&root.join("t.zip"), &[("readme.txt", "hi"), ("other/file.json", "{}")]);
         let err = run_unzip(&unzip_request(&root, false), &mut |_| {}).unwrap_err();
         assert!(err.contains("no repoview-manifest.json"), "{err}");
+        assert!(err.contains("import an export"), "{err}");
         assert!(leftovers(&root).is_empty());
 
         // two folders is ambiguous, so it is refused too
@@ -956,6 +969,35 @@ mod tests {
         req.overwrite = true;
         run_takeout(&req, &mut |_| {}).unwrap();
         std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_takeout_without_a_manifest_is_the_data_and_the_tables_only() {
+        // a takeout is one-way (Ravi, 2026-11-16): nothing in it is for an import
+        let root = fixture("no-manifest");
+        let mut req = request(&root, "tk", false);
+        req.manifest = None;
+        let out = run_takeout(&req, &mut |_| {}).unwrap();
+
+        let dest = root.join("storage").join("takeout").join("tk");
+        assert!(!dest.join("repoview-manifest.json").exists(), "a takeout carries no manifest");
+        assert!(out["manifest"].is_null(), "{out}");
+        assert!(dest.join("Tables-001.md").is_file());
+        assert!(dest.join("globalEQPData/E0001-AAA/E0001-AAA-request-1.json").is_file());
+        assert!(!dest.join("repoview.sqlite").exists());
+        assert_eq!(out["eqp_files_copied"], 2);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_request_without_a_manifest_still_deserializes() {
+        let req: ViewTakeoutRequest = serde_json::from_value(json!({
+            "job_id": "j", "dest_name": "d", "storage_dir": "/s", "overwrite": false,
+            "eqp_root": "/e", "endpoints": []
+        }))
+        .unwrap();
+        assert!(req.manifest.is_none());
+        assert!(req.manifest_file.is_empty());
     }
 
     #[test]

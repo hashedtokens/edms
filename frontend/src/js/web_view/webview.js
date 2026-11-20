@@ -115,7 +115,6 @@
           segmentFrequency: item.segmentFrequency || {},
           eidCount: item.eidCount ?? item.endpoint_count ?? 0,
           qpCount: item.qpCount ?? 0,
-          indexLists: item.indexLists ?? 0,
           dataSizeBytes: item.dataSizeBytes ?? 0,
           dateCreated: item.dateCreated || (item.created_at ? item.created_at.split(" ")[0] : ""),
         };
@@ -134,7 +133,6 @@
           dataTags: ["eqp-demo"],
           tags: ["demo"],
           qpCount: 2,
-          indexLists: 1,
           crud: { GET: 2, POST: 1, PUT: 0, PATCH: 0, DELETE: 1 },
         });
       }
@@ -291,7 +289,7 @@
     if (items.length === 0) {
       tbody.innerHTML = `
                 <tr>
-                    <td colspan="18" class="px-4 py-16 text-center">
+                    <td colspan="17" class="px-4 py-16 text-center">
                         <p class="text-sm font-medium text-slate-500 dark:text-slate-400">No web views found</p>
                         <p class="mt-1 text-xs text-slate-400 dark:text-slate-600">Try changing the current search or filters.</p>
                     </td>
@@ -411,9 +409,6 @@
 
             <!-- QP Count -->
             <td class="px-2 py-2 text-slate-800 dark:text-slate-300">${web.qpCount ?? 0}</td>
-
-            <!-- Index Lists -->
-            <td class="px-2 py-2 text-slate-800 dark:text-slate-300">${web.indexLists ?? 0}</td>
 
             <!-- Preview -->
             <td class="px-2 py-2 text-center">
@@ -1118,9 +1113,17 @@
         applyFilters();
       });
 
-    document
-      .getElementById("resetFilters")
-      ?.addEventListener("click", resetFilters);
+    if (typeof RefreshButton !== "undefined") {
+      RefreshButton.init({
+        buttonId: "resetFilters",
+        debug: true, // remove once event names are known
+        onRefresh: async () => {
+          await loadData();
+          renderSidebar();
+          applyFilters();
+        },
+      });
+    }
 
     document
       .getElementById("createWebBtn")
@@ -1142,21 +1145,6 @@
     });
   }
 
-  function resetFilters() {
-    state.search = "";
-    state.crud = "all";
-    state.tags.clear();
-    state.segments.clear();
-    state.page = 1;
-
-    const search = document.getElementById("webSearch");
-    if (search) search.value = "";
-
-    const crud = document.getElementById("crudFilter");
-    if (crud) crud.value = "all";
-
-    applyFilters();
-  }
 
   // ============================================================
   // TAG INPUT COMPONENT HELPER
@@ -1406,7 +1394,7 @@
       showAlert(`Web View "${name}" created successfully.`);
       closeModal();
       await loadData();
-
+      RefreshButton?.synced();
       state.selected.clear();
       state.page = 1;
 
@@ -1456,6 +1444,7 @@
     // Refresh from backend or keep in local memory if endpoint is pending backend implementation
     const prevCount = state.webs.length;
     await loadData();
+    RefreshButton?.synced();
     if (state.webs.length === prevCount) {
       const copy = structuredClone(source);
       copy.id = copyName;
@@ -1544,6 +1533,7 @@
 
     // Refresh from backend, plus clean up local state
     await loadData();
+    RefreshButton?.synced();
     state.webs = state.webs.filter(
       (web) => !normalizedIds.includes(String(web.id || web.name)) && !names.includes(web.name),
     );
@@ -1815,6 +1805,7 @@
       showAlert(`Web views combined into "${finalName}".`);
       closeModal();
       await loadData();
+      RefreshButton?.synced();
       state.selected.clear();
       renderSidebar();
       applyFilters();
@@ -1924,6 +1915,7 @@
       showAlert(`Web View "${web.name}" successfully converted to Collection "${finalName}".`);
       closeModal();
       await loadData();
+      RefreshButton?.synced();
       state.selected.clear();
       renderSidebar();
       applyFilters();

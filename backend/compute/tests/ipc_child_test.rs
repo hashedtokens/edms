@@ -290,3 +290,24 @@ async fn test_child_unknown_task() -> TestResult {
 
     Ok(())
 }
+
+#[tokio::test]
+async fn test_child_api_history_test_reports_status_code() -> TestResult {
+    let mut callback_server = MockCallbackServer::start().await;
+
+    // missing endpoint_str -> coded result, not an IPC error
+    let payload = json!({ "ops": "test", "job_id": "ipc-1" });
+    spawn_child_and_send_request("api_history_test", payload, callback_server.port).await?;
+
+    let callback = callback_server
+        .wait_for_callback(10)
+        .await
+        .expect("Should receive callback from child");
+    assert_eq!(callback.task, "api_history_test");
+    assert!(callback.success, "IPC should succeed: {:?}", callback.error);
+    assert_eq!(callback.result["status"]["code"], 101);
+    assert_eq!(callback.result["status"]["name"], "MISSING_PARAM");
+    assert_eq!(callback.result["job_id"], "ipc-1");
+
+    Ok(())
+}

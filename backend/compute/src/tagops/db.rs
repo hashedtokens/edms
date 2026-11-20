@@ -230,6 +230,65 @@ pub(super) fn endpoints_with_tags_in_collection_in(
     Ok(filtered)
 }
 
+/// The notes of `folder`'s bookmarks for the given endpoints (a blank note is left out).
+pub fn bulk_fetch_bookmark_notes(
+    core: &EdmsCore,
+    folder: &str,
+    eids: &[String],
+) -> DynResult<std::collections::HashMap<String, String>> {
+    let mut map = std::collections::HashMap::new();
+    for chunk in eids.chunks(500) {
+        let placeholders = chunk.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+        let sql = format!(
+            "SELECT endpoint_id, notes FROM bookmarks WHERE folder = ? AND endpoint_id IN ({placeholders}) \
+             AND notes IS NOT NULL AND TRIM(notes) <> ''"
+        );
+        let mut params: Vec<&dyn rusqlite::ToSql> = vec![&folder];
+        params.extend(chunk.iter().map(|s| s as &dyn rusqlite::ToSql));
+        let rows: Vec<(String, String)> = core.cproc(&sql, params.as_slice(), |row| Ok((row.get(0)?, row.get(1)?)))?;
+        map.extend(rows);
+    }
+    Ok(map)
+}
+
+/// Gives each of `folder`'s bookmarks the note listed for its endpoint, unless
+/// it already has one (a note the target wrote itself is never replaced).
+pub fn set_bookmark_notes_if_empty(core: &EdmsCore, folder: &str, notes: &[(String, String)]) -> DynResult<()> {
+    if notes.is_empty() {
+        return Ok(());
+    }
+    core.base.execute("BEGIN IMMEDIATE", &[])?;
+    let res = (|| -> DynResult<()> {
+        for (eid, note) in notes {
+            core.proc(
+                "UPDATE bookmarks SET notes = ? WHERE endpoint_id = ? AND folder = ? AND (notes IS NULL OR TRIM(notes) = '')",
+                &[note, eid, &folder],
+            )?;
+        }
+        Ok(())
+    })();
+    match res {
+        Ok(()) => {
+            core.base.execute("COMMIT", &[])?;
+            Ok(())
+        }
+        Err(e) => {
+            let _ = core.base.execute("ROLLBACK", &[]);
+            Err(e)
+        }
+    }
+}
+
+/// A collection's annotation (`None` if it has none or isn't in the catalog).
+pub fn collection_annotation(core: &EdmsCore, name: &str) -> DynResult<Option<String>> {
+    let rows: Vec<Option<String>> = core.cproc(
+        "SELECT annotation FROM collections WHERE name = ?",
+        &[&name],
+        |row| row.get(0),
+    )?;
+    Ok(rows.into_iter().next().flatten())
+}
+
 /// Bulk fetch endpoint details: (endpoint_str, method, annotation)
 pub fn bulk_fetch_endpoint_details(
     core: &EdmsCore,

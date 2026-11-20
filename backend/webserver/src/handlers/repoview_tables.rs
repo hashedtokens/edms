@@ -5,11 +5,11 @@
 //! the approach on its first line so the folder is self-describing.
 //!
 //! - [B] Endpoint Segments — generic, no tags needed. One row per endpoint,
-//!   sorted by the endpoint's URL path, with the columns of the Data View
-//!   (EID, CRUD Type, Endpoint, Query Parameter, QP, Annotation, Tags) plus
-//!   QP Count, Status Summary, Data Size, Created and Updated. The host never
-//!   appears (Ravi, 2026-10-25): a list view shows the endpoint and its query
-//!   parameter, not the domain.
+//!   sorted by the endpoint's URL path: EID, CRUD Type, Endpoint, Query
+//!   Parameter, QP Count, Annotation, Data Size, Created and Updated. The
+//!   host never appears (Ravi, 2026-10-25): a list view shows the endpoint
+//!   and its query parameter, not the domain. No QP times, status summary or
+//!   tags per row (Ravi, 2026-11-13).
 //! - [A] Sorted Tags — a tag -> segment-count pivot: one line per tag,
 //!   listing every distinct segment under it with how many endpoints have
 //!   that (tag, segment) pair. An endpoint with several tags counts once
@@ -89,7 +89,7 @@ impl Approach {
     fn table_header(self) -> &'static str {
         match self {
             Self::EndpointSegments => {
-                "| EID | CRUD Type | Endpoint | Query Parameter | QP | QP Count | Status Summary | Annotation | Tags | Data Size | Created | Updated |\n|---|---|---|---|---|---|---|---|---|---|---|---|\n"
+                "| EID | CRUD Type | Endpoint | Query Parameter | QP Count | Annotation | Data Size | Created | Updated |\n|---|---|---|---|---|---|---|---|---|\n"
             }
             Self::SortedTags => "| Tag | Endpoint Segments |\n|---|---|\n",
         }
@@ -105,8 +105,10 @@ impl Approach {
     }
 }
 
-/// One endpoint's saved QP, as the index snapshot holds it.
+/// One endpoint's saved QP, as the index snapshot holds it. The Tables show
+/// only how many there are, so the status and timing are read but unused.
 #[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)]
 struct QpInfo {
     number: i32,
     status_code: Option<i32>,
@@ -130,46 +132,6 @@ struct MemberRow {
     updated_at: Option<String>,
 }
 
-/// The QP column: each saved QP as `number: status time`, e.g.
-/// `1: 200 297ms, 2: 404 120ms`. A QP that never got a response reads
-/// `3: no response`; an endpoint with no QPs shows `-`.
-fn qp_cell(qps: &[QpInfo]) -> String {
-    if qps.is_empty() {
-        return "-".to_string();
-    }
-    qps.iter()
-        .map(|q| match (q.status_code, q.response_time_ms) {
-            (Some(code), Some(ms)) => format!("{}: {code} {ms}ms", q.number),
-            (Some(code), None) => format!("{}: {code}", q.number),
-            (None, _) => format!("{}: no response", q.number),
-        })
-        .collect::<Vec<_>>()
-        .join(", ")
-}
-
-/// The Status Summary column: how many QPs landed in each class of status
-/// code, `2xx: 3, 4xx: 1`, lowest class first, QPs that never got a response
-/// last as `no response: n`. `-` if there are no QPs.
-fn status_summary(qps: &[QpInfo]) -> String {
-    if qps.is_empty() {
-        return "-".to_string();
-    }
-    let mut by_class: BTreeMap<String, usize> = BTreeMap::new();
-    let mut no_response = 0usize;
-    for q in qps {
-        match q.status_code {
-            Some(code) if (100..600).contains(&code) => *by_class.entry(format!("{}xx", code / 100)).or_insert(0) += 1,
-            Some(_) => *by_class.entry("other".to_string()).or_insert(0) += 1,
-            None => no_response += 1,
-        }
-    }
-    let mut parts: Vec<String> = by_class.into_iter().map(|(class, n)| format!("{class}: {n}")).collect();
-    if no_response > 0 {
-        parts.push(format!("no response: {no_response}"));
-    }
-    parts.join(", ")
-}
-
 /// The Data Size column: how big the endpoint's QP files were when the view
 /// was made. `-` if that was never measured.
 fn size_cell(bytes: Option<i64>) -> String {
@@ -187,20 +149,16 @@ fn or_dash(value: Option<&str>) -> String {
     }
 }
 
-/// One Endpoint Segments row, in the Data View's column order (Ravi,
-/// 2026-10-18 and 2026-10-25) with the extra columns after it.
+/// One Endpoint Segments row (Ravi, 2026-10-18, 2026-10-25, 2026-11-13).
 fn endpoint_row(m: &MemberRow) -> String {
     format!(
-        "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |",
+        "| {} | {} | {} | {} | {} | {} | {} | {} | {} |",
         m.endpoint_id,
         md_cell(&m.method),
         md_cell(&m.endpoint_path),
         md_cell(&or_dash(Some(&m.query_param))),
-        md_cell(&qp_cell(&m.qps)),
         m.qps.len(),
-        md_cell(&status_summary(&m.qps)),
         md_cell(m.annotation.as_deref().unwrap_or("")),
-        md_cell(&m.tags.join(", ")),
         size_cell(m.data_size_bytes),
         md_cell(&or_dash(m.created_at.as_deref())),
         md_cell(&or_dash(m.updated_at.as_deref())),
@@ -310,6 +268,23 @@ struct Item {
 pub(crate) struct ViewInfo {
     pub(crate) annotation: Option<String>,
     pub(crate) tags: Vec<String>,
+    /// Each distinct path piece across the view's endpoints and how many
+    /// times it occurs, sorted by piece: the list on the left of the
+    /// RepoView screen (Ravi, 2026-11-13). Empty for a view with no endpoints.
+    pub(crate) segments: Vec<(String, usize)>,
+}
+
+/// The `## Segments` section of `Tables-meta.md`: how many distinct segments
+/// the view has and each one with its count. Empty if there are none.
+fn segments_section(view: &ViewInfo) -> String {
+    if view.segments.is_empty() {
+        return String::new();
+    }
+    let mut out = format!("\n## Segments\n\nSegments: {}\n\n| Segment | Count |\n|---|---|\n", view.segments.len());
+    for (segment, count) in &view.segments {
+        out.push_str(&format!("| {} | {} |\n", md_cell(segment), count));
+    }
+    out
 }
 
 /// `Annotation:` and `Tags:` lines, each on one line (`-` when empty).
@@ -393,8 +368,9 @@ fn write_batches_for(
     std::fs::write(
         dir.join("Tables-meta.md"),
         format!(
-            "# Tables-meta\n\n{approach_line}{}{meta_rows}",
-            approach.meta_header()
+            "# Tables-meta\n\n{approach_line}{}{meta_rows}{}",
+            approach.meta_header(),
+            segments_section(view)
         ),
     )
     .map_err(|e| e.to_string())?;
@@ -460,6 +436,17 @@ pub(crate) fn generate_tables_blocking(
             .map_err(|e| format!("{e:?}"))?
             .and_then(|row| row.3),
         tags: Flavor::Repo.row_tag_ops(state)?.list(name).map_err(|e| format!("{e:?}"))?,
+        segments: {
+            // every occurrence counts, so /a/a adds 2 to a (as the list view's
+            // segmentFrequency does)
+            let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+            for m in &members {
+                for piece in m.segment_path.split('/').filter(|p| !p.is_empty()) {
+                    *counts.entry(piece.to_string()).or_insert(0) += 1;
+                }
+            }
+            counts.into_iter().collect()
+        },
     };
 
     let dir = repoview_dir(&state, &name);
@@ -805,10 +792,13 @@ mod tests {
         let header = Approach::EndpointSegments.table_header();
         assert!(
             header.starts_with(
-                "| EID | CRUD Type | Endpoint | Query Parameter | QP | QP Count | Status Summary | Annotation | Tags | Data Size | Created | Updated |\n"
+                "| EID | CRUD Type | Endpoint | Query Parameter | QP Count | Annotation | Data Size | Created | Updated |\n"
             ),
             "{header}"
         );
+        for gone in ["| QP |", "Status Summary", "Tags"] {
+            assert!(!header.contains(gone), "Ravi removed {gone}: {header}");
+        }
         assert!(!header.contains("Host"), "a list view never shows the host");
         assert!(!header.contains("Segment Path"), "the column is called Endpoint now");
         // header and separator have the same number of columns as a row
@@ -833,19 +823,9 @@ mod tests {
         let row = endpoint_row(&m);
         assert_eq!(
             row,
-            "| E0001-AAA | GET | /posts/1 | expand=author | 1: 200 297ms, 2: 404 120ms | 2 | 2xx: 1, 4xx: 1 | Fetch one post | read-only, stable | 2.00 KB | 2026-10-01 09:00:00 | 2026-10-05 12:30:00 |"
+            "| E0001-AAA | GET | /posts/1 | expand=author | 2 | Fetch one post | 2.00 KB | 2026-10-01 09:00:00 | 2026-10-05 12:30:00 |"
         );
         assert!(!row.contains("api.example.com"), "{row}");
-    }
-
-    #[test]
-    fn a_status_summary_counts_each_class_and_the_qps_with_no_response() {
-        let qp = |n, code: Option<i32>| QpInfo { number: n, status_code: code, response_time_ms: None };
-        assert_eq!(status_summary(&[]), "-");
-        assert_eq!(status_summary(&[qp(1, Some(200)), qp(2, Some(201)), qp(3, Some(404))]), "2xx: 2, 4xx: 1");
-        assert_eq!(status_summary(&[qp(1, Some(503)), qp(2, Some(200))]), "2xx: 1, 5xx: 1", "lowest class first");
-        assert_eq!(status_summary(&[qp(1, None), qp(2, Some(302))]), "3xx: 1, no response: 1", "no response last");
-        assert_eq!(status_summary(&[qp(1, Some(0)), qp(2, Some(999))]), "other: 2");
     }
 
     #[test]
@@ -876,7 +856,7 @@ mod tests {
     #[test]
     fn the_meta_file_carries_the_views_own_annotation_and_tags() {
         let dir = temp_dir("viewinfo");
-        let view = ViewInfo { annotation: Some("The blog API,\nevery CRUD method.".to_string()), tags: vec!["zeta".into(), "alpha".into()] };
+        let view = ViewInfo { annotation: Some("The blog API,\nevery CRUD method.".to_string()), tags: vec!["zeta".into(), "alpha".into()], ..ViewInfo::default() };
         write_batches_for(&dir, Approach::EndpointSegments, &[item("a")], 10, &view).unwrap();
         let meta = std::fs::read_to_string(dir.join("Tables-meta.md")).unwrap();
         assert!(meta.contains("Annotation: The blog API, every CRUD method.\n"), "one line: {meta}");
@@ -895,31 +875,40 @@ mod tests {
     }
 
     #[test]
-    fn qp_cells_cover_no_qps_no_response_and_missing_timing() {
-        assert_eq!(qp_cell(&[]), "-");
-        let no_response = QpInfo { number: 3, status_code: None, response_time_ms: None };
-        assert_eq!(qp_cell(&[no_response]), "3: no response");
-        let no_timing = QpInfo { number: 1, status_code: Some(204), response_time_ms: None };
-        assert_eq!(qp_cell(&[no_timing]), "1: 204");
+    fn the_meta_file_lists_the_segments_with_their_counts() {
+        let dir = temp_dir("segments");
+        let view = ViewInfo { segments: vec![("a".into(), 2), ("b".into(), 1), ("c".into(), 2)], ..ViewInfo::default() };
+        for approach in [Approach::EndpointSegments, Approach::SortedTags] {
+            write_batches_for(&dir, approach, &[item("a")], 10, &view).unwrap();
+            let meta = std::fs::read_to_string(dir.join("Tables-meta.md")).unwrap();
+            assert!(
+                meta.contains("## Segments\n\nSegments: 3\n\n| Segment | Count |\n|---|---|\n| a | 2 |\n| b | 1 |\n| c | 2 |\n"),
+                "{meta}"
+            );
+            assert_eq!(parse_approach_line(&meta), Some(approach.api_name()));
+        }
+        // a view with no endpoints has no segments section
+        write_batches_for(&dir, Approach::EndpointSegments, &[], 10, &view).unwrap();
+        let meta = std::fs::read_to_string(dir.join("Tables-meta.md")).unwrap();
+        assert!(!meta.contains("## Segments"), "{meta}");
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]
     fn an_annotation_cannot_break_out_of_its_cell() {
         let mut m = member("E0001-AAA", "POST", "https://x.com/a");
         m.annotation = Some("a | b\nsecond line".to_string());
-        m.tags = vec!["x|y".to_string()];
         let row = endpoint_row(&m);
         assert!(row.contains("a \\| b second line"), "{row}");
-        assert!(row.contains("x\\|y"), "{row}");
         assert!(!row.contains('\n'));
-        // still exactly twelve cells: the escaped pipes aren't separators
-        assert_eq!(row.replace("\\|", "").matches('|').count(), 13);
+        // still exactly nine cells: the escaped pipe isn't a separator
+        assert_eq!(row.replace("\\|", "").matches('|').count(), 10);
     }
 
     #[test]
-    fn an_endpoint_without_annotation_or_tags_leaves_those_cells_empty() {
+    fn an_endpoint_without_an_annotation_leaves_that_cell_empty() {
         let row = endpoint_row(&member("E0002-AAA", "DELETE", "https://x.com/a"));
-        assert_eq!(row, "| E0002-AAA | DELETE | /a | - | - | 0 | - |  |  | - | - | - |");
+        assert_eq!(row, "| E0002-AAA | DELETE | /a | - | 0 |  | - | - | - |");
     }
 
     #[test]

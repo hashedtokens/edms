@@ -5,17 +5,20 @@
 //! A RepoView is only a list, so this is the one place its EQP data is
 //! touched:
 //!
-//! - **Takeout** copies the EQP data of every listed endpoint out of
-//!   globalEQPData into `storage/takeout/{name}/`, next to the generated
-//!   Tables files, with the SQLite index *removed* - "friendly for git or
-//!   web". The existing `compute::table_view::takeout_item` does the copy of
-//!   the RepoView folder, the SQLite stripping and the name-collision check.
-//! - Because a takeout has no SQLite, it also carries
-//!   `repoview-manifest.json`: the RepoView's own details plus each
-//!   endpoint's URL, method, tags and QP status codes/timings. A real EQP
-//!   folder holds only request/response/header files, so without this an
-//!   import would have no way to rebuild the index.
-//! - **Import** reads a takeout folder, gives every endpoint a *fresh* EID
+//! - **Takeout** is one-way (Ravi, 2026-11-16). It copies the EQP data of
+//!   every listed endpoint out of globalEQPData into
+//!   `storage/takeout/{name}/`, next to the generated Tables files, with the
+//!   SQLite index *removed* - "friendly for git or web". Nothing in it is
+//!   for an import, so it has no manifest. The existing
+//!   `compute::table_view::takeout_item` does the copy of the RepoView
+//!   folder, the SQLite stripping and the name-collision check.
+//! - **Export** is two-way: the same copy, plus `repoview-manifest.json`:
+//!   the RepoView's own details plus each endpoint's URL, method, tags and QP
+//!   status codes/timings. A real EQP folder holds only request/response/
+//!   header files, so without this an import would have no way to rebuild
+//!   the index.
+//! - **Import** reads an export folder (a takeout has no manifest and is
+//!   refused), gives every endpoint a *fresh* EID
 //!   ("IE always have their own unique EIDs even if the same endpoint exists
 //!   in a different EID"), renames the EQP files to match, writes the central
 //!   rows, and builds the RepoView's index.
@@ -275,25 +278,69 @@ pub(crate) fn respond(
 ///
 /// Copies the EQP data of every listed endpoint out of globalEQPData into
 /// `storage/takeout/{dest_name}/globalEQPData/{eid}/`, alongside the Tables
-/// files and `repoview-manifest.json`. The SQLite index is never included.
-/// If that takeout folder already exists: **409** with `options:
-/// ["overwrite", "rename"]` and nothing changes.
+/// files. One-way: no manifest, so it can't be imported. The SQLite index is
+/// never included. If that takeout folder already exists: **409** with
+/// `options: ["overwrite", "rename"]` and nothing changes.
 pub async fn takeout_repoview(
+    state: State<AppState>,
+    flavor: Extension<Flavor>,
+    name: Path<String>,
+    payload: Json<TakeoutRequest>,
+) -> (StatusCode, Json<Value>) {
+    run_takeout_job(state, flavor, name, payload, false).await
+}
+
+/// POST /repoview/:name/export
+///
+/// The same as the takeout, plus `repoview-manifest.json`: the two-way
+/// format, the only one Import reads.
+pub async fn export_repoview(
+    state: State<AppState>,
+    flavor: Extension<Flavor>,
+    name: Path<String>,
+    payload: Json<TakeoutRequest>,
+) -> (StatusCode, Json<Value>) {
+    run_takeout_job(state, flavor, name, payload, true).await
+}
+
+async fn run_takeout_job(
     State(state): State<AppState>,
     Extension(flavor): Extension<Flavor>,
     Path(name): Path<String>,
     Json(payload): Json<TakeoutRequest>,
+    with_manifest: bool,
 ) -> (StatusCode, Json<Value>) {
     let res = tokio::task::spawn_blocking({
         let state = state.clone();
         let name = name.clone();
-        move || takeout_blocking(flavor, &state, &name, payload.dest_name.as_deref(), payload.overwrite)
+        move || takeout_blocking(flavor, &state, &name, payload.dest_name.as_deref(), payload.overwrite, with_manifest)
     })
     .await;
     respond(&state, StatusCode::ACCEPTED, res)
 }
 
-fn takeout_blocking(flavor: Flavor, state: &AppState, name: &str, dest_name: Option<&str>, overwrite: bool) -> Result<Value, IeError> {
+/// Regenerates the RepoView's Tables ahead of a takeout, in the approach it
+/// already uses (read from `Tables-meta.md`), else the default one.
+fn refresh_tables_for_takeout(state: &AppState, name: &str, dir: &std::path::Path) -> Result<(), IeError> {
+    let approach = std::fs::read_to_string(dir.join("Tables-meta.md"))
+        .ok()
+        .and_then(|meta| parse_approach_line(&meta))
+        .and_then(|api_name| Approach::parse(Some(api_name)).ok())
+        .unwrap_or(Approach::EndpointSegments);
+    generate_tables_blocking(state, name, approach, 100)
+        .map(|_| ())
+        .map_err(|e| IeError::Bad(format!("couldn't write the Tables for the takeout: {e}")))
+}
+
+/// `with_manifest` is what makes it an export (two-way) rather than a takeout.
+fn takeout_blocking(
+    flavor: Flavor,
+    state: &AppState,
+    name: &str,
+    dest_name: Option<&str>,
+    overwrite: bool,
+    with_manifest: bool,
+) -> Result<Value, IeError> {
     flavor.validate_name(name)?;
     let dest_name = dest_name.map(str::trim).filter(|d| !d.is_empty()).unwrap_or(name);
     validate_folder_name(dest_name, "Takeout name")?;
@@ -326,13 +373,20 @@ fn takeout_blocking(flavor: Flavor, state: &AppState, name: &str, dest_name: Opt
     let dest_dir = takeout_root(state).join("takeout").join(dest_name);
     if dest_dir.exists() && !overwrite {
         return Err(IeError::Conflict {
-            message: format!("A takeout named '{dest_name}' already exists"),
+            message: format!("{} named '{dest_name}' already exists", if with_manifest { "An export" } else { "A takeout" }),
             options: vec!["overwrite", "rename"],
         });
     }
 
+    // A RepoView's takeout carries its Tables, and they must describe the
+    // RepoView as it is now - so write them before the folder is copied
+    // (Ravi, 2026-11-12: a takeout had no Tables-001.md).
+    if flavor.has_tables() {
+        refresh_tables_for_takeout(state, name, &dir)?;
+    }
+
     // The copying itself - the view folder with its index stripped, every
-    // endpoint's EQP data, the manifest - runs in edms-child. The request
+    // endpoint's EQP data, and for an export the manifest - runs in edms-child. The request
     // returns now; the result arrives as a `ViewIoDone` event (and on
     // `GET /jobs/:id`).
     let endpoints: Vec<EqpEntry> = manifest
@@ -340,7 +394,7 @@ fn takeout_blocking(flavor: Flavor, state: &AppState, name: &str, dest_name: Opt
         .iter()
         .map(|e| EqpEntry { eid: e.eid.clone(), has_qps: !e.qps.is_empty() })
         .collect();
-    let job_id = state.jobs.create("takeout", Some(flavor.route()), Some(name));
+    let job_id = state.jobs.create(if with_manifest { "export" } else { "takeout" }, Some(flavor.route()), Some(name));
     let started = crate::ipc::spawn_child(
         "view_takeout",
         json!({
@@ -351,8 +405,9 @@ fn takeout_blocking(flavor: Flavor, state: &AppState, name: &str, dest_name: Opt
             "overwrite": overwrite,
             "eqp_root": state.storage_root.join("storage").join("globalEQPData"),
             "endpoints": endpoints,
-            "manifest": manifest,
-            "manifest_file": MANIFEST_FILE,
+            // only an export carries one (null: none is written)
+            "manifest": if with_manifest { json!(manifest) } else { Value::Null },
+            "manifest_file": if with_manifest { MANIFEST_FILE } else { "" },
             // A RepoView's takeout always gets a Tables-meta.md with the
             // takeout's own facts; a WebView has no Tables to describe.
             "create_meta_if_missing": flavor.has_tables(),
@@ -469,6 +524,14 @@ fn release_eid(state: &AppState, new_eid: &str) {
     let _ = state.eid_allocator.release(new_eid);
 }
 
+/// The route that makes an export of that kind of view.
+fn export_route(kind: &str) -> String {
+    match kind {
+        "collection" => "/collections/:name/export".to_string(),
+        other => format!("/{other}/:name/export"),
+    }
+}
+
 /// Where to send someone who picked the wrong kind of import.
 fn import_route(kind: &str) -> String {
     match kind {
@@ -477,12 +540,26 @@ fn import_route(kind: &str) -> String {
     }
 }
 
-/// Reads and checks a takeout folder's manifest. `expected_kind` is
+/// Reads and checks an export folder's manifest. `expected_kind` is
 /// `repoview`, `webview` or `collection`: a takeout of the other kind is
 /// refused, with a pointer to the route that does take it.
 pub(crate) fn load_manifest(folder: &str, src: &std::path::Path, expected_kind: &str) -> Result<Manifest, IeError> {
-    let manifest_text = std::fs::read_to_string(src.join(MANIFEST_FILE))
-        .map_err(|e| IeError::Bad(format!("can't read {MANIFEST_FILE} in '{folder}': {e}")))?;
+    let manifest_text = std::fs::read_to_string(src.join(MANIFEST_FILE)).map_err(|e| {
+        let hint = if e.kind() == std::io::ErrorKind::NotFound {
+            if expected_kind == "collection" {
+                // a Collection has no takeout, so this is just a wrong folder
+                format!(" - this is not an export; import one made with POST {}", export_route(expected_kind))
+            } else {
+                format!(
+                    " - a takeout is one-way and has no manifest, so it can't be imported; import an export (POST {})",
+                    export_route(expected_kind)
+                )
+            }
+        } else {
+            String::new()
+        };
+        IeError::Bad(format!("can't read {MANIFEST_FILE} in '{folder}': {e}{hint}"))
+    })?;
     let manifest: Manifest = serde_json::from_str(&manifest_text)
         .map_err(|e| IeError::Bad(format!("{MANIFEST_FILE} in '{folder}' is not valid: {e}")))?;
     validate_manifest(&manifest)?;
