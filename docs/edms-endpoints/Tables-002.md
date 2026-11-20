@@ -1,0 +1,36 @@
+| EID | CRUD Type | Endpoint | Query Parameter | QP Count | Annotation | Data Size | Created | Updated |
+|---|---|---|---|---|---|---|---|---|
+| E0012-AAA | GET | /test-view/history/cards | - | 1 | history_cards | 48 B | 2026-11-20 05:02:22 | 2026-11-20 05:02:22 |
+| E0027-AAA | POST | /test-view/history/clearall | - | 1 | clear_history | 48 B | 2026-11-20 05:02:25 | 2026-11-20 05:02:25 |
+| E0028-AAA | POST | /test-view/history/delete | - | 1 | delete_history | 48 B | 2026-11-20 05:02:25 | 2026-11-20 05:02:25 |
+| E0011-AAA | GET | /test-view/history/load | - | 1 | ws_load_history | 48 B | 2026-11-20 05:02:22 | 2026-11-20 05:02:22 |
+| E0013-AAA | GET | /test-view/run | - | 1 | ws_run | 48 B | 2026-11-20 05:02:22 | 2026-11-20 05:02:22 |
+| E0016-AAA | POST | /test-view/save/bookmark | - | 1 | save_bookmark | 48 B | 2026-11-20 05:02:23 | 2026-11-20 05:02:23 |
+| E0015-AAA | POST | /test-view/save/history | - | 1 | save_history | 48 B | 2026-11-20 05:02:22 | 2026-11-20 05:02:23 |
+| E0014-AAA | POST | /test-view/stop | - | 1 | stop | 48 B | 2026-11-20 05:02:22 | 2026-11-20 05:02:22 |
+| E0008-AAA | POST | /view/refresh | - | 1 | trigger_view_refresh | 48 B | 2026-11-20 05:02:21 | 2026-11-20 05:02:21 |
+| E0107-AAA | GET | /webview/:name | - | 1 | get_repoview_entry | 48 B | 2026-11-20 05:02:43 | 2026-11-20 05:02:44 |
+| E0111-AAA | POST | /webview/:name/annotation | - | 1 | annotate_repoview_entry | 48 B | 2026-11-20 05:02:44 | 2026-11-20 05:02:44 |
+| E0123-AAA | POST | /webview/:name/convert-to-collection | - | 1 | convert_repoview_to_collection | 48 B | 2026-11-20 05:02:47 | 2026-11-20 05:02:47 |
+| E0113-AAA | POST | /webview/:name/delete | - | 1 | delete_repoview_entry | 48 B | 2026-11-20 05:02:45 | 2026-11-20 05:02:45 |
+| E0115-AAA | POST | /webview/:name/duplicate | - | 1 | duplicate_repoview_entry | 48 B | 2026-11-20 05:02:45 | 2026-11-20 05:02:45 |
+| E0127-AAA | POST | /webview/:name/export | - | 1 | export_repoview | 48 B | 2026-11-20 05:02:48 | 2026-11-20 05:02:48 |
+| E0131-AAA | GET | /webview/:name/front-page | - | 1 | get_front_page | 48 B | 2026-11-20 05:02:49 | 2026-11-20 05:02:49 |
+| E0132-AAA | POST | /webview/:name/front-page | - | 1 | save_front_page | 48 B | 2026-11-20 05:02:49 | 2026-11-20 05:02:49 |
+| E0121-AAA | GET | /webview/:name/membership-tags | - | 1 | list_repoview_tags_for_name | 48 B | 2026-11-20 05:02:47 | 2026-11-20 05:02:47 |
+| E0117-AAA | POST | /webview/:name/membership-tags/add | - | 1 | add_repoview_tag | 48 B | 2026-11-20 05:02:46 | 2026-11-20 05:02:46 |
+| E0119-AAA | POST | /webview/:name/membership-tags/remove | - | 1 | remove_repoview_tag | 48 B | 2026-11-20 05:02:46 | 2026-11-20 05:02:46 |
+| E0133-AAA | GET | /webview/:name/preview | - | 1 | preview_webview_index | 48 B | 2026-11-20 05:02:49 | 2026-11-20 05:02:49 |
+| E0134-AAA | GET | /webview/:name/preview/*path | - | 1 | preview_webview_file | 48 B | 2026-11-20 05:02:49 | 2026-11-20 05:02:50 |
+| E0109-AAA | POST | /webview/:name/rename | - | 1 | rename_repoview_entry | 48 B | 2026-11-20 05:02:44 | 2026-11-20 05:02:44 |
+| E0125-AAA | POST | /webview/:name/takeout | - | 1 | takeout_repoview | 48 B | 2026-11-20 05:02:47 | 2026-11-20 05:02:48 |
+| E0105-AAA | GET | /webview/by-tag/:tagname | - | 1 | repoviews_by_tag | 48 B | 2026-11-20 05:02:43 | 2026-11-20 05:02:43 |
+| E0103-AAA | POST | /webview/combine | - | 1 | combine_repoviews | 48 B | 2026-11-20 05:02:43 | 2026-11-20 05:02:43 |
+| E0095-AAA | POST | /webview/create | - | 1 | create_repoview_entry | 48 B | 2026-11-20 05:02:41 | 2026-11-20 05:02:41 |
+| E0097-AAA | POST | /webview/delete | - | 1 | delete_repoviews_bulk | 48 B | 2026-11-20 05:02:41 | 2026-11-20 05:02:41 |
+| E0101-AAA | POST | /webview/import | - | 1 | import_repoview | 48 B | 2026-11-20 05:02:42 | 2026-11-20 05:02:42 |
+| E0099-AAA | GET | /webview/list | - | 1 | list_repoviews | 48 B | 2026-11-20 05:02:42 | 2026-11-20 05:02:42 |
+| E0063-AAA | POST | /webview/tags/create | - | 1 | create_webview_tag | 48 B | 2026-11-20 05:02:33 | 2026-11-20 05:02:34 |
+| E0064-AAA | POST | /webview/tags/delete | - | 1 | delete_webview_tags | 48 B | 2026-11-20 05:02:34 | 2026-11-20 05:02:34 |
+| E0066-AAA | GET | /webview/tags/list | - | 1 | list_webview_tags | 48 B | 2026-11-20 05:02:34 | 2026-11-20 05:02:34 |
+| E0065-AAA | POST | /webview/tags/rename | - | 1 | rename_webview_tag | 48 B | 2026-11-20 05:02:34 | 2026-11-20 05:02:34 |
