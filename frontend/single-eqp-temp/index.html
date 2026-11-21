@@ -1,0 +1,168 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Single EQP View | HashedTokens</title>
+
+  <link rel="stylesheet" href="./style.css" />
+  <script src="./script.js" defer></script>
+</head>
+
+<body data-theme="light">
+
+  <!-- 1. Application header -->
+  <header class="app-header">
+    <div class="brand">
+      <h1>HashedTokens</h1>
+      <span>Single EQP View</span>
+    </div>
+
+    <div class="header-actions">
+      <button id="theme-toggle" type="button">
+        Toggle Theme
+      </button>
+
+      <button id="download-btn" type="button" disabled>
+        Download
+      </button>
+
+      <button id="share-btn" type="button" disabled>
+        Share
+      </button>
+    </div>
+  </header>
+
+  <main class="dashboard">
+
+    <!-- 2. Endpoint information -->
+    <section class="overview">
+
+      <div class="panel endpoint-panel">
+        <h2>Endpoint</h2>
+        <p id="endpoint-path">Endpoint Path</p>
+        <span id="endpoint-id">Endpoint ID</span>
+      </div>
+
+      <div class="panel stats-panel">
+        <h2>Global Stats</h2>
+
+        <div class="stats-grid">
+          <div>
+            <span>Total CRUDs</span>
+            <strong id="total-cruds">0</strong>
+          </div>
+
+          <div>
+            <span>Total QPs</span>
+            <strong id="total-qps">0</strong>
+          </div>
+
+          <div>
+            <span>Total Tags</span>
+            <strong id="total-tags">0</strong>
+          </div>
+
+          <div>
+            <span>Data Size</span>
+            <strong id="data-size">0 KB</strong>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- 3. CRUD operations -->
+    <section class="panel crud-section">
+      <h2>CRUD Operations</h2>
+
+      <div class="table-wrapper">
+        <table class="crud-table">
+          <thead>
+            <tr>
+              <th>EID</th>
+              <th>Method</th>
+              <th>QP Count</th>
+              <th>Tags</th>
+              <th>Annotation</th>
+            </tr>
+          </thead>
+
+          <tbody id="crud-table-body">
+            <!-- JavaScript will insert CRUD rows -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 4. Detail workspace -->
+    <section class="workspace">
+
+      <!-- Local and Global tags -->
+      <aside class="tags-column">
+
+        <div class="panel tags-panel">
+          <h2>Local Tags</h2>
+          <div id="local-tags">
+            Select a CRUD operation
+          </div>
+        </div>
+
+        <div class="panel tags-panel">
+          <h2>Global Tags</h2>
+          <div id="global-tags">
+            All endpoint tags
+          </div>
+        </div>
+
+      </aside>
+
+      <!-- Vertical QP selector -->
+      <aside class="panel qp-column">
+        <h2>QP Selector</h2>
+
+        <div id="qp-list" class="qp-list">
+          <!-- JavaScript will insert QP buttons -->
+        </div>
+      </aside>
+
+      <!-- Request details -->
+      <section class="panel data-panel">
+        <div class="panel-header">
+          <h2>Request</h2>
+          <button id="copy-request" type="button" disabled>
+            Copy
+          </button>
+        </div>
+
+        <div class="data-meta" id="request-meta">
+          Method, Headers, Size
+        </div>
+
+        <pre id="request-body">Select a QP</pre>
+      </section>
+
+      <!-- Response details -->
+      <section class="panel data-panel">
+        <div class="panel-header">
+          <h2>Response</h2>
+          <button id="copy-response" type="button" disabled>
+            Copy
+          </button>
+        </div>
+
+        <div class="data-meta" id="response-meta">
+          Status, Headers, Size
+        </div>
+
+        <pre id="response-body">Select a QP</pre>
+      </section>
+
+    </section>
+
+  </main>
+
+</body>
+</html>
