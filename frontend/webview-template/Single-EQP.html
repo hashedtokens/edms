@@ -9,18 +9,267 @@
 		<title>Document</title>
 		<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 		<style>
-			.rqno.active {
-				background-color: #ecfeff !important;
-				border: 2px solid #0f766e !important;
-				box-shadow: 0 12px 28px rgba(15, 118, 110, 0.18) !important;
-				transform: translateY(-1px);
+			.method-badge {
+				display: inline-block;
+				padding: 4px 12px;
+				border-radius: 4px;
+				font-size: 12px;
+				font-weight: 700;
+				text-transform: uppercase;
+				border: 1px solid transparent;
+			}
+			.method-GET {
+				background: rgba(16, 185, 129, 0.15);
+				color: #34d399;
+				border-color: rgba(16, 185, 129, 0.3);
+			}
+			.method-POST {
+				background: rgba(245, 158, 11, 0.15);
+				color: #fbbf24;
+				border-color: rgba(245, 158, 11, 0.3);
+			}
+			.method-PUT {
+				background: rgba(14, 165, 233, 0.15);
+				color: #38bdf8;
+				border-color: rgba(14, 165, 233, 0.3);
+			}
+			.method-PATCH {
+				background: rgba(139, 92, 246, 0.15);
+				color: #a78bfa;
+				border-color: rgba(139, 92, 246, 0.3);
+			}
+			.method-DELETE {
+				background: rgba(244, 63, 94, 0.15);
+				color: #fb7185;
+				border-color: rgba(244, 63, 94, 0.3);
+			}
+
+			.tag-chip {
+				display: inline-block;
+				padding: 6px 12px;
+				border-radius: 8px;
+				font-size: 14px;
+				background: rgba(59, 130, 246, 0.18);
+				color: #93c5fd;
+			}
+
+			.method-row {
+				border-top: 1px solid rgba(255, 255, 255, 0.05);
+				cursor: pointer;
+				transition: background 0.2s;
+			}
+			.method-row:hover {
+				background: rgba(255, 255, 255, 0.05);
+			}
+			.method-row.row-active {
+				background: #16233d;
+			}
+			.method-row td {
+				padding: 20px 24px;
+				color: #e2e8f0;
+			}
+
+			.qp-btn {
+				display: block;
+				width: 100%;
+				text-align: left;
+				padding: 12px 16px;
+				margin-bottom: 12px;
+				border-radius: 8px;
+				background: rgba(255, 255, 255, 0.05);
+				color: #cbd5e1;
+				border: 1px solid rgba(255, 255, 255, 0.1);
+				font-weight: 500;
+				cursor: pointer;
+				transition: all 0.2s;
+			}
+			.qp-btn:hover {
+				background: rgba(255, 255, 255, 0.1);
+			}
+			.qp-btn.active {
+				background: rgba(20, 184, 166, 0.12);
+				border-color: rgba(45, 212, 191, 0.6);
+				color: #5eead4;
+			}
+
+			.status-badge {
+				font-size: 12px;
+				padding: 2px 8px;
+				border-radius: 4px;
+			}
+			.status-ok {
+				background: rgba(16, 185, 129, 0.2);
+				color: #34d399;
+			}
+			.status-client {
+				background: rgba(244, 63, 94, 0.2);
+				color: #fb7185;
+			}
+			.status-server {
+				background: rgba(245, 158, 11, 0.2);
+				color: #fbbf24;
+			}
+
+			/* ========================================
+			   Light Theme Styles
+			======================================== */
+			body[data-theme="light"] {
+				background-color: #f4f6fa !important;
+				color: #172033 !important;
+			}
+
+			body[data-theme="light"] .navbar {
+				background-color: #ffffff !important;
+				border-color: #dce3ec !important;
+			}
+
+			body[data-theme="light"] .navbar h1 {
+				color: #172033 !important;
+			}
+
+			body[data-theme="light"] .navbar a {
+				color: #475569 !important;
+			}
+
+			body[data-theme="light"] .navbar a:hover {
+				color: #0f172a !important;
+				border-color: #0d9488 !important;
+			}
+
+			body[data-theme="light"] #theme-toggle {
+				background-color: #f1f5f9 !important;
+				color: #334155 !important;
+				border-color: #cbd5e1 !important;
+			}
+
+			body[data-theme="light"] #theme-toggle:hover {
+				background-color: #e2e8f0 !important;
+				color: #0f172a !important;
+			}
+
+			/* Card surfaces */
+			body[data-theme="light"] .bg-\[\#0f1724\] {
+				background-color: #ffffff !important;
+				border-color: #dce3ec !important;
+				box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+			}
+
+			body[data-theme="light"] .border-white\/10 {
+				border-color: #dce3ec !important;
+			}
+
+			/* Text colors */
+			body[data-theme="light"] .text-white {
+				color: #172033 !important;
+			}
+
+			body[data-theme="light"] .text-slate-200 {
+				color: #172033 !important;
+			}
+
+			body[data-theme="light"] .text-slate-400 {
+				color: #64748b !important;
+			}
+
+			body[data-theme="light"] .text-slate-300 {
+				color: #475569 !important;
+			}
+
+			/* Actions */
+			body[data-theme="light"] button.bg-white\/5 {
+				background-color: #f1f5f9 !important;
+				color: #172033 !important;
+				border-color: #cbd5e1 !important;
+			}
+
+			body[data-theme="light"] button.bg-white\/5:hover {
+				background-color: #e2e8f0 !important;
+			}
+
+			/* Table */
+			body[data-theme="light"] table thead {
+				background-color: #f8fafc !important;
+				color: #64748b !important;
+			}
+
+			body[data-theme="light"] .method-row {
+				border-top: 1px solid #f1f5f9 !important;
+			}
+
+			body[data-theme="light"] .method-row:hover {
+				background-color: #f8fafc !important;
+			}
+
+			body[data-theme="light"] .method-row.row-active {
+				background-color: #e0f2fe !important;
+			}
+
+			body[data-theme="light"] .method-row td {
+				color: #172033 !important;
+			}
+
+			/* Tag chips */
+			body[data-theme="light"] .tag-chip {
+				background-color: rgba(59, 130, 246, 0.12) !important;
+				color: #1d4ed8 !important;
+			}
+
+			/* QP buttons */
+			body[data-theme="light"] .qp-btn {
+				background-color: #f8fafc !important;
+				color: #334155 !important;
+				border-color: #e2e8f0 !important;
+			}
+
+			body[data-theme="light"] .qp-btn:hover {
+				background-color: #f1f5f9 !important;
+			}
+
+			body[data-theme="light"] .qp-btn.active {
+				background-color: #ccfbf1 !important;
+				border-color: #14b8a6 !important;
+				color: #0f766e !important;
+			}
+
+			/* Request & Response panels */
+			body[data-theme="light"] .request-panel {
+				color: #166534 !important;
+				background-color: #f8fafc !important;
+				border: 1px solid #e2e8f0;
+				padding: 16px;
+				border-radius: 8px;
+			}
+
+			body[data-theme="light"] .response-panel {
+				color: #1e293b !important;
+				background-color: #f8fafc !important;
+				border: 1px solid #e2e8f0;
+				padding: 16px;
+				border-radius: 8px;
+			}
+
+			body[data-theme="light"] .border-white {
+				border-color: #0f172a !important;
+			}
+
+			body[data-theme="light"] #copy-request,
+			body[data-theme="light"] #copy-response {
+				background-color: #f1f5f9 !important;
+				color: #334155 !important;
+				border: 1px solid #cbd5e1 !important;
+			}
+
+			body[data-theme="light"] #copy-request:hover,
+			body[data-theme="light"] #copy-response:hover {
+				background-color: #e2e8f0 !important;
+				color: #0f172a !important;
 			}
 		</style>
 	</head>
-	<body class="min-h-screen flex flex-col">
-		<div class="navbar py-0 flex-shrink-0 border-b-2 border-black/40">
+	<body data-theme="dark" class="min-h-screen flex flex-col bg-[#0a0f1a] text-slate-200">
+		<div class="navbar py-0 flex-shrink-0 bg-[#0b1220] border-b border-white/10">
 			<nav class="w-full z-50 py-2 transition-all duration-300">
-				<div class="w-full px-2 flex items-center justify-between">
+				<div class="w-full px-4 flex items-center justify-between">
 					<div class="flex items-center gap-3">
 						<div class="w-10 h-10">
 							<img
@@ -29,388 +278,508 @@
 								class="w-full h-full object-contain"
 							/>
 						</div>
-						<h1 class="text-2xl font-bold text-[#2d5016] whitespace-nowrap">
+						<h1 class="text-2xl font-bold text-white whitespace-nowrap">
 							HashedTokens
 						</h1>
 					</div>
 
-					<div class="flex items-center gap-4 justify-around">
-						<a
-							href="/"
-							class="px-5 py-2 font-semibold transition-all duration-300 text-black/80 border-b-2 border-transparent hover:border-black/40"
-						>
-							Home
-						</a>
-						<a
-							href="/about-collection.html"
-							class="px-5 py-2 font-semibold transition-all duration-300 text-black/80 border-b-2 border-transparent hover:border-black/40"
-						>
-							About collection
-						</a>
+					<div class="flex items-center gap-4">
 						<a
 							href="/webview.html"
-							class="px-5 py-2 font-semibold transition-all duration-300 text-black/80 border-b-2 border-transparent hover:border-black/40"
+							class="px-5 py-2 font-semibold transition-all duration-300 text-slate-300 border-b-2 border-transparent hover:text-white hover:border-teal-400"
 						>
 							Cards
 						</a>
-						<a
-							href="/listview.html"
-							class="px-5 py-2 font-semibold transition-all duration-300 text-black/80 border-b-2 border-transparent hover:border-black/40"
+						<button
+							id="theme-toggle"
+							type="button"
+							class="px-4 py-2 text-sm font-semibold rounded-lg border border-white/15 bg-white/5 text-slate-200 hover:bg-white/10 transition cursor-pointer flex items-center gap-2"
+							aria-label="Toggle theme"
 						>
-							List
-						</a>
+							<span id="theme-toggle-icon">☀️</span>
+							<span id="theme-toggle-text">Light Mode</span>
+						</button>
 					</div>
 				</div>
 			</nav>
 		</div>
-		<main class="flex-1 flex overflow-hidden bg-[#f5f7fb]">
-			<!-- Left tags column -->
-			<aside class="w-64 p-6 border-r bg-white flex-shrink-0">
-				<div class="text-sm font-semibold text-gray-600 mb-4">SEGMENTS / TAGS</div>
-				<div
-					class="space-y-3 space-x-3"
-					id="endpoint-tags"
-				>
-					<span class="inline-block px-3 py-2 bg-gray-100 rounded-lg text-sm"
-						>v1-core</span
-					>
-					<span class="inline-block px-3 py-2 bg-gray-100 rounded-lg text-sm"
-						>user-management</span
-					>
-					<span class="inline-block px-3 py-2 bg-gray-100 rounded-lg text-sm"
-						>read-only</span
-					>
-					<span class="inline-block px-3 py-2 bg-gray-100 rounded-lg text-sm"
-						>high-priority</span
-					>
-					<span class="inline-block px-3 py-2 bg-gray-100 rounded-lg text-sm"
-						>secure-layer</span
-					>
-				</div>
-			</aside>
 
-			<!-- Center segments / timeline -->
-			<section class="flex-1 p-6 overflow-auto">
-				<div class="max-w-4xl mx-auto">
-					<div class="mb-6">
-						<div
-							class="text-2xl text-zinc-800 font-bold border border-gray-200 bg-white inline-block px-3 py-1 rounded-lg"
-							id="endpoint-id"
-						>
-							#492
-						</div>
-						<div class="flex justify-between">
-							<h2
-								class="text-2xl font-bold text-gray-700"
-								id="endpoint-path"
-							>
-								/api/v1/users/profile
-							</h2>
-						</div>
-					</div>
-
-					<div class="bg-white rounded-lg p-4 border">
-						<!-- timeline / segments list
-						<div class="space-y-4 QP-list">
-							<div class="flex items-start gap-4">
-								<div
-									class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-semibold"
-								>
-									QP1
-								</div>
-								<div class="flex-1">
-									<div class="font-semibold">GET</div>
-									<div class="text-sm text-gray-500">
-										TAGS: auth, session-token
-									</div>
-								</div>
-							</div>
-						</div> -->
+		<main class="flex-1 overflow-auto p-6 space-y-5">
+			<!-- Top row: endpoint + stats + actions -->
+			<div class="grid grid-cols-1 xl:grid-cols-[1.3fr_1fr_auto] gap-4 items-stretch">
+				<div class="rounded-xl border border-white/10 bg-[#0f1724] p-6">
+					<div class="text-xs font-semibold uppercase tracking-wider text-slate-400">
+						Endpoint
 					</div>
 					<div
-						id="detail-panel"
-						class="w-full h-full p-4 shadow-md border-2 border-gray-200 bg-gray-50 rounded-lg flex flex-col gap-4 overflow-y-auto"
-					>
-						<div
-							id="detail-placeholder"
-							class="p-8 text-center text-gray-600 text-lg hidden"
-						>
-							Selected endpoint will appear here
-						</div>
-					</div>
+						id="endpoint-path"
+						class="text-3xl font-semibold text-white mt-2 break-all"
+					></div>
+					<div
+						id="endpoint-id"
+						class="text-sm text-slate-400 mt-3"
+					></div>
 				</div>
-			</section>
 
-			<!-- Right panels: Request / Response -->
-			<aside class="w-2/5 min-w-[360px] p-6 bg-[#0f1724] text-white overflow-auto">
-				<div class="grid grid-cols-1 gap-6">
-					<div class="bg-[#0b1220] rounded-lg p-4 shadow-lg">
-						<div class="text-sm text-green-300 font-semibold mb-2">REQUEST</div>
-						<pre
-							class="language-json text-sm overflow-auto font-mono text-[#9AE6B4] request-panel"
-						>
-select the QP to view the request</pre
-						>
+				<div
+					class="rounded-xl border border-white/10 bg-[#0f1724] p-6 grid grid-cols-2 md:grid-cols-4 gap-6 items-center"
+				>
+					<div>
+						<div class="text-xs text-slate-400">No. of Operations</div>
+						<div id="stat-operations" class="text-xl font-semibold text-white mt-2"></div>
 					</div>
-					<div class="bg-[#0b1220] rounded-lg p-4 shadow-lg">
-						<div class="text-sm text-green-300 font-semibold mb-2">
-							RESPONSE <span class="text-xs text-slate-300 ml-2">200 OK</span>
-						</div>
-						<pre
-							class="language-json text-sm overflow-auto font-mono text-slate-200 response-panel"
-						>
-responsead</pre
-						>
+					<div>
+						<div class="text-xs text-slate-400">No. of Tags</div>
+						<div id="stat-tags" class="text-xl font-semibold text-white mt-2"></div>
+					</div>
+					<div>
+						<div class="text-xs text-slate-400">Total QPs</div>
+						<div id="stat-qps" class="text-xl font-semibold text-white mt-2"></div>
+					</div>
+					<div>
+						<div class="text-xs text-slate-400">Size (KB / MB)</div>
+						<div id="stat-size" class="text-xl font-semibold text-white mt-2"></div>
 					</div>
 				</div>
-			</aside>
+
+				<div class="flex flex-col gap-3 w-44">
+					<button
+						class="rounded-lg border border-white/15 bg-white/5 px-6 py-3 text-sm font-semibold text-slate-200 hover:bg-white/10 transition"
+					>
+						Download
+					</button>
+					<button
+						class="rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-500 transition"
+					>
+						Share
+					</button>
+				</div>
+			</div>
+
+			<!-- Methods table -->
+			<div class="rounded-xl border border-white/10 bg-[#0f1724] overflow-hidden">
+				<table class="w-full text-left text-sm">
+					<thead class="bg-white/[0.02] text-xs uppercase tracking-wider text-slate-400">
+						<tr>
+							<th class="px-6 py-4 font-medium">EID</th>
+							<th class="px-6 py-4 font-medium">Method</th>
+							<th class="px-6 py-4 font-medium">QP</th>
+							<th class="px-6 py-4 font-medium">Tags</th>
+							<th class="px-6 py-4 font-medium">Annotation</th>
+						</tr>
+					</thead>
+					<tbody id="method-table-body"></tbody>
+				</table>
+			</div>
+
+			<!-- Bottom row: tags + request + response + QP -->
+			<div class="grid grid-cols-1 xl:grid-cols-[200px_1fr_1fr_200px] gap-4 items-start">
+				<div class="rounded-xl border border-white/10 bg-[#0f1724] p-5">
+					<div class="text-sm font-semibold text-slate-200 mb-3">Local Tags</div>
+					<div
+						id="endpoint-tags"
+						class="flex flex-wrap gap-2"
+					></div>
+
+					<div class="text-sm font-semibold text-slate-200 mt-6 mb-3">Global Tags</div>
+					<div
+						id="global-tags"
+						class="flex flex-wrap gap-2"
+					></div>
+				</div>
+
+				<div class="rounded-xl border border-white/10 bg-[#0f1724] p-5">
+					<div class="flex items-center justify-between mb-4">
+						<div class="flex items-center gap-5 text-sm">
+							<span class="text-white font-semibold border-b-2 border-white pb-1">Body</span>
+							<span class="text-slate-400">Headers</span>
+						</div>
+						<div class="flex items-center gap-3">
+							<span class="text-xs text-slate-400"
+								>Method: <span id="request-method"></span> | Size:
+								<span id="request-size"></span
+							></span>
+							<button
+								id="copy-request"
+								type="button"
+								class="bg-white/10 hover:bg-white/20 text-slate-200 text-xs px-3 py-1.5 rounded-md transition cursor-pointer"
+							>
+								Copy
+							</button>
+						</div>
+					</div>
+					<pre
+						class="request-panel language-json text-sm overflow-auto font-mono text-[#9AE6B4] whitespace-pre-wrap break-words"
+					></pre>
+				</div>
+
+				<div class="rounded-xl border border-white/10 bg-[#0f1724] p-5">
+					<div class="flex items-center justify-between mb-4">
+						<div class="flex items-center gap-3 text-sm">
+							<span class="text-white font-semibold border-b-2 border-white pb-1">Body</span>
+							<span class="text-slate-400">Headers</span>
+							<span
+								id="response-status"
+								class="hidden status-badge"
+							></span>
+						</div>
+						<div class="flex items-center gap-3">
+							<span class="text-xs text-slate-400"
+								>Size: <span id="response-size"></span> | Time:
+								<span id="response-time"></span
+							></span>
+							<button
+								id="copy-response"
+								type="button"
+								class="bg-white/10 hover:bg-white/20 text-slate-200 text-xs px-3 py-1.5 rounded-md transition cursor-pointer"
+							>
+								Copy
+							</button>
+						</div>
+					</div>
+					<pre
+						class="response-panel language-json text-sm overflow-auto font-mono text-slate-200 whitespace-pre-wrap break-words"
+					></pre>
+				</div>
+
+				<div class="rounded-xl border border-white/10 bg-[#0f1724] p-5 overflow-auto">
+					<div class="text-sm font-semibold text-slate-200 mb-3">QP</div>
+					<div id="detail-panel"></div>
+				</div>
+			</div>
 		</main>
 
 		<script>
 			const params = new URLSearchParams(window.location.search);
 			const eid = params.get("eid");
-			// document.write(`Endpoint ID: ${eid}`);
 			let CurrentEndpoint = null;
+			let CurrentGroupedData = null;
+			let SelectedMethod = null;
+
+			const fetchJson = (url) => {
+				const separator = url.includes("?") ? "&" : "?";
+				return fetch(`${url}${separator}_=${Date.now()}`, {
+					cache: "no-store",
+				}).then((res) => res.json());
+			};
+
+			const methodBadge = (method) =>
+				`<span class="method-badge method-${method}">${method}</span>`;
+
+			const findPathForEid = (grouped, eid, preferredPath) => {
+				if (preferredPath && grouped?.[preferredPath]) {
+					for (const method of Object.keys(grouped[preferredPath])) {
+						if (grouped[preferredPath][method]?.eid === eid) return preferredPath;
+					}
+				}
+				for (const [path, methods] of Object.entries(grouped || {})) {
+					for (const method of Object.keys(methods || {})) {
+						if (methods[method]?.eid === eid) return path;
+					}
+				}
+				return null;
+			};
+
 			const fetchEndpoint = async (eid) => {
-				CurrentEndpoint = await fetch(`./data/endpoints/${eid}.json`).then((res) =>
-					res.json(),
-				);
-				// console.log("Fetched endpoint data:", CurrentEndpoint);
-				let endpointStr_grpData = await fetch("./data/endpointsGrouped.json").then(
-					(res) => res.json(),
-				);
-				// console.log("Fetched endpointsGrouped data:", endpointStr_grpData);
-				let currentEndpoinSTRData = endpointStr_grpData[CurrentEndpoint.path];
-
-				console.log(currentEndpoinSTRData);
+				CurrentEndpoint = await fetchJson(`./data-new-2/EIDs/${eid}/${eid}.json`);
+				const grouped = await fetchJson("./data-new-2/allEIDs/EndpointGrouped.json");
+				const groupedPath =
+					findPathForEid(grouped, CurrentEndpoint.eid, CurrentEndpoint.path) ||
+					CurrentEndpoint.path;
+				CurrentEndpoint.path = groupedPath;
+				CurrentGroupedData = grouped[groupedPath];
+				if (!CurrentGroupedData || !Object.keys(CurrentGroupedData).length) {
+					CurrentGroupedData = {
+						[CurrentEndpoint.method]: {
+							eid: CurrentEndpoint.eid,
+							qpPairs: CurrentEndpoint.qpPairs,
+							annotation: CurrentEndpoint.annotation,
+							tags: CurrentEndpoint.tags,
+							status: CurrentEndpoint.status,
+						},
+					};
+				}
 				renderEndpoint();
-				renderEndpointStrData(currentEndpoinSTRData);
-			};
-			const getMethodBadgeClasses = (method) => {
-				switch (method) {
-					case "GET":
-						return "bg-emerald-100 text-emerald-700 border border-emerald-200";
-					case "POST":
-						return "bg-amber-100 text-amber-700 border border-amber-200";
-					case "PUT":
-						return "bg-sky-100 text-sky-700 border border-sky-200";
-					case "DELETE":
-						return "bg-rose-100 text-rose-700 border border-rose-200";
-					default:
-						return "bg-gray-100 text-gray-700 border border-gray-200";
-				}
+				renderGlobalTags();
+				renderMethodTable();
+				const methods = Object.keys(CurrentGroupedData);
+				const initial =
+					methods.find((m) => CurrentGroupedData[m].eid === CurrentEndpoint.eid) ||
+					methods[0];
+				if (initial) selectMethod(initial);
 			};
 
-			const renderEndpointStrData = (data) => {
-				if (!data) return;
-				const detailPanel = document.querySelector("#detail-panel");
-				detailPanel.innerHTML = "";
-				for (let method in data) {
-					const detailDiv = document.createElement("div");
-					detailDiv.id = "detail-content";
-					detailDiv.className =
-						"w-full p-1 shadow-md border-2 border-gray-200  rounded-lg";
-
-					detailDiv.innerHTML = `
-					<div class="flex justify-between items-center gap-1">
-								<div class="rounded-lg p-1 text-center text-xl font-bold">
-									<span id="eid-box"></span>
-								</div>
-								<div class="flex gap-2 items-center">
-									<div
-										id="path-box"
-										class="rounded-lg p-1 text-center text-xl font-semibold text-gray-500"
-									>
-										Endpoint String
-									</div>
-									<div
-										id="crud-box"
-										class="rounded-lg p-1 text-center text-xl font-bold"
-									>
-										CRUD TYPE
-									</div>
-								</div>
-							</div>
-							<div
-								id="annotation-box"
-								class="rounded-lg p-1 text-left text-lg font-light max-h-25 overflow-x-auto"
-							>
-								Annotation (word wrapped)
-							</div>
-							<div
-								id="tags-box"
-								class="rounded-lg p-1 overflow-x-auto whitespace-nowrap"
-							>
-								<div class="font-bold text-lg inline-block mr-2">Tags:</div>
-								<div
-									id="tags-list"
-									class="inline-block"
-								></div>
-							</div>`;
-					detailPanel.appendChild(detailDiv);
-					loadAnnotations(data[method], method, detailDiv);
-					loadTags(data[method], detailDiv);
-					loadRQno(data[method], detailDiv);
-				}
-			};
 			const renderEndpoint = () => {
-				if (!CurrentEndpoint) return;
-				document.querySelector("#endpoint-id").textContent =
-					`#${CurrentEndpoint.eid}`;
-				document.querySelector("#endpoint-tags").innerHTML = "";
-				CurrentEndpoint.tags.forEach((element) => {
-					const tagElement = document.createElement("span");
-					tagElement.textContent = element;
-					tagElement.className =
-						"inline-block px-3 py-2 bg-gray-100 rounded-lg text-md";
-					document.querySelector("#endpoint-tags").appendChild(tagElement);
-				});
-
-				document.querySelector("#endpoint-path").textContent = CurrentEndpoint.path;
-
-				// loadRQno(CurrentEndpoint);
-
-				// document.querySelector("#endpoint-method").textContent =
-				// 	CurrentEndpoint.method;
-				// document.querySelector("#endpoint-method").className =
-				// 	`px-2 py-1 border ${color_map[CurrentEndpoint.method] ?? "border-gray-600 bg-gray-100 text-gray-600"} rounded-lg font-bold`;
+				document.querySelector("#endpoint-path").textContent = CurrentEndpoint.path || "";
 			};
 
-			fetchEndpoint(eid);
-			const loadRQno = async (endpoint, detailDiv) => {
-				const QPListDiv = document.createElement("div");
-				QPListDiv.className = "space-y-4 QP-list";
-				for (let i = 0; i < endpoint.qpPairs; i++) {
-					const innerDiv = document.createElement("div");
-					innerDiv.className =
-						"flex items-start gap-4 px-2 cursor-pointer rounded-md hover:bg-gray-100";
-					QPListDiv.appendChild(innerDiv);
-					innerDiv.innerHTML = `
-								<div
-									class="p-2 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-semibold rqno"
-								>
-									QP ${i + 1}
-								</div>
-								<div class="flex-1">
-									<div class="font-semibold">GET</div>
-									<div class="text-sm text-gray-500">
-										TAGS: auth, session-token
-									</div>
-								</div>
-							`;
-					innerDiv.querySelector(".rqno").addEventListener("click", () => {
-						{
-							// remove active class from all rqno elements
-							document.querySelectorAll(".rqno").forEach((el) => {
-								el.classList.remove("active");
-							});
-							// add active class to clicked element
-							innerDiv.querySelector(".rqno").classList.add("active");
-							loadreqPanel(endpoint.eid, i);
-						}
+			const renderGlobalTags = () => {
+				const container = document.querySelector("#global-tags");
+				container.innerHTML = "";
+				const all = new Set();
+				Object.values(CurrentGroupedData).forEach((item) =>
+					(item.tags || []).forEach((tag) => all.add(tag)),
+				);
+				all.forEach((tag) => {
+					const span = document.createElement("span");
+					span.className = "tag-chip";
+					span.textContent = tag;
+					container.appendChild(span);
+				});
+			};
+
+			const renderMethodTable = () => {
+				const tbody = document.querySelector("#method-table-body");
+				tbody.innerHTML = "";
+				Object.entries(CurrentGroupedData).forEach(([method, item]) => {
+					const tr = document.createElement("tr");
+					tr.className = "method-row";
+					tr.dataset.method = method;
+					tr.innerHTML = `
+						<td>${item.eid || ""}</td>
+						<td>${methodBadge(method)}</td>
+						<td>${item.qpPairs ?? ""}</td>
+						<td>${(item.tags || []).join(", ")}</td>
+						<td>${item.annotation || ""}</td>
+					`;
+					tr.addEventListener("click", () => selectMethod(method));
+					tbody.appendChild(tr);
+				});
+				document.querySelector("#stat-operations").textContent =
+					Object.keys(CurrentGroupedData).length;
+			};
+
+			const renderTags = (tags) => {
+				const container = document.querySelector("#endpoint-tags");
+				container.innerHTML = "";
+				(tags || []).forEach((tag) => {
+					const span = document.createElement("span");
+					span.className = "tag-chip";
+					span.textContent = tag;
+					container.appendChild(span);
+				});
+			};
+
+			const selectMethod = (method) => {
+				const item = CurrentGroupedData[method];
+				if (!item) return;
+				SelectedMethod = method;
+				document.querySelectorAll("#method-table-body tr").forEach((tr) => {
+					tr.classList.toggle("row-active", tr.dataset.method === method);
+				});
+				document.querySelector("#endpoint-id").textContent = item.eid
+					? `#${item.eid}`
+					: "";
+				renderTags(item.tags);
+				document.querySelector("#stat-tags").textContent = (item.tags || []).length;
+				document.querySelector("#stat-qps").textContent = item.qpPairs ?? "";
+				document.querySelector("#stat-size").textContent = "";
+				renderQPs(item);
+			};
+
+			const renderQPs = (item) => {
+				const container = document.querySelector("#detail-panel");
+				container.innerHTML = "";
+				for (let i = 0; i < (item.qpPairs || 0); i++) {
+					const btn = document.createElement("button");
+					btn.type = "button";
+					btn.className = "qp-btn";
+					btn.textContent = `QP ${i + 1}`;
+					btn.addEventListener("click", () => {
+						container
+							.querySelectorAll(".qp-btn")
+							.forEach((b) => b.classList.remove("active"));
+						btn.classList.add("active");
+						loadreqPanel(item.eid, i);
 					});
+					container.appendChild(btn);
 				}
-				detailDiv.appendChild(QPListDiv);
-			};
-
-			const loadAnnotations = async (endpoint, method, detailDiv) => {
-				// const method = endpoint.method.toUpperCase();
-				const methodBadgeClasses = getMethodBadgeClasses(method);
-
-				const eidBox = detailDiv.querySelector("#eid-box");
-				const crudBox = detailDiv.querySelector("#crud-box");
-				const pathBox = detailDiv.querySelector("#path-box");
-				const annotationBox = detailDiv.querySelector("#annotation-box");
-
-				// showDetailPlaceholder(false);
-				if (eidBox) eidBox.innerText = endpoint.eid || "";
-				if (crudBox)
-					crudBox.innerHTML = `<span class="inline-block ${methodBadgeClasses} px-3 py-1 rounded uppercase font-bold">${method}</span>`;
-				if (pathBox) pathBox.innerText = endpoint.path || "";
-				if (annotationBox) annotationBox.innerText = endpoint.annotation || "";
-			};
-
-			const loadTags = async (endpoint, detailDiv) => {
-				const tagsList = detailDiv.querySelector("#tags-list");
-				if (!tagsList) return;
-				tagsList.innerHTML = "";
-
-				(endpoint.tags || []).forEach((tag) => {
-					const tagElement = document.createElement("span");
-					tagElement.className =
-						"inline-block bg-blue-200 text-blue-800 text-sm px-2 py-1 rounded-lg mr-2";
-					tagElement.innerText = tag;
-					tagsList.appendChild(tagElement);
-				});
+				const first = container.querySelector(".qp-btn");
+				if (first) first.click();
 			};
 
 			const loadreqPanel = async (eid, rqIndex) => {
-				console.log(
-					"Loading request panel for EID:",
-					eid,
-					"RQ Index:",
-					rqIndex + 1,
-				);
-				let responseD;
-				try {
-					responseD = await fetch(
-						`./data/requests/${eid}-request${rqIndex + 1}.json`,
-					).then((res) => res.json());
-					console.log("Received request data:", responseD);
-				} catch (error) {
-					responseD = await fetch(`./data/requests/E0006-GL-request1.json`).then(
-						(res) => res.json(),
-					);
-					console.log("loaded default request data due to error:", error);
-				}
-
 				const requestPanel = document.querySelector(".request-panel");
-				if (!requestPanel) {
-					console.error("Request panel element not found");
-					return;
-				}
-
-				requestPanel.innerHTML = `
-	 <pre class="text-sm whitespace-pre-wrap break-words">${JSON.stringify(responseD.body, null, 2)}</pre>
-	`;
-
-				// document.getElementById("size").innerText =
-				// 	`${responseD.meta_data.request_size}`;
-				loadresPanel(eid, rqIndex);
-			};
-			const loadresPanel = async (eid, rqIndex) => {
-				console.log(
-					"Loading response panel for EID:",
-					eid,
-					"RQ Index:",
-					rqIndex + 1,
-				);
-				let responseD;
 				try {
-					responseD = await fetch(
-						`./data/responses/${eid}-response${rqIndex + 1}.json`,
-					).then((res) => res.json());
-					console.log("Received response data:", responseD);
-				} catch (error) {
-					responseD = await fetch(`./data/responses/E0006-GL-response1.json`).then(
-						(res) => res.json(),
+					const data = await fetchJson(
+						`./data-new-2/EIDs/${eid}/request-${rqIndex + 1}.json`,
 					);
-					console.log("loaded default response data due to error:", error);
+					requestPanel.innerHTML = `<pre class="text-sm whitespace-pre-wrap break-words">${JSON.stringify(data.body, null, 2)}</pre>`;
+					document.querySelector("#request-method").textContent =
+						data.meta_data?.method || "";
+					document.querySelector("#request-size").textContent =
+						data.meta_data?.request_size || "";
+					loadresPanel(eid, rqIndex);
+				} catch (error) {
+					requestPanel.textContent = "Failed to load request.";
+					console.error("Failed to load request:", error);
 				}
-
-				const responsePanel = document.querySelector(".response-panel");
-				if (!responsePanel) {
-					console.error("Response panel element not found");
-					return;
-				}
-
-				responsePanel.innerHTML = `
-	 <pre class="text-sm whitespace-pre-wrap break-words">${JSON.stringify(responseD.body, null, 2)}</pre>
-	`;
-
-				// document.getElementById("size").innerText =
-				// 	`${responseD.meta_data.request_size}`;
 			};
+
+			const loadresPanel = async (eid, rqIndex) => {
+				const responsePanel = document.querySelector(".response-panel");
+				try {
+					const data = await fetchJson(
+						`./data-new-2/EIDs/${eid}/response-${rqIndex + 1}.json`,
+					);
+					responsePanel.innerHTML = `<pre class="text-sm whitespace-pre-wrap break-words">${JSON.stringify(data.body, null, 2)}</pre>`;
+					document.querySelector("#response-size").textContent =
+						data.meta_data?.response_size || "";
+					document.querySelector("#response-time").textContent =
+						data.meta_data?.response_time || "";
+					const status = document.querySelector("#response-status");
+					const code = data.meta_data?.status_code;
+					if (code) {
+						const numeric = Number(code);
+						status.textContent = code;
+						status.className =
+							"status-badge " +
+							(numeric >= 200 && numeric < 300
+								? "status-ok"
+								: numeric >= 400 && numeric < 500
+									? "status-client"
+									: "status-server");
+					} else {
+						status.textContent = "";
+						status.className = "hidden status-badge";
+					}
+					updateSizeStat();
+				} catch (error) {
+					responsePanel.textContent = "Failed to load response.";
+					console.error("Failed to load response:", error);
+				}
+			};
+
+			const updateSizeStat = () => {
+				const toKB = (value) => {
+					const match = String(value).match(/([\d.]+)\s*(KB|MB|B)/i);
+					if (!match) return 0;
+					const amount = parseFloat(match[1]);
+					const unit = match[2].toUpperCase();
+					if (unit === "MB") return amount * 1024;
+					if (unit === "B") return amount / 1024;
+					return amount;
+				};
+				const total =
+					toKB(document.querySelector("#request-size").textContent) +
+					toKB(document.querySelector("#response-size").textContent);
+				const sizeEl = document.querySelector("#stat-size");
+				if (total > 0) {
+					sizeEl.textContent =
+						total >= 1024
+							? `${(total / 1024).toFixed(2)} MB`
+							: `${total.toFixed(2)} KB`;
+				}
+			};
+
+			const copyTimeouts = new WeakMap();
+
+			const copyPanelContent = async (panelSelector, button) => {
+				const panel = document.querySelector(panelSelector);
+				if (!panel || !button) return;
+
+				const pre = panel.querySelector("pre");
+				const content = (pre ? pre.textContent : panel.textContent || "").trim();
+				if (!content || content.startsWith("Failed to load")) return;
+
+				let success = false;
+				try {
+					if (navigator.clipboard && window.isSecureContext) {
+						await navigator.clipboard.writeText(content);
+						success = true;
+					} else {
+						throw new Error("Clipboard API unavailable");
+					}
+				} catch (err) {
+					try {
+						const textarea = document.createElement("textarea");
+						textarea.value = content;
+						textarea.style.position = "fixed";
+						textarea.style.left = "-9999px";
+						textarea.style.top = "0";
+						textarea.style.opacity = "0";
+						document.body.appendChild(textarea);
+						textarea.focus();
+						textarea.select();
+						success = document.execCommand("copy");
+						document.body.removeChild(textarea);
+					} catch (fallbackErr) {
+						console.error("Copy failed:", fallbackErr);
+						success = false;
+					}
+				}
+
+				if (copyTimeouts.has(button)) {
+					clearTimeout(copyTimeouts.get(button));
+				}
+
+				if (success) {
+					button.textContent = "Copied!";
+					button.classList.add("text-emerald-400");
+					button.classList.remove("text-rose-400");
+				} else {
+					button.textContent = "Failed";
+					button.classList.add("text-rose-400");
+					button.classList.remove("text-emerald-400");
+				}
+
+				const timeoutId = setTimeout(() => {
+					button.textContent = "Copy";
+					button.classList.remove("text-emerald-400", "text-rose-400");
+					copyTimeouts.delete(button);
+				}, 1500);
+
+				copyTimeouts.set(button, timeoutId);
+			};
+
+			document.getElementById("copy-request")?.addEventListener("click", (e) => {
+				copyPanelContent(".request-panel", e.currentTarget);
+			});
+
+			document.getElementById("copy-response")?.addEventListener("click", (e) => {
+				copyPanelContent(".response-panel", e.currentTarget);
+			});
+
+			/* ========================================
+			   Theme Toggle Functionality
+			======================================== */
+			const themeToggleBtn = document.getElementById("theme-toggle");
+			const themeIcon = document.getElementById("theme-toggle-icon");
+			const themeText = document.getElementById("theme-toggle-text");
+
+			const applyTheme = (theme) => {
+				document.body.dataset.theme = theme;
+				if (theme === "light") {
+					if (themeIcon) themeIcon.textContent = "🌙";
+					if (themeText) themeText.textContent = "Dark Mode";
+					themeToggleBtn?.setAttribute("aria-label", "Switch to dark mode");
+				} else {
+					if (themeIcon) themeIcon.textContent = "☀️";
+					if (themeText) themeText.textContent = "Light Mode";
+					themeToggleBtn?.setAttribute("aria-label", "Switch to light mode");
+				}
+				try {
+					localStorage.setItem("edms-theme", theme);
+				} catch {}
+			};
+
+			const savedTheme = (() => {
+				try {
+					return localStorage.getItem("edms-theme") || "dark";
+				} catch {
+					return "dark";
+				}
+			})();
+
+			applyTheme(savedTheme);
+
+			themeToggleBtn?.addEventListener("click", () => {
+				const currentTheme = document.body.dataset.theme === "light" ? "light" : "dark";
+				const newTheme = currentTheme === "light" ? "dark" : "light";
+				applyTheme(newTheme);
+			});
+
+			fetchEndpoint(eid);
 		</script>
 	</body>
 </html>
