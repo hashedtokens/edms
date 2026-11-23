@@ -44,6 +44,8 @@ use crate::{
         repoview_tables::{generate_tables_blocking, parse_approach_line, Approach},
         view_catalog::{open_catalog, open_existing_membership, open_membership, validate_folder_name},
         view_flavor::Flavor,
+        webview_front_page::MAX_FRONT_PAGE_BYTES,
+        webview_preview::DEFAULT_PAGE as INDEX_FILE,
     },
     state::AppState,
 };
@@ -1059,6 +1061,10 @@ fn finish_import_blocking(state: &AppState, context: &ImportContext, copy_result
         let _ = crate::handlers::webview_front_page::ensure_default(&dir);
     }
 
+    // ...and so does its Full Preview page. Without it the imported WebView
+    // would have no preview until its front page is saved again.
+    let index_html_restored = flavor == Flavor::Web && restore_index_html(&src, &dir);
+
     // The takeout's Tables name EIDs that no longer exist here, so rebuild
     // them (same approach) rather than copying stale files.
     let tables_regenerated = flavor.has_tables()
@@ -1076,8 +1082,28 @@ fn finish_import_blocking(state: &AppState, context: &ImportContext, copy_result
         "mapping": mapping,
         "skipped": skipped,
         "tables_regenerated": tables_regenerated,
-        "front_page_restored": front_page_restored
+        "front_page_restored": front_page_restored,
+        "index_html_restored": index_html_restored
     }))
+}
+
+/// Copies a WebView's `index.html` (its Full Preview page) from an export
+/// into the imported WebView's folder, as is: like the front page it names no
+/// EIDs. Only a real file counts (a symlink in a folder someone handed us is
+/// not followed), it has to be text, not blank and no bigger than a front
+/// page may be - the limits a save applies. Anything else is skipped, not an
+/// error: the WebView is imported either way. Returns whether it was copied.
+fn restore_index_html(src: &std::path::Path, dir: &std::path::Path) -> bool {
+    let from = src.join(INDEX_FILE);
+    let is_plain_file = std::fs::symlink_metadata(&from).map(|m| m.is_file()).unwrap_or(false);
+    if !is_plain_file {
+        return false;
+    }
+    std::fs::read_to_string(&from)
+        .ok()
+        .filter(|html| !html.trim().is_empty() && html.len() <= MAX_FRONT_PAGE_BYTES)
+        .map(|html| std::fs::write(dir.join(INDEX_FILE), html).is_ok())
+        .unwrap_or(false)
 }
 
 #[cfg(test)]
@@ -1119,6 +1145,59 @@ mod tests {
                 created_at: Some("2026-10-01 09:00:00".into()),
                 updated_at: Some("2026-10-05 12:30:00".into()),
             }],
+        }
+    }
+
+    #[test]
+    fn an_exported_index_html_is_copied_into_the_imported_webview() {
+        let (src, dir) = (temp_dir("idx-src"), temp_dir("idx-dst"));
+        std::fs::write(src.join("index.html"), "<!doctype html><h1>my page</h1>").unwrap();
+        assert!(restore_index_html(&src, &dir));
+        assert_eq!(std::fs::read_to_string(dir.join("index.html")).unwrap(), "<!doctype html><h1>my page</h1>");
+        std::fs::remove_dir_all(src).unwrap();
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn an_export_without_a_usable_index_html_restores_nothing() {
+        let (src, dir) = (temp_dir("idx-none-src"), temp_dir("idx-none-dst"));
+        // none at all
+        assert!(!restore_index_html(&src, &dir));
+        // blank
+        std::fs::write(src.join("index.html"), "  \n ").unwrap();
+        assert!(!restore_index_html(&src, &dir));
+        // not text
+        std::fs::write(src.join("index.html"), [0xff_u8, 0xfe, 0x00, 0x80]).unwrap();
+        assert!(!restore_index_html(&src, &dir));
+        // a directory called index.html
+        std::fs::remove_file(src.join("index.html")).unwrap();
+        std::fs::create_dir(src.join("index.html")).unwrap();
+        assert!(!restore_index_html(&src, &dir));
+        assert!(!dir.join("index.html").exists());
+        std::fs::remove_dir_all(src).unwrap();
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn an_index_html_over_the_front_page_limit_is_skipped() {
+        let (src, dir) = (temp_dir("idx-big-src"), temp_dir("idx-big-dst"));
+        std::fs::write(src.join("index.html"), "a".repeat(MAX_FRONT_PAGE_BYTES + 1)).unwrap();
+        assert!(!restore_index_html(&src, &dir));
+        assert!(!dir.join("index.html").exists());
+        std::fs::remove_dir_all(src).unwrap();
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_symlinked_index_html_is_not_followed() {
+        let (src, dir, other) = (temp_dir("idx-link-src"), temp_dir("idx-link-dst"), temp_dir("idx-link-other"));
+        std::fs::write(other.join("secret.html"), "<p>secret</p>").unwrap();
+        std::os::unix::fs::symlink(other.join("secret.html"), src.join("index.html")).unwrap();
+        assert!(!restore_index_html(&src, &dir));
+        assert!(!dir.join("index.html").exists());
+        for d in [src, dir, other] {
+            std::fs::remove_dir_all(d).unwrap();
         }
     }
 
