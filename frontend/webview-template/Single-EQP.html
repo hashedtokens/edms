@@ -296,7 +296,6 @@
 							class="px-4 py-2 text-sm font-semibold rounded-lg border border-white/15 bg-white/5 text-slate-200 hover:bg-white/10 transition cursor-pointer flex items-center gap-2"
 							aria-label="Toggle theme"
 						>
-							<span id="theme-toggle-icon">☀️</span>
 							<span id="theme-toggle-text">Light Mode</span>
 						</button>
 					</div>
@@ -392,7 +391,6 @@
 					<div class="flex items-center justify-between mb-4">
 						<div class="flex items-center gap-5 text-sm">
 							<span class="text-white font-semibold border-b-2 border-white pb-1">Body</span>
-							<span class="text-slate-400">Headers</span>
 						</div>
 						<div class="flex items-center gap-3">
 							<span class="text-xs text-slate-400"
@@ -417,7 +415,6 @@
 					<div class="flex items-center justify-between mb-4">
 						<div class="flex items-center gap-3 text-sm">
 							<span class="text-white font-semibold border-b-2 border-white pb-1">Body</span>
-							<span class="text-slate-400">Headers</span>
 							<span
 								id="response-status"
 								class="hidden status-badge"
@@ -750,11 +747,9 @@
 			const applyTheme = (theme) => {
 				document.body.dataset.theme = theme;
 				if (theme === "light") {
-					if (themeIcon) themeIcon.textContent = "🌙";
 					if (themeText) themeText.textContent = "Dark Mode";
 					themeToggleBtn?.setAttribute("aria-label", "Switch to dark mode");
 				} else {
-					if (themeIcon) themeIcon.textContent = "☀️";
 					if (themeText) themeText.textContent = "Light Mode";
 					themeToggleBtn?.setAttribute("aria-label", "Switch to light mode");
 				}
