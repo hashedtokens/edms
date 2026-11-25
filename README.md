@@ -2,8 +2,7 @@
 <img src="images/htlogo-text.png" width="250"/>
 
 # Endpoint Data Management System (EDMS)
-_Standalone system for a team building microservices_
-
+_All in one tool for a team building microservices_
 
 ## Quick Start
 * EDMS runs locally as a standalone service
