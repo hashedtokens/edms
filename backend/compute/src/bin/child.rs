@@ -11,6 +11,7 @@ use std::time::Instant;
 
 // Re-use all the handler inner functions and request types
 use compute::api::handlers::{
+    PdfCollectionExportRequest, export_pdf_collection_inner,
     BookmarkRequest, CrudOperationsRequest, EndpointWriteRequest, ExportCollectionRequest,
     ExportMergeRequest, FileConversionRequest, HeadersDoc, ImportZipRequest,
     MarkActiveFolderRequest, MarkdownRequest, MetaRequest, RequestDoc, ResponseDoc, RunTestRequest,
@@ -338,6 +339,13 @@ async fn dispatch(task: &str, payload: Value) -> (bool, Value, Option<String>) {
         // File-conversion recipe: deserialize the three-field payload, call the
         // matching compute function, then send its output_path in the callback.
         "convert_to_pdf" => run(payload, |p: FileConversionRequest| convert_to_pdf_inner(p)).await,
+
+        "export_pdf_collection" => {
+            run(payload, |p: PdfCollectionExportRequest| {
+                export_pdf_collection_inner(p)
+            })
+            .await
+        }
 
         "convert_to_html" => {
             run(payload, |p: FileConversionRequest| convert_to_html_inner(p)).await
