@@ -2198,71 +2198,73 @@
   // PREVIEW
   // ============================================================
 
-  function previewWebView(id, options = {}) {
-    if (typeof window.previewWebViewPage === "function") {
-      const localWeb = getWeb(id);
-      const defaultLoadWebView = async (webId) => {
-        const targetWeb = getWeb(webId) || localWeb || {};
-        const inMemoryContent =
-          targetWeb.front_page ||
-          targetWeb.content ||
-          targetWeb.frontpageContent ||
-          targetWeb.frontPageContent;
-        if (inMemoryContent && typeof inMemoryContent === "object") {
-          return { ...targetWeb, front_page: inMemoryContent, content: inMemoryContent };
-        }
-        try {
-          const webName = targetWeb.name || webId;
-          const endpoint = window.WEBVIEW_FRONT_PAGE_API_URL
-            ? window.WEBVIEW_FRONT_PAGE_API_URL.replace(
-              ":name",
-              encodeURIComponent(String(webName))
-            ).replace(
-              ":id",
-              encodeURIComponent(String(webName))
-            )
-            : `/api/webview/${encodeURIComponent(String(webName))}/front-page`;
-          const res = await fetch(endpoint, {
-            headers: { Accept: "application/json" },
-          });
-          if (res.ok) {
-            const payload = await res.json();
-            const data = payload && payload.data ? payload.data : payload;
-            const doc =
-              data.front_page || data.content || data.frontpageContent || data.frontPageContent;
-            if (doc && typeof doc === "object") {
-              return {
-                ...targetWeb,
-                ...data,
-                front_page: doc,
-                content: doc,
-                name: targetWeb.name || data.name,
-                annotation: targetWeb.annotation || data.annotation,
-              };
-            }
-          }
-        } catch (e) {
-          console.warn("Could not fetch WebView frontpage content:", e);
-        }
+  async function previewWebView(id, options = {}) {
+    const web = getWeb(id);
 
-        if (targetWeb && targetWeb.name) {
-          return {
-            ...targetWeb,
-            isMock: true,
-            content: window.WEBVIEW_PREVIEW_MOCK_DATA?.content,
-          };
-        }
-        throw new Error("No WebView content returned");
-      };
-
-      return window.previewWebViewPage(id, {
-        loadWebView: options.loadWebView || defaultLoadWebView,
-        ...options,
-      });
+    if (!web) {
+      showAlert("Web View not found.");
+      return;
     }
 
-    const web = getWeb(id);
-    return web;
+    const name = web.name || id;
+    const previewBase = window.WEBVIEW_PREVIEW_API_URL || API_BASE;
+    const previewUrl = `${previewBase}/webview/${encodeURIComponent(String(name))}/preview`;
+
+    // -------------------------------------------------------
+    // Backend "Full Preview": open the WebView folder's index.html
+    // in a new tab. The backend answers HTTP 404 with
+    // { ok: false, error } when the WebView doesn't exist or its
+    // folder has no index.html yet — nothing is generated here.
+    // -------------------------------------------------------
+    try {
+      const res = await fetch(previewUrl, {
+        headers: { Accept: "text/html, application/json" },
+      });
+
+      if (res.status === 404) {
+        let detail = "this WebView folder has no index.html yet";
+        try {
+          const payload = await res.json();
+          if (payload && typeof payload === "object" && payload.error) {
+            detail = String(payload.error);
+          }
+        } catch {
+          // keep the default detail
+        }
+        const message = `Nothing to preview yet — ${detail}.`;
+        if (typeof window.showToast === "function") {
+          window.showToast(message, "warning");
+        } else {
+          showAlert(message);
+        }
+        return;
+      }
+
+      if (!res.ok) {
+        throw new Error(`Preview returned HTTP ${res.status}`);
+      }
+
+      const previewWindow = window.open(previewUrl, "_blank");
+
+      if (!previewWindow) {
+        showAlert(
+          "The preview was blocked by your browser. Allow pop-ups for this site and try again.",
+        );
+        return;
+      }
+    } catch (error) {
+      // The backend preview route is not available (not deployed yet or
+      // unreachable): fall back to the existing client-side preview built
+      // from front-page.json.
+      console.warn(
+        "Backend WebView preview unavailable, using client-side fallback:",
+        error,
+      );
+      if (typeof window.previewWebViewPage === "function") {
+        return window.previewWebViewPage(id, options);
+      }
+      showAlert("Could not open the WebView preview.");
+    }
   }
 
   // ============================================================

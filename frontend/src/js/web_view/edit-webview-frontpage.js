@@ -53,13 +53,43 @@ async function loadFrontPage(web) {
   }
 }
 
+/** Render the editor JSON document as a full HTML page string for preview. */
+function renderFullPage(doc, title) {
+  const bodyHtml = typeof window.renderTiptapJsonToHtml === 'function'
+    ? window.renderTiptapJsonToHtml(doc || {})
+    : '';
+  const safeTitle = title ? escapeHtml(String(title)) : 'WebView';
+  const safeBody = bodyHtml.trim()
+    ? bodyHtml
+    : '<p>No content has been added to this WebView yet.</p>';
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${safeTitle}</title>
+</head>
+<body>
+${safeBody}
+</body>
+</html>`;
+}
+
 async function persistFrontPage(web, content) {
   try {
     const webName = web.name || web.id;
+    // Generate the full preview HTML from the same document being saved so the
+    // backend preview (`/webview/:name/preview`) never goes stale. The `html`
+    // field is optional — only send it when non-blank (a blank html is a 400).
+    const fullHtml = renderFullPage(content, web && web.name);
+    const payload = { front_page: content };
+    if (fullHtml.trim()) {
+      payload.html = fullHtml;
+    }
     const response = await fetch(getFrontPageEndpoint(webName), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ front_page: content })
+      body: JSON.stringify(payload)
     });
     if (!response.ok) {
       console.warn(`Could not save front-page content to backend (${response.status}). Using local state only.`);
