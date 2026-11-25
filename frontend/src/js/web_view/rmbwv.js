@@ -71,6 +71,12 @@
                     : ''
                 }
 
+                <!-- PREVIEW -->
+                ${isSingle
+                    ? menuItem('preview', iconPreview(), 'Preview')
+                    : ''
+                }
+
                 <!-- RENAME -->
                 ${isSingle
                     ? menuItem('edit', iconEdit(), 'Rename')
@@ -191,6 +197,12 @@
                 case 'frontpage':
                     if (targetIds.length === 1 && typeof window.openEditWebFrontPageModal === 'function') {
                         window.openEditWebFrontPageModal(targetIds[0]);
+                    }
+                    break;
+
+                case 'preview':
+                    if (targetIds.length === 1) {
+                        view.previewWebView(targetIds[0]);
                     }
                     break;
 
@@ -325,6 +337,13 @@
             return iconBase(`
                 <path d="M12 20h9"/>
                 <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/>
+            `);
+        }
+
+        function iconPreview() {
+            return iconBase(`
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
             `);
         }
 
