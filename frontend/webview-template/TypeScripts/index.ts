@@ -51,6 +51,12 @@ export const ENDPOINT_PER_PAGE = 500;
 export const DEFAULT_CATEGORY = "ALL";
 
 // ─────────────────────────────────────────────
+// ENDPOINT CACHE
+// ─────────────────────────────────────────────
+
+const endpointDetailsCache = new Map<string, Endpoint>();
+
+// ─────────────────────────────────────────────
 // FETCH HELPER (always read fresh data)
 // ─────────────────────────────────────────────
 
@@ -78,9 +84,12 @@ export const LoadEndpointsIndex = async (): Promise<EndpointIndex[]> => {
 export const FetchEndpointDetail = async (
   eid: string,
 ): Promise<Endpoint | null> => {
+  if (endpointDetailsCache.has(eid)) return endpointDetailsCache.get(eid)!;
   try {
     const path = `./${ROOT_FOLDER}/${EIDs_FOLDER}/${eid}/${eid}.json`;
-    return await fetchJson<Endpoint>(path);
+    const data = await fetchJson<Endpoint>(path);
+    endpointDetailsCache.set(eid, data);
+    return data;
   } catch (err) {
     console.error("failed to load", eid, err);
     return null;
