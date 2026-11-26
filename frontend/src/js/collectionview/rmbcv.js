@@ -113,10 +113,10 @@
 
 
             <!-- ============================================ -->
-            <!-- RENAME -->
+            <!-- EDIT (NAME / TAGS / ANNOTATION) -->
             <!-- ============================================ -->
 
-            ${isSingle ? menuItem("rename", iconEdit(), "Rename") : ""}
+            ${isSingle ? menuItem("edit", iconEdit(), "Edit") : ""}
 
 
             <!-- ============================================ -->
@@ -124,13 +124,6 @@
             <!-- ============================================ -->
 
             ${isSingle ? menuItem("duplicate", iconCopy(), "Duplicate") : ""}
-
-
-            <!-- ============================================ -->
-            <!-- MODIFY (TAGS & ANNOTATION) -->
-            <!-- ============================================ -->
-
-            ${isSingle ? menuItem("edittags", iconTag(), "Modify") : ""}
 
 
             ${isSingle
@@ -273,21 +266,10 @@
           break;
 
         // --------------------------------------------
-        // RENAME
+        // EDIT (NAME / TAGS / ANNOTATION)
         // --------------------------------------------
 
-        case "rename":
-          if (targetIds.length === 1) {
-            window.CollectionView.openRenameModal(targetIds[0]);
-          }
-
-          break;
-
-        // --------------------------------------------
-        // EDIT TAGS
-        // --------------------------------------------
-
-        case "edittags":
+        case "edit":
           if (targetIds.length === 1) {
             window.CollectionView.openTagEditor(targetIds[0]);
           }

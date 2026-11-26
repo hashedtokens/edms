@@ -79,13 +79,7 @@
 
                 <!-- RENAME -->
                 ${isSingle
-                    ? menuItem('edit', iconEdit(), 'Rename')
-                    : ''
-                }
-
-                <!-- ANNOTATION -->
-                ${isSingle
-                    ? menuItem('annotation', iconFileText(), 'Edit Annotation')
+                    ? menuItem('edit', iconEdit(), 'edit')
                     : ''
                 }
 
@@ -214,7 +208,7 @@
 
                 case 'annotation':
                     if (targetIds.length === 1) {
-                        view.openAnnotationModal(targetIds[0]);
+                        view.openEditWebModal(targetIds[0]);
                     }
                     break;
 

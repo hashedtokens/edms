@@ -503,12 +503,12 @@
 
 
         // --------------------------------------------------------
-        // Annotation -> annotation modal
+        // Annotation / Name / Tags -> single edit modal
         // --------------------------------------------------------
 
         row.querySelector('.repo-annotation-btn').addEventListener('click', event => {
             event.stopPropagation();
-            openAnnotationModal(id);
+            openEditRepoModal(id);
         });
 
 
@@ -1530,26 +1530,23 @@ transition cursor-pointer" title="Remove ${escapeAttr(tag)}">&times;</button>
 
         if (!repo) return;
 
-        openModal(`
+        openModal(window.renderIdentityEditModal({
+            title: 'Edit Repo View',
+            name: repo.name,
+            tags: Array.isArray(repo.tags) ? repo.tags : [],
+            annotation: repo.annotation || ''
+        }));
 
-            <h2 class="mb-4 text-sm font-semibold text-slate-900 dark:text-white">Edit Repo View</h2>
+        const tagHelper = setupTagInput({
+            listElId: 'editIdentityTagsList',
+            inputElId: 'editIdentityTags',
+            addBtnElId: 'editIdentityAddTagBtn',
+            initialTags: Array.isArray(repo.tags) ? repo.tags : []
+        });
 
-            <label class="mb-1 block text-[11px] text-slate-500">Folder Name</label>
-            <input id="editRepoName" value="${escapeAttr(repo.name)}" class="mb-3 h-9 w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-xs outline-none focus:border-cyan-500 text-slate-800 dark:text-slate-200">
+        document.getElementById('editIdentitySave')?.addEventListener('click', async () => {
 
-            <label class="mb-1 block text-[11px] text-slate-500">Tags</label>
-            <input id="editRepoTags" value="${escapeAttr((repo.tags || []).join(', '))}" class="mb-4 h-9 w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-xs outline-none focus:border-cyan-500 text-slate-800 dark:text-slate-200">
-
-            <div class="flex justify-end gap-2">
-                <button type="button" data-modal-close class="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
-                <button id="saveRepoEdit" type="button" class="rounded-md bg-slate-900 dark:bg-cyan-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 dark:hover:bg-cyan-500">Save</button>
-            </div>
-
-        `);
-
-        document.getElementById('saveRepoEdit')?.addEventListener('click', async () => {
-
-            const newName = document.getElementById('editRepoName')?.value.trim();
+            const newName = document.getElementById('editIdentityName')?.value.trim();
 
             if (!newName) {
                 showAlert('Folder name is required.');
@@ -1584,8 +1581,7 @@ transition cursor-pointer" title="Remove ${escapeAttr(tag)}">&times;</button>
             }
 
             const currentTags = Array.isArray(repo.tags) ? repo.tags : [];
-            const newTags = document.getElementById('editRepoTags')?.value
-                .split(',').map(tag => tag.trim()).filter(Boolean) || [];
+            const newTags = tagHelper ? tagHelper.getTags() : [];
 
             const targetRepoName = newName || repo.name;
 
@@ -1611,53 +1607,11 @@ transition cursor-pointer" title="Remove ${escapeAttr(tag)}">&times;</button>
                 }
             }
 
-            repo.name = newName;
-            repo.tags = newTags;
-
-            showAlert(`Repo View updated successfully.`);
-            closeModal();
-            await loadData();
-            RefreshButton?.synced();
-            renderSidebar();
-            applyFilters();
-
-        });
-
-    }
-
-
-    // ============================================================
-    // ANNOTATION
-    // ============================================================
-
-    function openAnnotationModal(id) {
-
-        const repo = getRepo(id);
-
-        if (!repo) return;
-
-        openModal(`
-
-            <h2 class="mb-4 text-sm font-semibold text-slate-900 dark:text-white">Annotation</h2>
-
-            <p class="mb-2 text-[11px] text-slate-500">Markdown annotation</p>
-
-            <textarea id="annotationEditor" class="h-64 w-full resize-none rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 font-mono text-sm text-slate-800 dark:text-slate-300 outline-none focus:border-cyan-500">${escapeHtml(repo.annotation || '')}</textarea>
-
-            <div class="mt-4 flex justify-end gap-2">
-                <button type="button" data-modal-close class="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-xs text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
-                <button id="saveAnnotation" type="button" class="rounded-md bg-slate-900 dark:bg-cyan-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 dark:hover:bg-cyan-500">Save</button>
-            </div>
-
-        `);
-
-        document.getElementById('saveAnnotation')?.addEventListener('click', async () => {
-
-            const annotationVal = document.getElementById('annotationEditor')?.value;
+            const annotationVal = document.getElementById('editIdentityAnnotation')?.value;
 
             try {
                 if (window.EdmsAPI && typeof window.EdmsAPI.setRepoviewAnnotation === 'function') {
-                    const res = await window.EdmsAPI.setRepoviewAnnotation(repo.name, annotationVal);
+                    const res = await window.EdmsAPI.setRepoviewAnnotation(targetRepoName, annotationVal);
                     if (res && !res.ok) {
                         const errMsg = res.data?.error || res.data?.message || `Failed to set annotation (HTTP ${res.status})`;
                         showAlert(errMsg);
@@ -1669,11 +1623,16 @@ transition cursor-pointer" title="Remove ${escapeAttr(tag)}">&times;</button>
                 return;
             }
 
+            repo.name = newName;
+            repo.tags = newTags;
             repo.annotation = annotationVal;
 
-            showAlert(`Annotation updated for "${repo.name}".`);
+            showAlert(`Repo View updated successfully.`);
             closeModal();
-            render();
+            await loadData();
+            RefreshButton?.synced();
+            renderSidebar();
+            applyFilters();
 
         });
 
@@ -2215,8 +2174,6 @@ transition cursor-pointer" title="Remove ${escapeAttr(tag)}">&times;</button>
         duplicateRepo,
 
         openEditRepoModal,
-
-        openAnnotationModal,
 
         openDataTagsModal,
 
