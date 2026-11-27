@@ -53,12 +53,18 @@ async function loadFrontPage(web) {
   }
 }
 
-/** Render the editor JSON document as a full HTML page string for preview. */
-function renderFullPage(doc, title) {
+/** Render the editor JSON document as a full styled HTML page string for preview.
+ *  Mirrors the styling used by webview-preview.js `buildPage` (Tailwind CDN +
+ *  inline CSS) so the saved preview looks consistent with the client-side preview. */
+function renderFullPage(doc, web) {
   const bodyHtml = typeof window.renderTiptapJsonToHtml === 'function'
     ? window.renderTiptapJsonToHtml(doc || {})
     : '';
-  const safeTitle = title ? escapeHtml(String(title)) : 'WebView';
+  const title = (web && web.name) ? escapeHtml(String(web.name)) : 'WebView';
+  const annotation = (web && web.annotation) ? escapeHtml(String(web.annotation)) : '';
+  const annotationHtml = annotation
+    ? `<span class="annotation">${annotation}</span>`
+    : '';
   const safeBody = bodyHtml.trim()
     ? bodyHtml
     : '<p>No content has been added to this WebView yet.</p>';
@@ -67,10 +73,58 @@ function renderFullPage(doc, title) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${safeTitle}</title>
+  <title>${title}</title>
+  <script src="https://cdn.tailwindcss.com"><\/script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@200..900&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f9fafb; color: #1f2937; font-family: Arial, Helvetica, sans-serif; }
+    .navbar { border-bottom: 2px solid rgba(0,0,0,.25); background: white; }
+    .nav-inner { max-width: 1200px; margin: auto; padding: 10px 18px; display:flex; align-items:center; justify-content:space-between; gap:24px; }
+    .brand { display:flex; align-items:center; gap:12px; color:#2d5016; font-size:24px; font-weight:800; white-space:nowrap; }
+    .brand-mark { width:38px; height:38px; border-radius:9px; display:grid; place-items:center; color:white; background:#2d5016; font-size:17px; }
+    .nav-links { display:flex; align-items:center; flex-wrap:wrap; gap:4px; }
+    .nav-links a { color:rgba(0,0,0,.8); text-decoration:none; padding:10px 14px; border-bottom:2px solid transparent; font-weight:600; }
+    .nav-links a:hover { border-bottom-color:rgba(0,0,0,.4); }
+    .page { max-width:960px; margin:30px auto 90px; background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; box-shadow:0 12px 30px rgba(0,0,0,.08); }
+    .page-header { padding:42px 48px; border-bottom:4px solid #4a154b; }
+    .page-title { margin:0; color:#4a154b; font-size:clamp(2rem,5vw,3.2rem); font-weight:800; letter-spacing:-.03em; overflow-wrap:anywhere; }
+    .annotation { display:inline-flex; margin-top:18px; padding:6px 15px; border:1px solid #d5c5d6; border-radius:999px; background:#eadeeb; color:#4a154b; font-size:14px; font-weight:700; }
+    .document-content { padding:34px 48px 48px; line-height:1.75; overflow-wrap:anywhere; }
+    .document-content h1,.document-content h2,.document-content h3,.document-content h4 { color:#4a154b; line-height:1.25; font-weight:750; margin:1.6em 0 .65em; }
+    .document-content h1 { font-size:2.2rem; margin-top:.1em; }
+    .document-content h2 { font-size:1.7rem; }
+    .document-content h3 { font-size:1.35rem; }
+    .document-content p { margin:.9em 0; }
+    .document-content ul,.document-content ol { margin:1em 0; padding-left:1.8rem; }
+    .document-content ul { list-style:disc; }
+    .document-content ol { list-style:decimal; }
+    .document-content li { padding-left:.2rem; margin:.3rem 0; }
+    .document-content blockquote { margin:1.4em 0; padding:.7em 1.2em; border-left:4px solid #4a154b; background:#f8f5f8; color:#514451; }
+    .document-content pre { padding:18px; overflow:auto; border-radius:8px; background:#111827; color:#f9fafb; font-family:'Source Code Pro',monospace; line-height:1.55; }
+    .document-content code { padding:.12em .35em; border-radius:4px; background:#f3f4f6; font-family:'Source Code Pro',monospace; font-size:.92em; }
+    .document-content pre code { padding:0; background:transparent; color:inherit; }
+    .document-content a { color:#6d2870; text-decoration:underline; text-underline-offset:3px; }
+    .document-content img { max-width:100%; height:auto; border-radius:8px; }
+    .document-content hr { margin:2rem 0; border:0; border-top:1px solid #d1d5db; }
+    .footer { position:fixed; bottom:0; left:0; width:100%; min-height:46px; display:flex; align-items:center; justify-content:center; padding:10px; background:#4a154b; color:#eadeeb; font-weight:600; box-shadow:0 -2px 8px rgba(0,0,0,.08); }
+    @media(max-width:650px) { .nav-inner { align-items:flex-start; flex-direction:column; gap:8px; } .nav-links a { padding:8px; } .page { margin:14px 10px 80px; } .page-header { padding:28px 22px; } .document-content { padding:24px 22px 32px; } }
+  </style>
 </head>
 <body>
-${safeBody}
+  <nav class="navbar"><div class="nav-inner">
+    <div class="brand"><div class="brand-mark" aria-hidden="true">HT</div><span>HashedTokens</span></div>
+    <div class="nav-links">
+      <a href="/dashboard.html">Home</a><a href="/about-collection.html" aria-current="page">About collection</a><a href="/webview.html">Cards</a><a href="/listview.html">List</a>
+    </div>
+  </div></nav>
+  <main class="page">
+    <header class="page-header"><h1 class="page-title">${title}</h1>${annotationHtml}</header>
+    <article class="document-content">${safeBody}</article>
+  </main>
+  <footer class="footer">Powered by Asvatthi</footer>
 </body>
 </html>`;
 }
@@ -81,7 +135,7 @@ async function persistFrontPage(web, content) {
     // Generate the full preview HTML from the same document being saved so the
     // backend preview (`/webview/:name/preview`) never goes stale. The `html`
     // field is optional — only send it when non-blank (a blank html is a 400).
-    const fullHtml = renderFullPage(content, web && web.name);
+    const fullHtml = renderFullPage(content, web);
     const payload = { front_page: content };
     if (fullHtml.trim()) {
       payload.html = fullHtml;

@@ -3214,108 +3214,71 @@
   // RENAME
   // ============================================================
 
-  function openRenameModal(id) {
-    const folder = getFolder(id);
 
-    if (!folder) return;
+  // ============================================================
+  // TAG INPUT HELPER
+  // ============================================================
 
-    openModal(`
+  function setupTagInput({ listElId, inputElId, addBtnElId, initialTags = [] }) {
+    const listEl = document.getElementById(listElId);
+    const inputEl = document.getElementById(inputElId);
+    const addBtnEl = document.getElementById(addBtnElId);
+    const tags = [...new Set((initialTags || []).map((t) => String(t).trim()).filter(Boolean))];
 
-        <h2
-            class="mb-4 text-sm font-semibold
-                   text-slate-900 dark:text-white"
-        >
-            Rename Collection
-        </h2>
+    function render() {
+      if (!listEl) return;
+      listEl.innerHTML = tags.map((tag, index) => `
+<span class="inline-flex items-center gap-1.5 rounded-md
+             border border-cyan-700/40 dark:border-cyan-500/30
+             bg-cyan-200 dark:bg-cyan-500/10
+             px-2 py-0.5 text-xs
+             text-cyan-900 dark:text-cyan-300">
+                                  <span>${escapeHtml(tag)}</span>
+                    <button type="button" data-remove-tag-index="${index}" class="ml-0.5 rounded px-1 leading-none
+   text-cyan-800 dark:text-cyan-400
+   hover:bg-cyan-300 dark:hover:bg-cyan-500/30
+   hover:text-cyan-950 dark:hover:text-white transition cursor-pointer" title="Remove ${escapeAttr(tag)}">&times;</button>
+                </span>
+            `).join('');
+    }
 
-
-        <input
-            id="renameInput"
-            value="${escapeAttr(folder.name)}"
-            class="mb-4 h-9 w-full
-                   rounded-md
-                   border border-slate-300 dark:border-slate-700
-                   bg-white dark:bg-slate-950 px-3
-                   text-xs text-slate-900 dark:text-slate-100
-                   outline-none
-                   focus:border-cyan-500"
-        >
-
-
-        <div
-            class="flex justify-end
-                   gap-2"
-        >
-
-            <button
-                type="button"
-                data-modal-close
-                class="rounded-md
-                       border border-slate-300 dark:border-slate-700
-                       px-3 py-1.5
-                       text-xs text-slate-600 dark:text-slate-400
-                       hover:bg-slate-100 dark:hover:bg-slate-800"
-            >
-                Cancel
-            </button>
-
-
-            <button
-                id="confirmRename"
-                type="button"
-                class="rounded-md
-                       bg-slate-900 dark:bg-cyan-600
-                       px-3 py-1.5
-                       text-xs font-medium
-                       text-white
-                       hover:bg-slate-800 dark:hover:bg-cyan-500"
-            >
-                Save
-            </button>
-
-        </div>
-
-    `);
-
-    document
-      .getElementById("confirmRename")
-      ?.addEventListener("click", async () => {
-        const name = document.getElementById("renameInput").value.trim();
-
-        if (!name) {
-          showAlert("Collection name cannot be empty.");
-
-          return;
-        }
-
-        const api = getApi();
-
-        if (!api || typeof api.renameCollection !== "function") {
-          showAlert("Collection API is not available.");
-
-          return;
-        }
-
-        try {
-          const response = await api.renameCollection(folder.name, name);
-
-          if (response?.ok === false) {
-            throw new Error(`HTTP ${response.status ?? "unknown"}`);
-          }
-
-          closeModal();
-
-          await loadFolders();
-          RefreshButton?.synced();
-          renderSidebar();
-
-          applyFilters();
-        } catch (error) {
-          console.error("Failed to rename collection:", error);
-
-          showAlert(`Failed to rename collection: ${error.message}`);
-        }
+    function addTagFromInput() {
+      if (!inputEl) return;
+      const raw = inputEl.value;
+      if (!raw || !raw.trim()) return;
+      raw.split(',').map((t) => t.trim()).filter(Boolean).forEach((item) => {
+        if (!tags.includes(item)) tags.push(item);
       });
+      inputEl.value = '';
+      render();
+    }
+
+    inputEl?.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        event.stopPropagation();
+        addTagFromInput();
+      }
+    });
+
+    addBtnEl?.addEventListener('click', (event) => {
+      event.preventDefault();
+      addTagFromInput();
+    });
+
+    listEl?.addEventListener('click', (event) => {
+      const btn = event.target.closest('[data-remove-tag-index]');
+      if (!btn) return;
+      event.preventDefault();
+      const idx = parseInt(btn.dataset.removeTagIndex, 10);
+      if (!isNaN(idx) && idx >= 0 && idx < tags.length) {
+        tags.splice(idx, 1);
+        render();
+      }
+    });
+
+    render();
+    return { getTags: () => { addTagFromInput(); return [...tags]; } };
   }
 
   // ============================================================
@@ -3327,151 +3290,101 @@
 
     if (!folder) return;
 
-    const currentTags = Array.isArray(folder.tags)
-      ? folder.tags.join(", ")
-      : "";
-    const currentAnnotation = folder.annotation || "";
+    openModal(window.renderIdentityEditModal({
+      title: 'Edit Collection',
+      name: folder.name,
+      tags: Array.isArray(folder.tags) ? folder.tags : [],
+      annotation: folder.annotation || ''
+    }));
 
-    openModal(`
-
-        <h2
-            class="mb-4 text-sm font-semibold
-                   text-slate-900 dark:text-white"
-        >
-            Collection — ${escapeHtml(folder.name)}
-        </h2>
-
-
-        <div class="space-y-4">
-            <div>
-                <label class="mb-1 block text-xs text-slate-500">Tags</label>
-                <input
-                    id="collectionTagInput"
-                    value="${escapeAttr(currentTags)}"
-                    class="h-9 w-full
-                           rounded-md
-           border border-slate-300 dark:border-slate-700
-           bg-white dark:bg-slate-950 px-3
-           text-xs text-slate-900 dark:text-slate-100
-           outline-none
-           focus:border-cyan-500"
-                >
-                <p
-                    class="mt-1 text-[10px]
-                           text-slate-500 dark:text-slate-600"
-                >
-                    Separate tags with commas.
-                </p>
-            </div>
-
-            <div>
-                <label class="mb-1 block text-xs text-slate-500">Annotation</label>
-                <textarea
-                    id="collectionAnnotationInput"
-                    class="h-20 w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 p-2 text-xs text-slate-900 dark:text-slate-100 outline-none focus:border-cyan-500"
-                    placeholder="Optional notes..."
-                >${escapeHtml(currentAnnotation)}</textarea>
-            </div>
-        </div>
-
-
-        <div
-            class="mt-4 flex justify-end
-                   gap-2"
-        >
-
-            <button
-                type="button"
-                data-modal-close
-                class="rounded-md
-                       border border-slate-300 dark:border-slate-700
-                       px-3 py-1.5
-                       text-xs text-slate-600 dark:text-slate-400
-                       hover:bg-slate-100 dark:hover:bg-slate-800"
-            >
-                Cancel
-            </button>
-
-
-            <button
-                id="saveCollectionTags"
-                type="button"
-                class="rounded-md
-                       bg-cyan-600
-                       px-3 py-1.5
-                       text-xs font-medium
-                       text-white
-                       hover:bg-cyan-500"
-            >
-                Save
-            </button>
-
-        </div>
-
-    `);
+    const tagHelper = setupTagInput({
+      listElId: 'editIdentityTagsList',
+      inputElId: 'editIdentityTags',
+      addBtnElId: 'editIdentityAddTagBtn',
+      initialTags: Array.isArray(folder.tags) ? folder.tags : []
+    });
 
     document
-      .getElementById("saveCollectionTags")
-      ?.addEventListener("click", async () => {
+      .getElementById('editIdentitySave')
+      ?.addEventListener('click', async () => {
         const api = getApi();
 
         if (
           !api ||
-          typeof api.addMembershipTag !== "function" ||
-          typeof api.removeMembershipTag !== "function"
+          typeof api.renameCollection !== 'function' ||
+          typeof api.addMembershipTag !== 'function' ||
+          typeof api.removeMembershipTag !== 'function'
         ) {
-          showAlert("Membership tag API is not available.");
-
+          showAlert('Collection API is not available.');
           return;
         }
 
-        const input = document.getElementById("collectionTagInput").value;
-        const annotationInput = document.getElementById("collectionAnnotationInput").value;
+        const newName = document.getElementById('editIdentityName')?.value.trim();
 
-        const newTags = [
-          ...new Set(
-            input
-              .split(",")
-              .map((tag) => tag.trim())
-              .filter(Boolean),
-          ),
-        ];
-
-        const oldTags = Array.isArray(folder.tags) ? [...folder.tags] : [];
-
-        try {
-          const toRemove = oldTags.filter((tag) => !newTags.includes(tag));
-
-          const toAdd = newTags.filter((tag) => !oldTags.includes(tag));
-
-          for (const tag of toRemove) {
-            await api.removeMembershipTag(folder.name, tag);
-          }
-
-          for (const tag of toAdd) {
-            await api.addMembershipTag(folder.name, tag);
-          }
-
-          if (annotationInput !== currentAnnotation && typeof api.setCollectionAnnotation === "function") {
-            await api.setCollectionAnnotation(folder.name, annotationInput);
-            folder.annotation = annotationInput;
-          } else if (annotationInput !== currentAnnotation) {
-            // Fallback for UI if API is missing (matches previous logic)
-            folder.annotation = annotationInput;
-          }
-
-          closeModal();
-
-          await loadFolders();
-          RefreshButton?.synced();
-          renderSidebar();
-
-          applyFilters();
-        } catch (error) {
-          console.error("Failed to update collection:", error);
-
-          showAlert(`Failed to update collection: ${error.message}`);
+        if (!newName) {
+          showAlert('Collection name cannot be empty.');
+          return;
         }
+
+        const duplicate = state.folders.some((item) =>
+          String(item.id || item.name) !== String(folder.id || folder.name) &&
+          item.name.toLowerCase() === newName.toLowerCase()
+        );
+
+        if (duplicate) {
+          showAlert('Collection name must be unique.');
+          return;
+        }
+
+        const oldName = folder.name;
+        if (oldName !== newName) {
+          try {
+            const response = await api.renameCollection(oldName, newName);
+            if (response?.ok === false) {
+              throw new Error(`HTTP ${response.status ?? 'unknown'}`);
+            }
+          } catch (error) {
+            console.error('Failed to rename collection:', error);
+            showAlert(`Failed to rename collection: ${error.message}`);
+            return;
+          }
+        }
+
+        const currentTags = Array.isArray(folder.tags) ? folder.tags : [];
+        const newTags = tagHelper ? tagHelper.getTags() : [];
+        const targetFolderName = newName || folder.name;
+
+        const toRemove = currentTags.filter((tag) => !newTags.includes(tag));
+        const toAdd = newTags.filter((tag) => !currentTags.includes(tag));
+
+        for (const tag of toRemove) {
+          await api.removeMembershipTag(targetFolderName, tag);
+        }
+
+        for (const tag of toAdd) {
+          await api.addMembershipTag(targetFolderName, tag);
+        }
+
+        const annotationInput = document.getElementById('editIdentityAnnotation')?.value;
+        const currentAnnotation = folder.annotation || '';
+
+        if (annotationInput !== currentAnnotation && typeof api.setCollectionAnnotation === 'function') {
+          await api.setCollectionAnnotation(targetFolderName, annotationInput);
+          folder.annotation = annotationInput;
+        } else if (annotationInput !== currentAnnotation) {
+          folder.annotation = annotationInput;
+        }
+
+        folder.name = newName;
+        folder.tags = newTags;
+
+        closeModal();
+
+        await loadFolders();
+        RefreshButton?.synced();
+        renderSidebar();
+
+        applyFilters();
       });
   }
 
@@ -3479,86 +3392,6 @@
   // ANNOTATION EDITOR
   // ============================================================
 
-  function openAnnotationEditor(id) {
-    const folder = getFolder(id);
-
-    if (!folder) return;
-
-    openModal(`
-
-        <h2
-            class="mb-4 text-sm font-semibold
-                   text-white"
-        >
-            Edit Annotation
-        </h2>
-
-
-        <textarea
-            id="collectionAnnotationInput"
-            class="h-28 w-full resize-y
-                   rounded-md
-                   border border-slate-700
-                   bg-slate-950 p-3
-                   text-xs leading-5
-                   text-slate-800 dark:text-slate-300
-                   outline-none
-                   focus:border-cyan-500"
-        >${escapeHtml(folder.annotation || "")}</textarea>
-
-
-        <div
-            class="mt-4 flex justify-end
-                   gap-2"
-        >
-
-            <button
-                type="button"
-                data-modal-close
-                class="rounded-md
-                       border border-slate-700
-                       px-3 py-1.5
-                       text-xs text-slate-400
-                       hover:bg-slate-800"
-            >
-                Cancel
-            </button>
-
-
-            <button
-                id="saveCollectionAnnotation"
-                type="button"
-                class="rounded-md
-                       bg-cyan-600
-                       px-3 py-1.5
-                       text-xs font-medium
-                       text-white
-                       hover:bg-cyan-500"
-            >
-                Save
-            </button>
-
-        </div>
-
-    `);
-
-    document
-      .getElementById("saveCollectionAnnotation")
-      ?.addEventListener("click", () => {
-        /*
-         * Annotation has no backend API, so do not pretend
-         * this value is persisted. Keep the existing local
-         * UI behaviour only.
-         */
-        folder.annotation = document
-          .getElementById("collectionAnnotationInput")
-          .value.trim();
-
-        closeModal();
-
-        render();
-      });
-  }
 
   // ============================================================
   // DELETE
@@ -4069,11 +3902,9 @@ bg-slate-100 dark:bg-slate-950/60 p-3"
 
     duplicateFolder,
 
-    openRenameModal,
 
     openTagEditor,
 
-    openAnnotationEditor,
 
     openDeleteModal,
 

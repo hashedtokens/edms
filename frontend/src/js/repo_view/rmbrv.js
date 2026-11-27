@@ -171,20 +171,6 @@
 
 
             <!-- ============================================ -->
-            <!-- ANNOTATION -->
-            <!-- ============================================ -->
-
-            ${isSingle
-                    ? menuItem(
-                        'annotation',
-                        iconEdit(),
-                        'Edit Annotation'
-                    )
-                    : ''
-                }
-
-
-            <!-- ============================================ -->
             <!-- DATA TAGS -->
             <!-- ============================================ -->
 
@@ -406,7 +392,7 @@ dark:hover:text-white
 
 
                     // --------------------------------------------
-                    // ANNOTATION
+                    // ANNOTATION / NAME / TAGS (single edit modal)
                     // --------------------------------------------
 
                     case 'annotation':
@@ -416,7 +402,7 @@ dark:hover:text-white
                         ) {
 
                             window.RepoView
-                                .openAnnotationModal(
+                                .openEditRepoModal(
                                     targetIds[0]
                                 );
 

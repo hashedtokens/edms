@@ -506,14 +506,14 @@
       });
 
     // --------------------------------------------------------
-    // Annotation -> annotation modal
+    // Annotation / Name / Tags -> single edit modal
     // --------------------------------------------------------
 
     row
       .querySelector(".web-annotation-btn")
       .addEventListener("click", (event) => {
         event.stopPropagation();
-        openAnnotationModal(id);
+        openEditWebModal(id);
       });
 
     // --------------------------------------------------------
@@ -1552,60 +1552,22 @@
 
     if (!web) return;
 
-    openModal(`
-
-            <h2 class="mb-4 text-sm font-semibold text-slate-800 dark:text-white">Edit Web View</h2>
-
-            <label class="mb-1 block text-[11px] text-slate-500">Folder Name</label>
-            <input id="editWebName" value="${escapeAttr(web.name)}" class="mb-3 h-9 w-full rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-xs outline-none focus:border-cyan-500">
-
-            <label class="mb-1 block text-[11px] text-slate-500">Tags</label>
-            <div id="editWebTagsList" class="flex flex-wrap gap-1.5 mb-2 empty:hidden"></div>
-            <div class="flex items-center gap-2 mb-4">
-              <input
-  id="editWebTags"
-  class="h-9 flex-1 rounded-md
-         border border-slate-300 dark:border-slate-700
-         bg-white dark:bg-slate-950
-         px-3 text-xs
-         text-slate-800 dark:text-slate-200
-         placeholder:text-slate-400 dark:placeholder:text-slate-600
-         outline-none focus:border-cyan-500"
-  placeholder="Type a tag and press Enter"
->
-
-<button
-  id="editWebAddTagBtn"
-  type="button"
-  class="h-9 rounded-md border
-         border-slate-300 dark:border-slate-700
-         bg-slate-100 dark:bg-slate-800
-         px-3 text-xs
-         text-slate-700 dark:text-slate-300
-         hover:bg-slate-200 dark:hover:bg-slate-700
-         hover:text-slate-900 dark:hover:text-white
-         transition"
->
-  Add
-</button>
-            </div>
-
-            <div class="flex justify-end gap-2">
-                <button type="button" data-modal-close class="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
-                <button id="saveWebEdit" type="button" class="rounded-md bg-slate-900 dark:bg-cyan-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 dark:hover:bg-cyan-500">Save</button>
-            </div>
-
-        `);
+    openModal(window.renderIdentityEditModal({
+      title: 'Edit Web View',
+      name: web.name,
+      tags: Array.isArray(web.tags) ? web.tags : [],
+      annotation: web.annotation || ''
+    }));
 
     const editTagHelper = setupTagInput({
-      listElId: "editWebTagsList",
-      inputElId: "editWebTags",
-      addBtnElId: "editWebAddTagBtn",
+      listElId: "editIdentityTagsList",
+      inputElId: "editIdentityTags",
+      addBtnElId: "editIdentityAddTagBtn",
       initialTags: Array.isArray(web.tags) ? web.tags : []
     });
 
-    document.getElementById("saveWebEdit")?.addEventListener("click", async () => {
-      const newName = document.getElementById("editWebName").value.trim();
+    document.getElementById("editIdentitySave")?.addEventListener("click", async () => {
+      const newName = document.getElementById("editIdentityName").value.trim();
 
       if (!newName) {
         showAlert("Folder name is required.");
@@ -1641,13 +1603,7 @@
       }
 
       const currentTags = Array.isArray(web.tags) ? web.tags : [];
-      const newTags = editTagHelper
-        ? editTagHelper.getTags()
-        : document
-          .getElementById("editWebTags")
-          ?.value.split(",")
-          .map((tag) => tag.trim())
-          .filter(Boolean) || [];
+      const newTags = editTagHelper ? editTagHelper.getTags() : [];
 
       const targetWebName = newName || web.name;
 
@@ -1673,46 +1629,11 @@
         }
       }
 
-      web.name = newName;
-      web.id = newName;
-      web.tags = newTags;
-
-      closeModal();
-      renderSidebar();
-      applyFilters();
-    });
-  }
-
-  // ============================================================
-  // ANNOTATION
-  // ============================================================
-
-  function openAnnotationModal(id) {
-    const web = getWeb(id);
-
-    if (!web) return;
-
-    openModal(`
-
-            <h2 class="mb-4 text-sm font-semibold text-slate-800 dark:text-white">Annotation</h2>
-
-            <p class="mb-2 text-[11px] text-slate-500">Markdown annotation</p>
-
-            <textarea id="annotationEditor" class="h-64 w-full resize-none rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 py-2 font-mono text-sm text-slate-800 dark:text-slate-300 outline-none focus:border-cyan-500">${escapeHtml(web.annotation || "")}</textarea>
-
-            <div class="mt-4 flex justify-end gap-2">
-                <button type="button" data-modal-close class="rounded-md border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
-                <button id="saveAnnotation" type="button" class="rounded-md bg-slate-900 dark:bg-cyan-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 dark:hover:bg-cyan-500">Save</button>
-            </div>
-
-        `);
-
-    document.getElementById("saveAnnotation")?.addEventListener("click", async () => {
-      const annotationVal = document.getElementById("annotationEditor").value;
+      const annotationVal = document.getElementById("editIdentityAnnotation").value;
 
       try {
         if (window.EdmsAPI && typeof window.EdmsAPI.setWebviewAnnotation === "function") {
-          const res = await window.EdmsAPI.setWebviewAnnotation(web.name, annotationVal);
+          const res = await window.EdmsAPI.setWebviewAnnotation(targetWebName, annotationVal);
           if (res && !res.ok) {
             const errMsg = res.data?.error || res.data?.message || `Failed to set annotation (HTTP ${res.status})`;
             showAlert(errMsg);
@@ -1724,12 +1645,20 @@
         return;
       }
 
+      web.name = newName;
+      web.id = newName;
+      web.tags = newTags;
       web.annotation = annotationVal;
 
       closeModal();
-      render();
+      renderSidebar();
+      applyFilters();
     });
   }
+
+  // ============================================================
+  // ANNOTATION
+  // ============================================================
 
   // ============================================================
   // COMBINE
@@ -2279,8 +2208,6 @@
     duplicateWeb,
 
     openEditWebModal,
-
-    openAnnotationModal,
 
     openDataTagsModal,
 
