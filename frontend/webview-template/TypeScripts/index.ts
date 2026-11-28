@@ -51,10 +51,21 @@ export const ENDPOINT_PER_PAGE = 500;
 export const DEFAULT_CATEGORY = "ALL";
 
 // ─────────────────────────────────────────────
-// CACHE
+// ENDPOINT CACHE
 // ─────────────────────────────────────────────
 
 const endpointDetailsCache = new Map<string, Endpoint>();
+
+// ─────────────────────────────────────────────
+// FETCH HELPER (always read fresh data)
+// ─────────────────────────────────────────────
+
+const fetchJson = <T>(url: string): Promise<T> => {
+  const separator = url.includes("?") ? "&" : "?";
+  return fetch(`${url}${separator}_=${Date.now()}`, { cache: "no-store" }).then(
+    (r) => r.json() as Promise<T>,
+  );
+};
 
 // ─────────────────────────────────────────────
 // ENDPOINT INDEX FETCH
@@ -62,9 +73,7 @@ const endpointDetailsCache = new Map<string, Endpoint>();
 
 export const LoadEndpointsIndex = async (): Promise<EndpointIndex[]> => {
   const path = `./${ROOT_FOLDER}/${ALLEID_DATA_FOLDER}/EndpointIndex.json`;
-  const endpointsIndex: EndpointIndex[] = await fetch(path).then((r) =>
-    r.json(),
-  );
+  const endpointsIndex = await fetchJson<EndpointIndex[]>(path);
   return endpointsIndex;
 };
 
@@ -78,8 +87,7 @@ export const FetchEndpointDetail = async (
   if (endpointDetailsCache.has(eid)) return endpointDetailsCache.get(eid)!;
   try {
     const path = `./${ROOT_FOLDER}/${EIDs_FOLDER}/${eid}/${eid}.json`;
-    const res = await fetch(path);
-    const data: Endpoint = await res.json();
+    const data = await fetchJson<Endpoint>(path);
     endpointDetailsCache.set(eid, data);
     return data;
   } catch (err) {
@@ -115,7 +123,7 @@ export const FetchEndpointsByIndex = async (
 export const LoadMetaData = async (): Promise<MetaData | null> => {
   try {
     const path = `./${ROOT_FOLDER}/${ALLEID_DATA_FOLDER}/meta-data.json`;
-    const data: MetaData = await fetch(path).then((res) => res.json());
+    const data = await fetchJson<MetaData>(path);
     return data;
   } catch (error) {
     console.error("failed to load meta data", error);
@@ -133,7 +141,7 @@ export const LoadRequestPanelData = async (
 ): Promise<PanelData | null> => {
   const path = `./${ROOT_FOLDER}/${EIDs_FOLDER}/${eid}/${REQUEST_FILE_SUFFIX}-${rqIndex + 1}.json`;
   try {
-    return await fetch(path).then((res) => res.json());
+    return await fetchJson<PanelData>(path);
   } catch (error) {
     console.error(`Failed to load request data: ${path}`, error);
     return null;
@@ -146,7 +154,7 @@ export const LoadResponsePanelData = async (
 ): Promise<PanelData | null> => {
   const path = `./${ROOT_FOLDER}/${EIDs_FOLDER}/${eid}/${RESPONSE_FILE_SUFFIX}-${rqIndex + 1}.json`;
   try {
-    return await fetch(path).then((res) => res.json());
+    return await fetchJson<PanelData>(path);
   } catch (error) {
     console.error(`Failed to load response data: ${path}`, error);
     return null;
@@ -159,10 +167,10 @@ export const LoadResponsePanelData = async (
 
 export const LoadSegments = async (): Promise<Record<string, string[]>> => {
   const path = `./${ROOT_FOLDER}/${ALLEID_DATA_FOLDER}/EndpointSegments_EID.json`;
-  return await fetch(path).then((res) => res.json());
+  return await fetchJson<Record<string, string[]>>(path);
 };
 
 export const LoadAllTags = async (): Promise<Record<string, string[]>> => {
   const path = `./${ROOT_FOLDER}/${ALLEID_DATA_FOLDER}/Tags_EID.json`;
-  return await fetch(path).then((res) => res.json());
+  return await fetchJson<Record<string, string[]>>(path);
 };
