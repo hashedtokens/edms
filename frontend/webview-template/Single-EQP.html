@@ -92,6 +92,36 @@
 				color: #5eead4;
 			}
 
+			.req-tab {
+				background: none;
+				border: none;
+				border-bottom: 2px solid transparent;
+				padding: 0 0 4px;
+				font-weight: 500;
+				color: #94a3b8;
+				cursor: pointer;
+				transition: color 0.2s, border-color 0.2s;
+			}
+			.req-tab:hover {
+				color: #e2e8f0;
+			}
+			.req-tab.active {
+				font-weight: 600;
+				color: #ffffff;
+				border-bottom-color: #ffffff;
+			}
+
+			body[data-theme="light"] .req-tab {
+				color: #64748b;
+			}
+			body[data-theme="light"] .req-tab:hover {
+				color: #0f172a;
+			}
+			body[data-theme="light"] .req-tab.active {
+				color: #0f172a;
+				border-bottom-color: #0f172a;
+			}
+
 			.status-badge {
 				font-size: 12px;
 				padding: 2px 8px;
@@ -373,15 +403,15 @@
 			<!-- Bottom row: tags + request + response + QP -->
 			<div class="grid grid-cols-1 xl:grid-cols-[200px_1fr_1fr_200px] gap-4 items-start">
 				<div class="rounded-xl border border-white/10 bg-[#0f1724] p-5">
-					<div class="text-sm font-semibold text-slate-200 mb-3">Local Tags</div>
+					<div class="text-sm font-semibold text-slate-200 mb-3">Endpoint Tags</div>
 					<div
 						id="endpoint-tags"
 						class="flex flex-wrap gap-2"
 					></div>
 
-					<div class="text-sm font-semibold text-slate-200 mt-6 mb-3">Global Tags</div>
+					<div class="text-sm font-semibold text-slate-200 mt-6 mb-3">Collection Tags</div>
 					<div
-						id="global-tags"
+						id="collection-tags"
 						class="flex flex-wrap gap-2"
 					></div>
 				</div>
@@ -389,7 +419,8 @@
 				<div class="rounded-xl border border-white/10 bg-[#0f1724] p-5">
 					<div class="flex items-center justify-between mb-4">
 						<div class="flex items-center gap-5 text-sm">
-							<span class="text-white font-semibold border-b-2 border-white pb-1">Body</span>
+							<button type="button" class="req-tab active" data-tab="body">Body</button>
+							<button type="button" class="req-tab" data-tab="header">Header</button>
 						</div>
 						<div class="flex items-center gap-3">
 							<span class="text-xs text-slate-400"
@@ -451,6 +482,9 @@
 			let CurrentEndpoint = null;
 			let CurrentGroupedData = null;
 			let SelectedMethod = null;
+			let SelectedQpIndex = 0;
+			let CurrentRequestEid = null;
+			let RequestTab = "body";
 
 			const fetchJson = (url) => {
 				const separator = url.includes("?") ? "&" : "?";
@@ -510,7 +544,7 @@
 			};
 
 			const renderGlobalTags = () => {
-				const container = document.querySelector("#global-tags");
+				const container = document.querySelector("#collection-tags");
 				container.innerHTML = "";
 				const all = new Set();
 				Object.values(CurrentGroupedData).forEach((item) =>
@@ -580,13 +614,14 @@
 					const btn = document.createElement("button");
 					btn.type = "button";
 					btn.className = "qp-btn";
-					btn.textContent = `QP ${i + 1}`;
+					btn.textContent = `${i + 1}`;
 					btn.addEventListener("click", () => {
 						container
 							.querySelectorAll(".qp-btn")
 							.forEach((b) => b.classList.remove("active"));
 						btn.classList.add("active");
-						loadreqPanel(item.eid, i);
+						SelectedQpIndex = i;
+						renderRequestPanel(item.eid, i);
 					});
 					container.appendChild(btn);
 				}
@@ -594,23 +629,48 @@
 				if (first) first.click();
 			};
 
-			const loadreqPanel = async (eid, rqIndex) => {
+			const renderRequestPanel = async (eid, rqIndex) => {
+				CurrentRequestEid = eid;
+				SelectedQpIndex = rqIndex;
 				const requestPanel = document.querySelector(".request-panel");
 				try {
-					const data = await fetchJson(
-						`./data-new-2/EIDs/${eid}/request-${rqIndex + 1}.json`,
-					);
-					requestPanel.innerHTML = `<pre class="text-sm whitespace-pre-wrap break-words">${JSON.stringify(data.body, null, 2)}</pre>`;
-					document.querySelector("#request-method").textContent =
-						data.meta_data?.method || "";
-					document.querySelector("#request-size").textContent =
-						data.meta_data?.request_size || "";
+					if (RequestTab === "header") {
+						const data = await fetchJson(
+							`./data-new-2/EIDs/${eid}/header-${rqIndex + 1}.json`,
+						);
+						requestPanel.innerHTML = `<pre class="text-sm whitespace-pre-wrap break-words">${JSON.stringify(data, null, 2)}</pre>`;
+					} else {
+						const data = await fetchJson(
+							`./data-new-2/EIDs/${eid}/request-${rqIndex + 1}.json`,
+						);
+						requestPanel.innerHTML = `<pre class="text-sm whitespace-pre-wrap break-words">${JSON.stringify(data.body, null, 2)}</pre>`;
+						document.querySelector("#request-method").textContent =
+							data.meta_data?.method || "";
+						document.querySelector("#request-size").textContent =
+							data.meta_data?.request_size || "";
+					}
 					loadresPanel(eid, rqIndex);
 				} catch (error) {
-					requestPanel.textContent = "Failed to load request.";
-					console.error("Failed to load request:", error);
+					requestPanel.textContent =
+						RequestTab === "header"
+							? "Failed to load header."
+							: "Failed to load request.";
+					console.error("Failed to load request panel:", error);
 				}
 			};
+
+			document.querySelectorAll(".req-tab").forEach((tab) => {
+				tab.addEventListener("click", () => {
+					document
+						.querySelectorAll(".req-tab")
+						.forEach((t) => t.classList.remove("active"));
+					tab.classList.add("active");
+					RequestTab = tab.dataset.tab;
+					if (CurrentRequestEid !== null) {
+						renderRequestPanel(CurrentRequestEid, SelectedQpIndex);
+					}
+				});
+			});
 
 			const loadresPanel = async (eid, rqIndex) => {
 				const responsePanel = document.querySelector(".response-panel");
